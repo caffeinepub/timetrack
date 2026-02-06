@@ -1,0 +1,39 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Resolve Android icon-tap white-screen regression with single React Query provider and recoverable error UI",
+  "requirements": [
+    {
+      "id": "REQ-7",
+      "summary": "Eliminate Android-only blank white-screen crash on icon taps by removing nested React Query providers and adding a recoverable in-app error boundary for navigation and icon interactions.",
+      "acceptanceCriteria": [
+        "On Android, tapping each bottom navigation item (Dashboard, Calendar, Journal, Reports) switches pages without rendering a blank white screen.",
+        "On Android, tapping icon-based controls in the header (e.g., login/logout) does not crash the UI or render a blank white screen.",
+        "If a runtime error occurs during navigation or icon interaction, the user sees a recoverable in-app error state (not a blank white screen), and the app remains usable after recovery (e.g., returning to the previous screen or reloading the app shell).",
+        "No duplicate or nested React Query provider setup remains that could cause inconsistent context behavior during navigation (the app must use a single React Query provider instance for the whole React tree)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Remove the nested QueryClientProvider (keep only the single app-wide provider created in frontend/src/main.tsx, which is immutable) and refactor App to render the existing AppContent under an app-level ErrorBoundary fallback so any runtime error does not result in a blank white screen."
+        },
+        {
+          "path": "frontend/src/components/ErrorBoundary.tsx",
+          "operation": "create",
+          "description": "Add a React error boundary component that catches render/lifecycle errors and shows a recoverable in-app error state with actions such as 'Reload app' (hard reload) and 'Go back' (history back) so the UI remains usable instead of a blank white screen."
+        },
+        {
+          "path": "frontend/src/components/MobileBottomNav.tsx",
+          "operation": "modify",
+          "description": "Harden bottom navigation icon buttons for Android by ensuring each nav control is an explicit non-submitting button (type=\"button\") and optionally guarding tab-change handlers against unexpected runtime errors so icon taps cannot blank-screen the app."
+        },
+        {
+          "path": "frontend/src/components/Header.tsx",
+          "operation": "modify",
+          "description": "Harden header icon-based controls (login/logout and admin actions) by ensuring buttons are explicit non-submitting buttons (type=\"button\") and wrapping async auth actions in robust try/catch so unexpected errors surface to the app-level recoverable error UI rather than causing a white screen."
+        }
+      ]
+    }
+  ]
+}

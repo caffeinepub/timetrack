@@ -1,0 +1,320 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 15,
+  "summary": "TimeTrack is a web application for tracking work time and activities, backed by an Internet Computer (ICP) Motoko canister. Authenticated users log in via Internet Identity, set up a basic user profile, and then manage daily time entries (work, vacation, on-call/astreinte) with detailed time slots plus meal and travel time. The app also supports attaching daily media (photos and audio recordings) to calendar days, maintaining a work journal with notes and photo attachments, viewing monthly dashboard analytics (cards + charts), and exporting reports as CSV or printable PDF (PDF data produced by the backend and rendered via browser print). The backend includes role-based access control (admin/user/guest), per-user filtering for most reads, counts for vacation and on-call days, and a blob-storage mixin for managing external blob lifecycles on ICP.",
+  "architectural_notes": [
+    "Frontend is React + TypeScript using @tanstack/react-query for data fetching/caching; backend calls are wrapped in dedicated query/mutation hooks (useQueries.ts) with explicit cache invalidation.",
+    "Authentication uses DFINITY Internet Identity via @dfinity/auth-client, exposed through a React Context provider (InternetIdentityProvider). Delegations are configured for ~30 days TTL.",
+    "Backend integration uses an “actor” abstraction created per identity (useActor). When the identity changes, the app invalidates/refetches all non-actor queries to prevent cross-user cache leakage.",
+    "Motoko backend is a single canister actor (main.mo) storing data in in-memory Map structures (time entries, journal entries, daily media, user profiles, files).",
+    "Role-based access control is implemented in a dedicated module (authorization/access-control.mo): first registered principal becomes admin; others become user; anonymous is guest. Most canister methods require #user permission and enforce owner/admin checks on updates/deletes.",
+    "Dates are exchanged as nanosecond timestamps (Time.Time / bigint); frontend converts JS milliseconds to nanoseconds via `date.getTime() * 1_000_000`. Work times are stored as minutes-from-midnight integers (also bigint in frontend bindings).",
+    "Daily media uses an ExternalBlob abstraction with direct URLs and optional upload progress callbacks; the backend includes a blob-storage mixin for gateway authorization, blob GC/pruning, and cashier cycle refills.",
+    "UI uses TailwindCSS (OKLCH tokens, dark mode via class) and shadcn/ui components; notifications use sonner toasts; charts use recharts.",
+    "Reports include client-side CSV generation and a backend-assisted PDF report data generator; the PDF itself is produced client-side by opening a new window and calling `window.print()`.",
+    "There is an ICP HTTP outcalls helper (http-outcalls/outcall.mo) providing GET/POST with transform functions and fixed cycle budgeting (not shown as wired into main canister in provided files)."
+  ],
+  "known_issues": [
+    "Backend period/date helpers are stubbed: `estJourSemaine` always returns true and `extraireMois/extraireAnnee/extraireSemaine` all return 0. This breaks weekly/monthly filtering in backend totals and PDF generation (`genererDonneesRapportPdf`, `calculerTotauxPourMois`, `calculerTotauxPourSemaine`) and makes weekday logic incorrect server-side.",
+    "PDF report data formatting in backend uses raw `entry.date.toText()` (nanoseconds int) and raw minute values labeled as “h” (hours). The generated table/total units are likely incorrect or not human-friendly.",
+    "Potential ID collision/overwrite risk: create endpoints (`enregistrerJournee`, `enregistrerJournal`, `enregistrerMediaQuotidien`) do not check whether an existing record with the same `id` belongs to another user before overwriting, enabling accidental collisions or malicious overwrites if IDs are guessable.",
+    "`rechercherFichiers(_motCle)` ignores the search keyword and effectively returns all files visible to the caller.",
+    "`calculerTotaux` and related totals functions treat `#conge` like it can contribute “heures normales” (via `calculerHeuresTravailNormales(entry)`), which is likely a business-logic error (vacation days should typically not add work hours).",
+    "Frontend has nested QueryClientProviders with different QueryClient instances (main.tsx and App.tsx), which can lead to confusing cache behavior and duplicate clients.",
+    "Frontend PDF export depends on pop-ups and printing a new window; pop-up blockers can prevent PDF generation and there is no direct PDF file blob download.",
+    "Journal voice recording does not appear to upload/store audio in the backend (audioUrl is saved as an empty string; recorded audio is only used to set a placeholder transcription message).",
+    "AccessControl.getUserRole traps for authenticated-but-unregistered principals; the frontend mitigates this by calling `initializeAccessControl()` on actor creation, but external clients could hit this trap if they skip initialization.",
+    "Android-only: after tapping any icon/tab (including bottom navigation and other icons), the app shows a blank white screen; user cannot test on desktop (no computer)."
+  ],
+  "isFixRequest": true,
+  "existing_features": [
+    {
+      "id": "IF-1",
+      "title": "Internet Identity authentication (login/logout) and persisted sessions",
+      "synonyms": [
+        "II auth",
+        "DFINITY AuthClient integration"
+      ],
+      "description": "Provides Internet Identity authentication via a React Context (InternetIdentityProvider), including login/logout, persisted identity loading on mount, and delegation configuration (long TTL). UI surfaces login state and errors.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-2",
+      "title": "Identity-bound backend actor creation with cache reset",
+      "synonyms": [
+        "useActor",
+        "actor per principal"
+      ],
+      "description": "Creates an ICP canister actor configured with the current identity. On identity change, invalidates/refetches React Query caches (except the actor query) to avoid stale or cross-user data. Calls backend `initializeAccessControl()` after authenticated actor creation.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-3",
+      "title": "Role-based access control with admin bootstrap and role assignment",
+      "synonyms": [
+        "AccessControl",
+        "RBAC"
+      ],
+      "description": "Motoko access control module assigns the first registered principal as admin, subsequent principals as users, and anonymous callers as guests. Exposes role querying, admin check, and admin-only role assignment; backend methods gate access via `hasPermission` and owner/admin checks.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-4",
+      "title": "User profile setup and persistence",
+      "synonyms": [
+        "UserProfile",
+        "profile dialog"
+      ],
+      "description": "Allows authenticated users to fetch and save their profile (name, optional email). Frontend forces initial profile setup via a modal when no profile exists for the caller.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-5",
+      "title": "Time entry CRUD (work/vacation/on-call) with detailed fields",
+      "synonyms": [
+        "journées",
+        "time tracking entries"
+      ],
+      "description": "Backend supports creating, updating, deleting, and listing time entries with date, morning/afternoon times, optional on-call (astreinte) time range, meal time, travel time, day type, and description. Frontend wraps these operations in React Query mutations and keeps relevant statistics queries in sync via invalidation.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-6",
+      "title": "Interactive calendar UI for daily entry management",
+      "synonyms": [
+        "Calendar page",
+        "monthly planner"
+      ],
+      "description": "Monthly calendar view with month navigation and per-day visual indicators. Clicking a day opens a dialog to add/edit time entry data, including time pickers, day type selection, description, and validation ensuring chronological ordering of time ranges.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-7",
+      "title": "On-call (astreinte) handling with separate hour calculations and weekday rules (frontend)",
+      "synonyms": [
+        "astreinte hours",
+        "weekday on-call counts"
+      ],
+      "description": "Frontend computes on-call hours from the precise astreinte time window and applies a business rule where weekday on-call days count both as on-call and as worked days in dashboard and reports summaries.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-8",
+      "title": "Daily media attachments (photos and audio) per calendar day",
+      "synonyms": [
+        "daily media",
+        "photos/audio per day"
+      ],
+      "description": "Supports uploading and listing media linked to a specific day: photo uploads with drag-and-drop, file validation (type/size), and upload progress; audio recording via MediaRecorder saved as daily media; playback and deletion in the Calendar media tab. Backend stores DailyMediaEntry records and can return all media or filtered photo/audio lists for a day.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-9",
+      "title": "Work journal CRUD with notes, photos, and day type tagging",
+      "synonyms": [
+        "Journal page",
+        "daily notes"
+      ],
+      "description": "Users can create, edit, and delete journal entries with transcription text, written notes, photo attachments (with upload progress and validation), and an optional day-type tag (mutually exclusive selection). Entries are listed with badges and photo previews.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-10",
+      "title": "Dashboard analytics with charts and KPI cards",
+      "synonyms": [
+        "stats dashboard",
+        "recharts"
+      ],
+      "description": "Displays monthly KPIs (normal work hours, on-call hours, meal hours, travel hours, worked/vacation/on-call days) and renders charts: weekly bar chart (ISO week buckets), day-type distribution pie chart, and hours distribution pie chart.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-11",
+      "title": "Vacation and on-call day count statistics (backend + frontend)",
+      "synonyms": [
+        "calculerNombreConge",
+        "calculerNombreAstreinte"
+      ],
+      "description": "Backend computes totals of vacation days and on-call days for a user; frontend fetches these counts with React Query and displays annual totals on the dashboard. Mutations invalidate these stats appropriately.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-12",
+      "title": "Reports view with period selection, summaries, and detailed tables",
+      "synonyms": [
+        "Reports page",
+        "weekly/monthly reporting"
+      ],
+      "description": "Provides a reporting page that filters entries for the current week or current month, computes totals (normal/on-call/meal/travel), and displays a detailed table with per-entry derived hours and day-type badges (including weekday on-call +work indicator).",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-13",
+      "title": "CSV export for time reports",
+      "synonyms": [
+        "export CSV"
+      ],
+      "description": "Generates a CSV file client-side for the currently selected report period, including formatted times, derived hours, and annotations for weekday on-call days counted as work+on-call.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-14",
+      "title": "Backend-assisted PDF report data generation and client-side printing",
+      "synonyms": [
+        "PDF export",
+        "genererDonneesRapportPdf"
+      ],
+      "description": "Frontend requests structured PDF report data from the backend for weekly or monthly periods, then renders an HTML document in a new window and triggers printing to allow users to save as PDF via the browser print dialog.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-15",
+      "title": "Backend totals calculation endpoints",
+      "synonyms": [
+        "calculerTotaux",
+        "totals per user/week/month"
+      ],
+      "description": "Backend provides total calculations across entries (overall and per-user, intended per-month/per-week) including normal work, on-call, meal, and travel aggregates.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-16",
+      "title": "Blob storage management mixin for external blobs",
+      "synonyms": [
+        "Storage mixin",
+        "caffeine storage"
+      ],
+      "description": "Includes a Motoko mixin for blob lifecycle management: gateway principal authorization refresh, listing and confirming dead blob deletions, blob liveness checks, creation of upload certificates, and cashier cycle refilling guarded by a configured cashier principal.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-17",
+      "title": "File storage endpoints for uploaded files (separate from daily media/journal)",
+      "synonyms": [
+        "Stoic upload",
+        "fichiersStockes"
+      ],
+      "description": "Backend supports uploading a file object (with metadata and blob content), listing files (admin sees all; users see their own), retrieving by id with authorization checks, and deleting. Provides a placeholder search endpoint.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-18",
+      "title": "HTTP outcalls helper utilities (GET/POST)",
+      "synonyms": [
+        "IC.http_request wrapper",
+        "outcall module"
+      ],
+      "description": "Motoko module to perform HTTP GET/POST requests via IC management canister http_request, with a transform function stripping headers, fixed cycle budget, and user-agent/idempotency headers.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-19",
+      "title": "Camera utility hook (frontend)",
+      "synonyms": [
+        "useCamera",
+        "photo capture hook"
+      ],
+      "description": "Reusable React hook to manage camera access (start/stop/switch), capture photos to File via canvas, and handle permission/support errors. Present in codebase though not shown as integrated into pages here.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "IF-20",
+      "title": "Build template / scaffolding for ICP + React app (monorepo, deploy scripts, tooling)",
+      "synonyms": [
+        "build-template",
+        "project scaffold",
+        "icp.yaml + deploy.sh"
+      ],
+      "description": "Adds/updates a reusable build template structure for the project, including Dockerfile, ICP deployment config (icp.yaml/canister yamls), workspace package manifests/lockfiles, frontend Vite/Tailwind/shadcn-ui scaffolding, and utility scripts (e.g., prune/resize images) to standardize builds and deployments.",
+      "reqIds": [],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-android-mobile-navigation-regression-where-tapping-any-tab-onglet-dashboard-calendar-journal-reports-results-in-a-blank-white-screen-and-makes-ui-taps-non-functional",
+      "title": "Fix the Android/mobile navigation regression where tapping any tab/onglet (Dashboard, Calendar, Journal, Reports) results in a blank white screen and makes UI taps non-functional.",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-eliminate-the-nested-react-query-queryclientprovider-setup-that-can-cause-inconsistent-cache-context-behavior-by-ensuring-the-app-uses-a-single-queryclientprovider-instance-keep-the-provider-in-frontend-src-main-tsx-and-remove-avoid-creating-an-additional-queryclientprovider-in-frontend-src-app-tsx",
+      "title": "Eliminate the nested React Query QueryClientProvider setup that can cause inconsistent cache/context behavior by ensuring the app uses a single QueryClientProvider instance (keep the provider in frontend/src/main.tsx and remove/avoid creating an additional QueryClientProvider in frontend/src/App.tsx).",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-global-error-boundary-or-equivalent-top-level-runtime-error-handling-so-that-if-a-page-crashes-on-mobile-the-user-sees-a-recoverable-in-app-error-screen-with-a-reset-option-instead-of-a-blank-white-screen",
+      "title": "Add a global error boundary (or equivalent top-level runtime error handling) so that if a page crashes on mobile, the user sees a recoverable in-app error screen with a reset option instead of a blank white screen.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-backend-supported-user-data-backup-export-and-restore-import-so-a-user-can-recover-their-personal-data-across-deployments-versions-including-user-profile-time-entries-journal-entries-daily-media-entries-and-stored-files-metadata-links-where-applicable",
+      "title": "Implement backend-supported user data backup/export and restore/import so a user can recover their personal data across deployments/versions, including user profile, time entries, journal entries, daily media entries, and stored files metadata/links where applicable.",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-an-in-app-explanation-in-the-restore-flow-clarifying-that-restoring-pre-version-32-data-is-only-possible-if-the-data-is-available-via-an-exported-backup-file-or-still-exists-in-canister-state-from-before-the-upgrade-otherwise-the-app-cannot-reconstruct-lost-data-automatically",
+      "title": "Add an in-app explanation in the restore flow clarifying that restoring pre-Version 32 data is only possible if the data is available via an exported backup file or still exists in canister state from before the upgrade; otherwise the app cannot reconstruct lost data automatically.",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-repeatable-documented-restart-publish-workflow-so-that-after-a-deployment-publication-failure-a-developer-can-re-run-the-same-publish-steps-safely-idempotent-where-possible-and-get-clear-english-error-output",
+      "title": "Add a repeatable, documented “restart publish” workflow so that after a deployment/publication failure, a developer can re-run the same publish steps safely (idempotent where possible) and get clear English error output.",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-android-only-regression-where-tapping-any-icon-based-ui-control-including-the-bottom-navigation-tabs-and-other-icon-buttons-causes-the-app-to-turn-into-a-blank-white-screen-and-become-non-interactive",
+      "title": "Fix the Android-only regression where tapping any icon-based UI control (including the bottom navigation tabs and other icon buttons) causes the app to turn into a blank white screen and become non-interactive.",
+      "reqIds": [
+        "REQ-7"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Add data backup/restore (or migration) so users can recover their previous personal data across deployments/versions (e.g., restore data from before Version 32)",
+      "reqIds": [],
+      "status": "pending"
+    }
+  ],
+  "gameProjectType": "none",
+  "projectName": "TimeTrack",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

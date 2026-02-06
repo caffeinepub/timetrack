@@ -1,0 +1,30 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-fix-the-android-only-regression-where-tapping-any-icon-based-ui-control-including-the-bottom-navigation-tabs-and-other-icon-buttons-causes-the-app-to-turn-into-a-blank-white-screen-and-become-non-interactive",
+      "featureTitle": "Fix the Android-only regression where tapping any icon-based UI control (including the bottom navigation tabs and other icon buttons) causes the app to turn into a blank white screen and become non-interactive.",
+      "files": [
+        "frontend/src/App.tsx",
+        "frontend/src/components/ErrorBoundary.tsx",
+        "frontend/src/components/Header.tsx",
+        "frontend/src/components/MobileBottomNav.tsx"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "blob-storage@4.0.0",
+        "http-outcalls@3.0.0",
+        "camera@1.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-7"
+      ],
+      "confidence": "high"
+    }
+  ]
+}
