@@ -1,37 +1,93 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Resolve Android icon-tap white-screen regression with single React Query provider and recoverable error UI",
+  "title": "Fix Android icon-tap DOMException crash and localize crash UI to English",
   "requirements": [
     {
-      "id": "REQ-7",
-      "summary": "Eliminate Android-only blank white-screen crash on icon taps by removing nested React Query providers and adding a recoverable in-app error boundary for navigation and icon interactions.",
+      "id": "REQ-8",
+      "summary": "Prevent Android Chrome DOMException (removeChild) crash triggered by tapping icon-based controls (bottom tabs and header icon buttons).",
       "acceptanceCriteria": [
-        "On Android, tapping each bottom navigation item (Dashboard, Calendar, Journal, Reports) switches pages without rendering a blank white screen.",
-        "On Android, tapping icon-based controls in the header (e.g., login/logout) does not crash the UI or render a blank white screen.",
-        "If a runtime error occurs during navigation or icon interaction, the user sees a recoverable in-app error state (not a blank white screen), and the app remains usable after recovery (e.g., returning to the previous screen or reloading the app shell).",
-        "No duplicate or nested React Query provider setup remains that could cause inconsistent context behavior during navigation (the app must use a single React Query provider instance for the whole React tree)."
+        "On Android Chrome, tapping each bottom navigation tab (Dashboard, Calendar, Journal, Reports) no longer triggers the ErrorBoundary and does not freeze the UI.",
+        "On Android Chrome, tapping header icon/buttons (e.g., login/logout button with icon) no longer triggers the ErrorBoundary.",
+        "No DOMException removeChild error is emitted in the browser console during these interactions."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/App.tsx",
-          "operation": "modify",
-          "description": "Remove the nested QueryClientProvider (keep only the single app-wide provider created in frontend/src/main.tsx, which is immutable) and refactor App to render the existing AppContent under an app-level ErrorBoundary fallback so any runtime error does not result in a blank white screen."
-        },
-        {
-          "path": "frontend/src/components/ErrorBoundary.tsx",
-          "operation": "create",
-          "description": "Add a React error boundary component that catches render/lifecycle errors and shows a recoverable in-app error state with actions such as 'Reload app' (hard reload) and 'Go back' (history back) so the UI remains usable instead of a blank white screen."
-        },
-        {
           "path": "frontend/src/components/MobileBottomNav.tsx",
           "operation": "modify",
-          "description": "Harden bottom navigation icon buttons for Android by ensuring each nav control is an explicit non-submitting button (type=\"button\") and optionally guarding tab-change handlers against unexpected runtime errors so icon taps cannot blank-screen the app."
+          "description": "Harden tab button interactions for Android: ensure the click/tap target is always the button (disable pointer events on nested icon elements), add touch-action optimizations, and avoid event sequences that can trigger DOM removeChild issues during re-renders."
         },
         {
           "path": "frontend/src/components/Header.tsx",
           "operation": "modify",
-          "description": "Harden header icon-based controls (login/logout and admin actions) by ensuring buttons are explicit non-submitting buttons (type=\"button\") and wrapping async auth actions in robust try/catch so unexpected errors surface to the app-level recoverable error UI rather than causing a white screen."
+          "description": "Harden header icon-button interactions (login/logout and any other icon-bearing controls) to avoid Android tap-related DOM removeChild crashes by stabilizing event handling and ensuring nested icons are not separate pointer targets."
+        },
+        {
+          "path": "frontend/src/components/PublishRetryDialog.tsx",
+          "operation": "modify",
+          "description": "Stabilize the dialog trigger button interaction on mobile (icon + label) to prevent tap-driven DOM removeChild crashes when Radix/shadcn dialog portals mount/unmount during user interaction."
+        },
+        {
+          "path": "frontend/src/index.css",
+          "operation": "modify",
+          "description": "Add or adjust shared CSS utility classes for icon buttons (e.g., touch-action manipulation and safe pointer targeting) and apply them via existing className composition to reduce Android Chrome tap/ghost-click edge cases."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Ensure tab switching state updates are safe and consistent during rapid taps (no extra navigation features); keep rendering stable during tab changes to avoid DOM removeChild issues on Android."
+        }
+      ]
+    },
+    {
+      "id": "REQ-9",
+      "summary": "Add a small Android regression checklist and console-only debug logging for tab switches and icon-button taps without adding user-visible UI.",
+      "acceptanceCriteria": [
+        "A developer can reproduce/verify the fix using a short documented checklist (e.g., steps to tap each icon-based control).",
+        "Console logs (only) clearly indicate which control was tapped and which tab was requested, without logging sensitive user data.",
+        "No additional debug UI is visible to end users in production screens."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/ANDROID_REGRESSION_CHECKLIST.md",
+          "operation": "create",
+          "description": "Document a short, explicit regression checklist for Android Chrome focused on tapping bottom tabs and header icon-buttons, and verifying no ErrorBoundary/DOMException occurs."
+        },
+        {
+          "path": "frontend/src/utils/debugLogging.ts",
+          "operation": "create",
+          "description": "Add a small console-only debug logger (gated by dev mode and/or an opt-in localStorage flag) to log UI control taps and requested tab changes without logging any sensitive user data."
+        },
+        {
+          "path": "frontend/src/components/MobileBottomNav.tsx",
+          "operation": "modify",
+          "description": "Integrate console-only debug logging for each bottom nav icon-tab tap (log tab id/label only) using the new debug logging helper."
+        },
+        {
+          "path": "frontend/src/components/Header.tsx",
+          "operation": "modify",
+          "description": "Integrate console-only debug logging for header icon-button taps (e.g., login/logout) using the new debug logging helper; ensure no user data is included."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Log tab-change requests (requested tab id only) using the debug logging helper; keep logs console-only with no UI changes."
+        }
+      ]
+    },
+    {
+      "id": "REQ-10",
+      "summary": "Localize the global ErrorBoundary crash screen user-facing text to English while keeping technical error details visible and recovery actions working.",
+      "acceptanceCriteria": [
+        "When the ErrorBoundary is shown, the title/description/buttons are in English (e.g., \"Something went wrong\", \"Reload app\", \"Go back\").",
+        "The technical error message text (e.g., the DOMException message) remains visible in the details section as it is today.",
+        "The ErrorBoundary remains recoverable via reload and back actions."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/ErrorBoundary.tsx",
+          "operation": "modify",
+          "description": "Replace the ErrorBoundary title/description/button labels with English copy while keeping the underlying error.message detail section unchanged and preserving reload/back recoverability."
         }
       ]
     }

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Clock, LogOut, LogIn } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import PublishRetryDialog from './PublishRetryDialog';
+import { logDebug } from '../utils/debugLogging';
 
 interface HeaderProps {
   userName?: string;
@@ -20,6 +21,7 @@ export default function Header({ userName }: HeaderProps) {
 
   const handleAuth = async () => {
     try {
+      logDebug('Header', `Auth button clicked: ${isAuthenticated ? 'logout' : 'login'}`);
       if (isAuthenticated) {
         await clear();
         queryClient.clear();
@@ -44,7 +46,7 @@ export default function Header({ userName }: HeaderProps) {
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-            <Clock className="w-6 h-6 text-primary-foreground" />
+            <Clock className="w-6 h-6 text-primary-foreground pointer-events-none" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -67,19 +69,19 @@ export default function Header({ userName }: HeaderProps) {
             onClick={handleAuth}
             disabled={disabled}
             variant={isAuthenticated ? 'outline' : 'default'}
-            className="gap-2"
+            className="gap-2 touch-action-manipulation select-none"
           >
             {disabled ? (
               'Connexion...'
             ) : isAuthenticated ? (
               <>
-                <LogOut className="w-4 h-4" />
-                Déconnexion
+                <LogOut className="w-4 h-4 pointer-events-none" />
+                <span className="pointer-events-none">Déconnexion</span>
               </>
             ) : (
               <>
-                <LogIn className="w-4 h-4" />
-                Connexion
+                <LogIn className="w-4 h-4 pointer-events-none" />
+                <span className="pointer-events-none">Connexion</span>
               </>
             )}
           </Button>

@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Toaster } from '@/components/ui/sonner';
+import { logDebug } from './utils/debugLogging';
 
 function AppContent() {
   const { identity, isInitializing } = useInternetIdentity();
@@ -53,6 +54,7 @@ function AppContent() {
 
   const handleTabChange = (tab: string) => {
     try {
+      logDebug('App', `Tab change requested: ${tab}`);
       setActiveTab(tab);
     } catch (error) {
       console.error('Error changing tab:', error);
@@ -103,7 +105,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background pb-safe">
-      <Header />
+      <Header userName={userProfile?.name} />
       
       <main className="flex-1 container mx-auto px-4 py-6 pb-24 md:pb-8">
         {/* Content Area */}
@@ -154,6 +156,7 @@ function AppContent() {
               type="button"
               onClick={handleSaveProfile} 
               disabled={saveProfile.isPending}
+              className="touch-action-manipulation"
             >
               {saveProfile.isPending ? 'Enregistrement...' : 'Enregistrer'}
             </Button>

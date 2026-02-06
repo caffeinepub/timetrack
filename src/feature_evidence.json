@@ -2,13 +2,14 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-fix-the-android-only-regression-where-tapping-any-icon-based-ui-control-including-the-bottom-navigation-tabs-and-other-icon-buttons-causes-the-app-to-turn-into-a-blank-white-screen-and-become-non-interactive",
-      "featureTitle": "Fix the Android-only regression where tapping any icon-based UI control (including the bottom navigation tabs and other icon buttons) causes the app to turn into a blank white screen and become non-interactive.",
+      "featureId": "feature-fix-the-android-chrome-runtime-crash-that-occurs-immediately-when-the-user-taps-any-icon-based-ui-control-anywhere-in-the-app-e-g-bottom-navigation-tabs-header-icons-buttons-which-triggers-a-domexception-with-message-similar-to-failed-to-execute-removechild-on-node-the-node-to-be-removed-is-not-a-child-of-this-node",
+      "featureTitle": "Fix the Android/Chrome runtime crash that occurs immediately when the user taps any icon-based UI control anywhere in the app (e.g., bottom navigation tabs, header icons/buttons), which triggers a DOMException with message similar to: \"Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.\"",
       "files": [
         "frontend/src/App.tsx",
-        "frontend/src/components/ErrorBoundary.tsx",
         "frontend/src/components/Header.tsx",
-        "frontend/src/components/MobileBottomNav.tsx"
+        "frontend/src/components/MobileBottomNav.tsx",
+        "frontend/src/components/PublishRetryDialog.tsx",
+        "frontend/src/index.css"
       ],
       "components": [
         "authorization@3.0.0",
@@ -22,7 +23,55 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-7"
+        "REQ-8"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-add-a-small-explicit-regression-test-checklist-and-in-app-debug-logging-console-only-around-tab-switching-and-icon-button-clicks-to-help-confirm-the-fix-on-android-without-exposing-any-extra-ui-to-end-users",
+      "featureTitle": "Add a small, explicit regression test checklist and in-app debug logging (console only) around tab switching and icon-button clicks to help confirm the fix on Android, without exposing any extra UI to end users.",
+      "files": [
+        "frontend/ANDROID_REGRESSION_CHECKLIST.md",
+        "frontend/src/App.tsx",
+        "frontend/src/components/Header.tsx",
+        "frontend/src/components/MobileBottomNav.tsx",
+        "frontend/src/utils/debugLogging.ts"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "blob-storage@4.0.0",
+        "http-outcalls@3.0.0",
+        "camera@1.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-9"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-update-the-global-crash-screen-errorboundary-user-facing-text-to-english-title-description-and-buttons-while-still-showing-the-underlying-error-message-details-for-troubleshooting",
+      "featureTitle": "Update the global crash screen (ErrorBoundary) user-facing text to English (title, description, and buttons), while still showing the underlying error message details for troubleshooting.",
+      "files": [
+        "frontend/src/components/ErrorBoundary.tsx"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "blob-storage@4.0.0",
+        "http-outcalls@3.0.0",
+        "camera@1.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-10"
       ],
       "confidence": "high"
     }

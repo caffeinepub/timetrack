@@ -1,42 +1,29 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-06T21:15:13.399Z",
-  "summary": "Diff adds a React ErrorBoundary with reload/back recovery UI, hardens icon/button click handlers (explicit type=\"button\" and try/catch) in Header and MobileBottomNav, and updates App.tsx to use the ErrorBoundary and other UI tweaks. However, there is no clear evidence in the shown diffs that duplicate/nested React Query providers were removed or that the app uses a single QueryClientProvider across the whole tree.",
-  "missing_requirements": [
-    {
-      "id": "REQ-7",
-      "requirement": "No duplicate or nested React Query provider setup remains that could cause inconsistent context behavior during navigation (the app must use a single React Query provider instance for the whole React tree).",
-      "reason": "The diff shows changes to App.tsx, Header.tsx, and MobileBottomNav.tsx, but does not show any QueryClientProvider removal or provider-tree restructuring. The immutable main entry file (frontend/src/main.tsx) is not changed/shown, and App.tsx is truncated, so a single-provider guarantee cannot be verified from the diff evidence.",
-      "evidence": [
-        "frontend/src/App.tsx (truncated)",
-        "BuildRequest constraint: frontend/src/main.tsx is immutable and not modified in diff"
-      ]
-    }
-  ],
+  "generatedAt": "2026-02-06T22:01:39.576Z",
+  "summary": "Diff implements console-only debug logging + Android regression checklist, updates ErrorBoundary UI text to English while still showing error.message, and applies several Android tap-handling hardening changes (touch-action: manipulation, pointer-events: none on nested icon/text) across header/bottom nav/dialog buttons. No direct evidence of remaining unimplemented requirements, but there is evidence of at least one unrelated feature being claimed/added in a summary file.",
+  "missing_requirements": [],
   "hallucinated_features": [
     {
-      "description": "Login screen UI changes including a \"Version 7 - Production\" badge and a new/expanded marketing-style \"Fonctionnalités\" list with emoji bullets.",
-      "reason": "Not requested by REQ-7 and appears unrelated to the Android white-screen regression fix.",
+      "description": "Mentions/claims new Reports PDF export functionality (and other unrelated feature descriptions) that were not requested in the BuildRequest.",
+      "reason": "BuildRequest scope is limited to fixing the Android removeChild crash and localizing the crash UI; the diff evidence includes documentation/summary text describing additional features (PDF export) not requested.",
       "evidence": [
-        "frontend/src/App.tsx (shows Badge \"Version 7 - Production\" and a feature list with emoji bullets)"
-      ]
-    },
-    {
-      "description": "Documentation/summary claims of new features such as PDF export functionality, deployment documentation, and multiple page/component enhancements (Dashboard/Calendar/Journal/Reports, DayTypeCheckboxGroup, PublishRetryDialog, DEPLOYMENT.md).",
-      "reason": "BuildRequest explicitly states non-goal: adding new product features unrelated to the Android regression. The only concrete code diffs shown relate to ErrorBoundary, Header, MobileBottomNav, and partial App.tsx; these additional features are not evidenced as implemented here and are introduced as claims in a summary file.",
-      "evidence": [
-        "frontend-file-summaries.txt (mentions PDF export, DEPLOYMENT.md, DayTypeCheckboxGroup, PublishRetryDialog, and extensive page feature changes not otherwise present in shown diffs)"
+        "frontend-file-summaries.txt"
       ]
     }
   ],
-  "confidence": 0.62,
+  "confidence": 0.64,
   "changed_files": [
     "frontend-file-summaries.txt",
+    "frontend/ANDROID_REGRESSION_CHECKLIST.md",
     "frontend/src/App.tsx",
     "frontend/src/components/ErrorBoundary.tsx",
     "frontend/src/components/Header.tsx",
     "frontend/src/components/MobileBottomNav.tsx",
+    "frontend/src/components/PublishRetryDialog.tsx",
+    "frontend/src/index.css",
+    "frontend/src/utils/debugLogging.ts",
     "project_state.json"
   ]
 }

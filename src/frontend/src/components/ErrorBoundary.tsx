@@ -46,10 +46,10 @@ export class ErrorBoundary extends Component<Props, State> {
               <AlertTriangle className="w-8 h-8 text-destructive" />
             </div>
             <h2 className="text-xl font-bold text-foreground mb-2">
-              Une erreur s'est produite
+              Something went wrong
             </h2>
             <p className="text-sm text-muted-foreground mb-6">
-              L'application a rencontré un problème inattendu. Vous pouvez essayer de recharger l'application ou revenir en arrière.
+              The application encountered an unexpected problem. You can try reloading the app or going back.
             </p>
             {this.state.error && (
               <div className="mb-6 p-3 bg-muted rounded text-left">
@@ -61,19 +61,19 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="flex flex-col gap-3">
               <Button
                 onClick={this.handleReload}
-                className="w-full gap-2"
+                className="w-full gap-2 touch-action-manipulation"
                 variant="default"
               >
-                <RefreshCw className="w-4 h-4" />
-                Recharger l'application
+                <RefreshCw className="w-4 h-4 pointer-events-none" />
+                <span className="pointer-events-none">Reload app</span>
               </Button>
               <Button
                 onClick={this.handleGoBack}
-                className="w-full gap-2"
+                className="w-full gap-2 touch-action-manipulation"
                 variant="outline"
               >
-                <ArrowLeft className="w-4 h-4" />
-                Retour
+                <ArrowLeft className="w-4 h-4 pointer-events-none" />
+                <span className="pointer-events-none">Go back</span>
               </Button>
             </div>
           </div>

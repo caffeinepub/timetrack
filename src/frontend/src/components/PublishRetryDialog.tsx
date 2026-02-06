@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { logDebug } from '../utils/debugLogging';
 
 export default function PublishRetryDialog() {
   const [open, setOpen] = useState(false);
@@ -19,6 +20,7 @@ export default function PublishRetryDialog() {
 
   const handleRestartPublish = async () => {
     try {
+      logDebug('PublishRetryDialog', 'Restart publish button clicked');
       await restartPublish.mutateAsync();
     } catch (error: any) {
       // Error is handled by mutation state
@@ -32,12 +34,21 @@ export default function PublishRetryDialog() {
     restartPublish.reset();
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    logDebug('PublishRetryDialog', `Dialog ${newOpen ? 'opened' : 'closed'}`);
+    setOpen(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <RefreshCw className="w-4 h-4" />
-          Restart Publish
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="gap-2 touch-action-manipulation select-none"
+        >
+          <RefreshCw className="w-4 h-4 pointer-events-none" />
+          <span className="pointer-events-none">Restart Publish</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
@@ -51,7 +62,7 @@ export default function PublishRetryDialog() {
         <div className="py-4 space-y-4">
           {restartPublish.isPending && (
             <Alert>
-              <RefreshCw className="h-4 w-4 animate-spin" />
+              <RefreshCw className="h-4 w-4 animate-spin pointer-events-none" />
               <AlertTitle>Processing</AlertTitle>
               <AlertDescription>
                 Restarting publish workflow...
@@ -61,7 +72,7 @@ export default function PublishRetryDialog() {
 
           {restartPublish.isSuccess && (
             <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
-              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 pointer-events-none" />
               <AlertTitle className="text-green-800 dark:text-green-200">Success</AlertTitle>
               <AlertDescription className="text-green-700 dark:text-green-300">
                 Publish workflow restarted successfully.
@@ -71,7 +82,7 @@ export default function PublishRetryDialog() {
 
           {restartPublish.isError && (
             <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
+              <AlertCircle className="h-4 w-4 pointer-events-none" />
               <AlertTitle>Restart Publish Failed</AlertTitle>
               <AlertDescription className="space-y-2">
                 <p className="font-semibold">Action: Restart Publish</p>
@@ -105,6 +116,7 @@ export default function PublishRetryDialog() {
             variant="outline"
             onClick={handleClose}
             disabled={restartPublish.isPending}
+            className="touch-action-manipulation"
           >
             Close
           </Button>
@@ -112,17 +124,17 @@ export default function PublishRetryDialog() {
             <Button
               onClick={handleRestartPublish}
               disabled={restartPublish.isPending}
-              className="gap-2"
+              className="gap-2 touch-action-manipulation"
             >
               {restartPublish.isPending ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Restarting...
+                  <RefreshCw className="w-4 h-4 animate-spin pointer-events-none" />
+                  <span className="pointer-events-none">Restarting...</span>
                 </>
               ) : (
                 <>
-                  <RefreshCw className="w-4 h-4" />
-                  Restart Publish
+                  <RefreshCw className="w-4 h-4 pointer-events-none" />
+                  <span className="pointer-events-none">Restart Publish</span>
                 </>
               )}
             </Button>

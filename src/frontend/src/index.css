@@ -91,12 +91,18 @@
     .safe-area-bottom {
         padding-bottom: env(safe-area-inset-bottom, 0);
     }
+
+    /* Android Chrome tap fix: prevent nested elements from being tap targets */
+    .touch-action-manipulation {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
 }
 
-/* Ensure smooth transitions for mobile navigation */
+/* Ensure smooth transitions for mobile navigation and prevent DOM removeChild issues */
 @layer components {
     .icon-nav-button {
-        @apply transition-all duration-200 ease-in-out;
+        @apply transition-all duration-200 ease-in-out touch-action-manipulation;
     }
     
     .icon-nav-button:hover {
@@ -105,5 +111,14 @@
     
     .icon-nav-button:active {
         @apply transform scale-95;
+    }
+
+    /* Prevent nested icons and text from being separate tap targets */
+    button img,
+    button svg,
+    button span {
+        pointer-events: none;
+        user-select: none;
+        -webkit-user-select: none;
     }
 }

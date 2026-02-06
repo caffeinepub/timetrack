@@ -1,3 +1,5 @@
+import { logDebug } from '../utils/debugLogging';
+
 interface MobileBottomNavProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
@@ -33,6 +35,7 @@ export default function MobileBottomNav({ activeTab, onTabChange }: MobileBottom
 
   const handleTabClick = (tabId: string) => {
     try {
+      logDebug('MobileBottomNav', `Tab clicked: ${tabId}`);
       onTabChange(tabId);
     } catch (error) {
       console.error('Error changing tab:', error);
@@ -54,6 +57,7 @@ export default function MobileBottomNav({ activeTab, onTabChange }: MobileBottom
             className={`
               flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-xl
               transition-all duration-200 min-w-[72px] min-h-[56px]
+              touch-action-manipulation select-none
               ${
                 activeTab === item.id
                   ? 'bg-primary text-primary-foreground shadow-md scale-105'
@@ -66,10 +70,11 @@ export default function MobileBottomNav({ activeTab, onTabChange }: MobileBottom
             <img 
               src={item.icon} 
               alt="" 
-              className="w-7 h-7"
+              className="w-7 h-7 pointer-events-none select-none"
               aria-hidden="true"
+              draggable="false"
             />
-            <span className="text-xs font-medium">{item.label}</span>
+            <span className="text-xs font-medium pointer-events-none select-none">{item.label}</span>
           </button>
         ))}
       </div>

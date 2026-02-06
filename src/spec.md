@@ -1,11 +1,11 @@
 # Specification
 
 ## Summary
-**Goal:** Fix the Android-only regression where tapping any icon-based UI control (including bottom navigation and header icon buttons) causes a blank white screen and makes the app non-interactive.
+**Goal:** Stop the Android Chrome crash triggered by tapping any icon-based control, add lightweight console-only debug logging + a regression checklist, and localize the crash (ErrorBoundary) UI text to English.
 
 **Planned changes:**
-- Identify and fix the runtime error(s) triggered by icon taps/navigation on Android so page switches and icon interactions do not crash the UI.
-- Ensure the app uses a single React Query provider instance across the full React tree (remove any duplicate/nested provider setup that could break context during navigation).
-- Add a recoverable in-app error state for navigation/icon-triggered runtime errors so the UI does not degrade into a blank white screen and the app remains usable.
+- Fix the Android/Chrome DOMException (`removeChild`) that occurs on tap/click of icon-based controls (bottom navigation tabs and header icon/buttons), ensuring these interactions do not trigger the ErrorBoundary or freeze the UI.
+- Add console-only debug logging around tab switches and icon-button clicks, and document a small regression test checklist to verify the fix on Android without adding any new user-facing debug UI.
+- Update the ErrorBoundary user-facing copy (title, description, buttons) to English while keeping the technical error details visible for troubleshooting.
 
-**User-visible outcome:** On Android, tapping bottom navigation items (Dashboard, Calendar, Journal, Reports) and other icon buttons (e.g., header login/logout) works normally without a blank white screen; if an error occurs, the user sees a recoverable error state and can continue using the app.
+**User-visible outcome:** On Android Chrome, users can tap any icon-based navigation/control without crashing; if a crash occurs, the recovery screen is in English and still shows technical error details with reload/back recovery options.

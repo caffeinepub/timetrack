@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 15,
+  "projectStateVersion": 17,
   "summary": "TimeTrack is a web application for tracking work time and activities, backed by an Internet Computer (ICP) Motoko canister. Authenticated users log in via Internet Identity, set up a basic user profile, and then manage daily time entries (work, vacation, on-call/astreinte) with detailed time slots plus meal and travel time. The app also supports attaching daily media (photos and audio recordings) to calendar days, maintaining a work journal with notes and photo attachments, viewing monthly dashboard analytics (cards + charts), and exporting reports as CSV or printable PDF (PDF data produced by the backend and rendered via browser print). The backend includes role-based access control (admin/user/guest), per-user filtering for most reads, counts for vacation and on-call days, and a blob-storage mixin for managing external blob lifecycles on ICP.",
   "architectural_notes": [
     "Frontend is React + TypeScript using @tanstack/react-query for data fetching/caching; backend calls are wrapped in dedicated query/mutation hooks (useQueries.ts) with explicit cache invalidation.",
@@ -301,6 +301,30 @@
       "title": "Fix the Android-only regression where tapping any icon-based UI control (including the bottom navigation tabs and other icon buttons) causes the app to turn into a blank white screen and become non-interactive.",
       "reqIds": [
         "REQ-7"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-android-chrome-runtime-crash-that-occurs-immediately-when-the-user-taps-any-icon-based-ui-control-anywhere-in-the-app-e-g-bottom-navigation-tabs-header-icons-buttons-which-triggers-a-domexception-with-message-similar-to-failed-to-execute-removechild-on-node-the-node-to-be-removed-is-not-a-child-of-this-node",
+      "title": "Fix the Android/Chrome runtime crash that occurs immediately when the user taps any icon-based UI control anywhere in the app (e.g., bottom navigation tabs, header icons/buttons), which triggers a DOMException with message similar to: \"Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.\"",
+      "reqIds": [
+        "REQ-8"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-small-explicit-regression-test-checklist-and-in-app-debug-logging-console-only-around-tab-switching-and-icon-button-clicks-to-help-confirm-the-fix-on-android-without-exposing-any-extra-ui-to-end-users",
+      "title": "Add a small, explicit regression test checklist and in-app debug logging (console only) around tab switching and icon-button clicks to help confirm the fix on Android, without exposing any extra UI to end users.",
+      "reqIds": [
+        "REQ-9"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-global-crash-screen-errorboundary-user-facing-text-to-english-title-description-and-buttons-while-still-showing-the-underlying-error-message-details-for-troubleshooting",
+      "title": "Update the global crash screen (ErrorBoundary) user-facing text to English (title, description, and buttons), while still showing the underlying error message details for troubleshooting.",
+      "reqIds": [
+        "REQ-10"
       ],
       "version": 1
     }
