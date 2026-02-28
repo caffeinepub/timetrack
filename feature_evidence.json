@@ -1,0 +1,52 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-display-a-welcome-informational-message-dialog-when-the-application-first-opens-on-initial-load-the-message-should-be-dismissible-by-the-user-and-should-not-reappear-on-subsequent-visits-within-the-same-session-the-message-content-should-be-configurable-and-displayed-in-a-modal-or-banner-at-app-startup",
+      "featureTitle": "Display a welcome/informational message dialog when the application first opens (on initial load). The message should be dismissible by the user and should not reappear on subsequent visits within the same session. The message content should be configurable and displayed in a modal or banner at app startup.",
+      "files": [
+        "frontend/src/App.tsx",
+        "frontend/src/components/WelcomeDialog.tsx"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "blob-storage@4.0.0",
+        "http-outcalls@3.0.0",
+        "camera@1.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-1"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-investigate-and-fix-the-android-chrome-domexception-removechild-crash-shown-in-the-uploaded-screenshot-the-error-occurs-when-a-node-being-removed-is-not-a-child-of-the-target-node-audit-all-components-that-perform-conditional-rendering-portal-usage-or-dynamic-dom-manipulation-particularly-dialogs-modals-and-tab-navigation-and-apply-defensive-guards-or-use-stable-keying-strategies-to-prevent-this-crash-on-android-chrome",
+      "featureTitle": "Investigate and fix the Android Chrome DOMException 'removeChild' crash shown in the uploaded screenshot. The error occurs when a node being removed is not a child of the target node. Audit all components that perform conditional rendering, portal usage, or dynamic DOM manipulation (particularly dialogs, modals, and tab navigation) and apply defensive guards or use stable keying strategies to prevent this crash on Android Chrome.",
+      "files": [
+        "frontend/src/components/ErrorBoundary.tsx",
+        "frontend/src/components/MobileBottomNav.tsx",
+        "frontend/src/hooks/useSafeTap.ts"
+      ],
+      "components": [
+        "authorization@3.0.0",
+        "blob-storage@4.0.0",
+        "http-outcalls@3.0.0",
+        "camera@1.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-2"
+      ],
+      "confidence": "high"
+    }
+  ]
+}

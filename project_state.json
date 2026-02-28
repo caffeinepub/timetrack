@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 3,
+  "summary": "New project",
+  "architectural_notes": [],
+  "known_issues": [],
+  "isFixRequest": false,
+  "existing_features": [
+    {
+      "id": "feature-display-a-welcome-informational-message-dialog-when-the-application-first-opens-on-initial-load-the-message-should-be-dismissible-by-the-user-and-should-not-reappear-on-subsequent-visits-within-the-same-session-the-message-content-should-be-configurable-and-displayed-in-a-modal-or-banner-at-app-startup",
+      "title": "Display a welcome/informational message dialog when the application first opens (on initial load). The message should be dismissible by the user and should not reappear on subsequent visits within the same session. The message content should be configurable and displayed in a modal or banner at app startup.",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-investigate-and-fix-the-android-chrome-domexception-removechild-crash-shown-in-the-uploaded-screenshot-the-error-occurs-when-a-node-being-removed-is-not-a-child-of-the-target-node-audit-all-components-that-perform-conditional-rendering-portal-usage-or-dynamic-dom-manipulation-particularly-dialogs-modals-and-tab-navigation-and-apply-defensive-guards-or-use-stable-keying-strategies-to-prevent-this-crash-on-android-chrome",
+      "title": "Investigate and fix the Android Chrome DOMException 'removeChild' crash shown in the uploaded screenshot. The error occurs when a node being removed is not a child of the target node. Audit all components that perform conditional rendering, portal usage, or dynamic DOM manipulation (particularly dialogs, modals, and tab navigation) and apply defensive guards or use stable keying strategies to prevent this crash on Android Chrome.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Afficher un message à l'ouverture de l'application",
+      "reqIds": [],
+      "status": "pending"
+    }
+  ],
+  "projectName": "Heures Tracker",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

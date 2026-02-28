@@ -1,0 +1,70 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Display welcome message on app open + fix Android Chrome removeChild crash",
+  "requirements": [
+    {
+      "id": "REQ-1",
+      "summary": "Display a dismissible welcome message dialog on app startup",
+      "acceptanceCriteria": [
+        "A dialog or modal appears automatically when the app first loads",
+        "The user can dismiss the message with a close/confirm button",
+        "The message does not reappear after being dismissed within the same session",
+        "The message is displayed in English"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/WelcomeDialog.tsx",
+          "operation": "create",
+          "description": "Create a new WelcomeDialog component that displays a dismissible modal with configurable welcome message content. Use shadcn/ui Dialog primitives for consistent styling. The dialog should accept a boolean 'open' prop and an 'onClose' callback. Include a title, message body, and a confirm/dismiss button. Style with Tailwind classes matching the existing design system."
+        },
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Integrate the WelcomeDialog component into the App component. Add a state variable (e.g., showWelcomeDialog) initialized to true. Conditionally render the WelcomeDialog when showWelcomeDialog is true. On dismiss, set showWelcomeDialog to false. Place the WelcomeDialog before the ErrorBoundary so it appears on top of all content. The dialog should be shown only once per session (no need for localStorage persistence per the BuildRequest)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Fix Android Chrome DOMException removeChild crash",
+      "acceptanceCriteria": [
+        "The app no longer crashes with a DOMException removeChild error on Android Chrome",
+        "The ErrorBoundary screen showing 'Quelque chose s'est mal passé' is no longer triggered by this specific error",
+        "All dialogs, modals, and navigation components render and unmount without DOM errors on Android Chrome"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useSafeTap.ts",
+          "operation": "modify",
+          "description": "Review and strengthen the useSafeTap hook to prevent rapid-fire taps and async state issues. Ensure that the debounce and async-lock logic correctly guard against DOM manipulation errors during concurrent tap events. Add additional safeguards if needed (e.g., check that DOM nodes exist before manipulation, use refs instead of state for transient UI). Verify that the hook is correctly applied to all interactive elements in MobileBottomNav, Calendar dialogs, Journal dialogs, and Reports dialogs."
+        },
+        {
+          "path": "frontend/src/components/MobileBottomNav.tsx",
+          "operation": "modify",
+          "description": "Audit the MobileBottomNav component for safe tab-switching behavior. Ensure that tab change handlers use the useSafeTap hook or equivalent debouncing/locking to prevent rapid consecutive state changes that can cause React to remove child nodes prematurely. Add stable key props to tab buttons if not already present. Verify that no conditional rendering of tab icons or labels can cause removeChild errors."
+        },
+        {
+          "path": "frontend/src/pages/Calendar.tsx",
+          "operation": "modify",
+          "description": "Audit the Calendar page for any conditional rendering or portal usage in the time entry dialog that could trigger removeChild errors on Android Chrome. Ensure that the dialog open/close state transitions are guarded by useSafeTap or similar logic. Add stable keys to dynamically rendered elements (e.g., intervention slots). Verify that dialog unmounting does not attempt to remove nodes that are not children of the expected parent. Test rapid open/close cycles and ensure no DOM errors occur."
+        },
+        {
+          "path": "frontend/src/pages/Journal.tsx",
+          "operation": "modify",
+          "description": "Audit the Journal page for any conditional rendering or portal usage in the journal entry dialog that could trigger removeChild errors on Android Chrome. Ensure that the dialog open/close state transitions are guarded by useSafeTap or similar logic. Add stable keys to dynamically rendered photo and audio elements. Verify that dialog unmounting does not attempt to remove nodes that are not children of the expected parent. Test rapid open/close cycles and ensure no DOM errors occur."
+        },
+        {
+          "path": "frontend/src/pages/Reports.tsx",
+          "operation": "modify",
+          "description": "Audit the Reports page for any conditional rendering or portal usage in dialogs or modals that could trigger removeChild errors on Android Chrome. Ensure that any dialog open/close state transitions are guarded by useSafeTap or similar logic. Add stable keys to dynamically rendered report rows if not already present. Verify that no removeChild errors occur during PDF generation or filter changes."
+        },
+        {
+          "path": "frontend/src/components/ErrorBoundary.tsx",
+          "operation": "modify",
+          "description": "Enhance the ErrorBoundary component to log additional context about removeChild errors specifically on Android Chrome. Add a check in componentDidCatch to detect DOMException removeChild errors and log the component stack, recent debug interactions, and any relevant state. This will help diagnose any remaining removeChild issues after the fixes. Do not change the UI or fallback behavior; only improve diagnostics."
+        }
+      ]
+    }
+  ]
+}
