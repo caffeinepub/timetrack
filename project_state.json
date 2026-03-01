@@ -7,18 +7,10 @@
   "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-display-a-welcome-informational-message-dialog-when-the-application-first-opens-on-initial-load-the-message-should-be-dismissible-by-the-user-and-should-not-reappear-on-subsequent-visits-within-the-same-session-the-message-content-should-be-configurable-and-displayed-in-a-modal-or-banner-at-app-startup",
-      "title": "Display a welcome/informational message dialog when the application first opens (on initial load). The message should be dismissible by the user and should not reappear on subsequent visits within the same session. The message content should be configurable and displayed in a modal or banner at app startup.",
+      "id": "feature-ensure-all-time-durations-displayed-throughout-the-application-dashboard-calendar-reports-pages-are-formatted-in-hours-e-g-7h30-or-7-5h-rather-than-minutes-or-any-other-unit-audit-all-time-related-display-values-across-all-pages-and-components-and-apply-a-consistent-hours-based-format",
+      "title": "Ensure all time durations displayed throughout the application (Dashboard, Calendar, Reports pages) are formatted in hours (e.g., '7h30' or '7.5h') rather than minutes or any other unit. Audit all time-related display values across all pages and components and apply a consistent hours-based format.",
       "reqIds": [
         "REQ-1"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-investigate-and-fix-the-android-chrome-domexception-removechild-crash-shown-in-the-uploaded-screenshot-the-error-occurs-when-a-node-being-removed-is-not-a-child-of-the-target-node-audit-all-components-that-perform-conditional-rendering-portal-usage-or-dynamic-dom-manipulation-particularly-dialogs-modals-and-tab-navigation-and-apply-defensive-guards-or-use-stable-keying-strategies-to-prevent-this-crash-on-android-chrome",
-      "title": "Investigate and fix the Android Chrome DOMException 'removeChild' crash shown in the uploaded screenshot. The error occurs when a node being removed is not a child of the target node. Audit all components that perform conditional rendering, portal usage, or dynamic DOM manipulation (particularly dialogs, modals, and tab navigation) and apply defensive guards or use stable keying strategies to prevent this crash on Android Chrome.",
-      "reqIds": [
-        "REQ-2"
       ],
       "version": 1
     }
@@ -26,7 +18,7 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Afficher un message à l'ouverture de l'application",
+      "summary": "Afficher le format horaire en heures (et non en minutes ou autre format)",
       "reqIds": [],
       "status": "pending"
     }

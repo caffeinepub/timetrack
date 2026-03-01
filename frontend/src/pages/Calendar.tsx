@@ -1,13 +1,21 @@
-import { useState, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useInternetIdentity } from '../hooks/useInternetIdentity';
 import { useGetTimeEntries, useSaveTimeEntry, useUpdateTimeEntry, useDeleteTimeEntry } from '../hooks/useQueries';
-import { DayType, TimeEntry, InterventionSlot } from '../backend';
-import { DayTypeCheckboxGroup } from '../components/DayTypeCheckboxGroup';
+import { TimeEntry, DayType } from '../backend';
+import { formatHours, computeNormalHours, computeAstreinteHours, computeInterventionHours, formatInterventionRange } from '../utils/timeFormatting';
+import { ChevronLeft, ChevronRight, Plus, Edit2, Clock, X, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { ChevronLeft, ChevronRight, Plus, Trash2, Clock } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { DayTypeCheckboxGroup } from '../components/DayTypeCheckboxGroup';
+
+const DAYS_OF_WEEK = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const MONTHS = [
+  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+];
 
 interface InterventionSlotForm {
   startHour: string;
@@ -30,7 +38,7 @@ interface TimeEntryForm {
   interventionSlots: InterventionSlotForm[];
 }
 
-const defaultForm: TimeEntryForm = {
+const defaultForm = (): TimeEntryForm => ({
   startMorning: '8',
   endMorning: '12',
   startAfternoon: '13',
@@ -42,186 +50,152 @@ const defaultForm: TimeEntryForm = {
   typeOfDay: DayType.work,
   description: '',
   interventionSlots: [],
-};
+});
 
-const MONTHS_FR = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-];
-
-const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-
-function getDaysInMonth(year: number, month: number): number {
-  return new Date(year, month + 1, 0).getDate();
+function getMonthDays(year: number, month: number): (Date | null)[] {
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startDow = (firstDay.getDay() + 6) % 7; // Monday = 0
+  const days: (Date | null)[] = [];
+  for (let i = 0; i < startDow; i++) days.push(null);
+  for (let d = 1; d <= lastDay.getDate(); d++) days.push(new Date(year, month, d));
+  return days;
 }
 
-function getFirstDayOfMonth(year: number, month: number): number {
-  const day = new Date(year, month, 1).getDay();
-  return day === 0 ? 6 : day - 1;
+function dateToTimestamp(date: Date): bigint {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0);
+  return BigInt(d.getTime()) * 1_000_000n;
 }
 
-function dateToTimestamp(year: number, month: number, day: number): bigint {
-  return BigInt(new Date(year, month, day, 12, 0, 0).getTime()) * 1_000_000n;
+function timestampToDate(ts: bigint): Date {
+  return new Date(Number(ts) / 1_000_000);
 }
 
-function timestampToDate(ts: bigint): { year: number; month: number; day: number } {
-  const ms = Number(ts / 1_000_000n);
-  const d = new Date(ms);
-  return { year: d.getFullYear(), month: d.getMonth(), day: d.getDate() };
-}
-
-function formatDateKey(year: number, month: number, day: number): string {
-  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-}
-
-function entryToFormKey(entry: TimeEntry): string {
-  const { year, month, day } = timestampToDate(entry.date);
-  return formatDateKey(year, month, day);
-}
-
-function calcInterventionMinutes(slots: InterventionSlotForm[]): number {
-  return slots.reduce((acc, s) => {
-    const start = parseInt(s.startHour || '0') * 60 + parseInt(s.startMinute || '0');
-    const end = parseInt(s.endHour || '0') * 60 + parseInt(s.endMinute || '0');
-    return acc + Math.max(0, end - start);
-  }, 0);
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
 export default function Calendar() {
   const { identity } = useInternetIdentity();
-  const { data: timeEntries = [] } = useGetTimeEntries();
-  const saveEntry = useSaveTimeEntry();
-  const updateEntry = useUpdateTimeEntry();
-  const deleteEntry = useDeleteTimeEntry();
+  const { data: allEntries = [], isLoading } = useGetTimeEntries();
+  const { mutateAsync: saveEntry, isPending: isSaving } = useSaveTimeEntry();
+  const { mutateAsync: updateEntry, isPending: isUpdating } = useUpdateTimeEntry();
+  const { mutateAsync: deleteEntry, isPending: isDeleting } = useDeleteTimeEntry();
 
   const today = new Date();
-  const [currentYear, setCurrentYear] = useState(today.getFullYear());
-  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
-  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState<TimeEntryForm>(defaultForm);
-  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
+  const [form, setForm] = useState<TimeEntryForm>(defaultForm());
 
-  // Build a map from date key to entry
-  const entryMap = new Map<string, TimeEntry>();
-  for (const entry of timeEntries) {
-    entryMap.set(entryToFormKey(entry), entry);
-  }
+  const userEntries = useMemo(() => {
+    if (!identity) return [];
+    const principal = identity.getPrincipal().toString();
+    return allEntries.filter((e) => e.user.toString() === principal);
+  }, [allEntries, identity]);
 
-  const daysInMonth = getDaysInMonth(currentYear, currentMonth);
-  const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
-
-  const prevMonth = useCallback(() => {
-    setCurrentMonth(m => {
-      if (m === 0) { setCurrentYear(y => y - 1); return 11; }
-      return m - 1;
-    });
-  }, []);
-
-  const nextMonth = useCallback(() => {
-    setCurrentMonth(m => {
-      if (m === 11) { setCurrentYear(y => y + 1); return 0; }
-      return m + 1;
-    });
-  }, []);
-
-  const openDay = (day: number) => {
-    setSelectedDay(day);
-    const key = formatDateKey(currentYear, currentMonth, day);
-    const existing = entryMap.get(key);
-    if (existing) {
-      setEditingEntryId(existing.id);
-      setForm({
-        startMorning: existing.startMorning.toString(),
-        endMorning: existing.endMorning.toString(),
-        startAfternoon: existing.startAfternoon.toString(),
-        endAfternoon: existing.endAfternoon.toString(),
-        heuresRepas: existing.heuresRepas.toString(),
-        heuresTrajet: existing.heuresTrajet.toString(),
-        startAstreinte: existing.startAstreinte != null ? existing.startAstreinte.toString() : '',
-        endAstreinte: existing.endAstreinte != null ? existing.endAstreinte.toString() : '',
-        typeOfDay: existing.typeOfDay,
-        description: existing.description,
-        interventionSlots: (existing.interventionSlots || []).map(s => ({
-          startHour: s.startHour.toString(),
-          startMinute: s.startMinute.toString(),
-          endHour: s.endHour.toString(),
-          endMinute: s.endMinute.toString(),
-        })),
-      });
-    } else {
-      setEditingEntryId(null);
-      setForm(defaultForm);
+  const entriesByDay = useMemo(() => {
+    const map = new Map<string, TimeEntry[]>();
+    for (const entry of userEntries) {
+      const d = timestampToDate(entry.date);
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(entry);
     }
+    return map;
+  }, [userEntries]);
+
+  const monthDays = useMemo(() => getMonthDays(viewYear, viewMonth), [viewYear, viewMonth]);
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11); }
+    else setViewMonth(m => m - 1);
+  };
+
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0); }
+    else setViewMonth(m => m + 1);
+  };
+
+  const openNewEntry = (date: Date) => {
+    setSelectedDate(date);
+    setEditingEntry(null);
+    setForm(defaultForm());
+    setDialogOpen(true);
+  };
+
+  const openEditEntry = (entry: TimeEntry) => {
+    setSelectedDate(timestampToDate(entry.date));
+    setEditingEntry(entry);
+    setForm({
+      startMorning: String(Number(entry.startMorning)),
+      endMorning: String(Number(entry.endMorning)),
+      startAfternoon: String(Number(entry.startAfternoon)),
+      endAfternoon: String(Number(entry.endAfternoon)),
+      heuresRepas: String(Number(entry.heuresRepas)),
+      heuresTrajet: String(Number(entry.heuresTrajet)),
+      startAstreinte: entry.startAstreinte != null ? String(Number(entry.startAstreinte)) : '',
+      endAstreinte: entry.endAstreinte != null ? String(Number(entry.endAstreinte)) : '',
+      typeOfDay: entry.typeOfDay as DayType,
+      description: entry.description,
+      interventionSlots: entry.interventionSlots.map(s => ({
+        startHour: String(Number(s.startHour)),
+        startMinute: String(Number(s.startMinute)),
+        endHour: String(Number(s.endHour)),
+        endMinute: String(Number(s.endMinute)),
+      })),
+    });
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
-    if (!identity || selectedDay === null) return;
-    setIsSaving(true);
-    try {
-      const ts = dateToTimestamp(currentYear, currentMonth, selectedDay);
-      const id = editingEntryId || `${identity.getPrincipal().toString()}-${formatDateKey(currentYear, currentMonth, selectedDay)}`;
+    if (!selectedDate) return;
+    const id = editingEntry?.id ?? `entry-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const input = {
+      id,
+      date: dateToTimestamp(selectedDate),
+      startMorning: BigInt(Number(form.startMorning) || 0),
+      endMorning: BigInt(Number(form.endMorning) || 0),
+      startAfternoon: BigInt(Number(form.startAfternoon) || 0),
+      endAfternoon: BigInt(Number(form.endAfternoon) || 0),
+      heuresRepas: BigInt(Number(form.heuresRepas) || 0),
+      heuresTrajet: BigInt(Number(form.heuresTrajet) || 0),
+      startAstreinte: form.startAstreinte ? BigInt(Number(form.startAstreinte)) : undefined,
+      endAstreinte: form.endAstreinte ? BigInt(Number(form.endAstreinte)) : undefined,
+      typeOfDay: form.typeOfDay,
+      description: form.description,
+      interventionSlots: form.interventionSlots.map(s => ({
+        startHour: BigInt(Number(s.startHour) || 0),
+        startMinute: BigInt(Number(s.startMinute) || 0),
+        endHour: BigInt(Number(s.endHour) || 0),
+        endMinute: BigInt(Number(s.endMinute) || 0),
+      })),
+    };
 
-      const slots: InterventionSlot[] = form.interventionSlots.map(s => ({
-        startHour: BigInt(parseInt(s.startHour || '0')),
-        startMinute: BigInt(parseInt(s.startMinute || '0')),
-        endHour: BigInt(parseInt(s.endHour || '0')),
-        endMinute: BigInt(parseInt(s.endMinute || '0')),
-      }));
-
-      const input = {
-        id,
-        date: ts,
-        startMorning: BigInt(parseInt(form.startMorning || '0')),
-        endMorning: BigInt(parseInt(form.endMorning || '0')),
-        startAfternoon: BigInt(parseInt(form.startAfternoon || '0')),
-        endAfternoon: BigInt(parseInt(form.endAfternoon || '0')),
-        heuresRepas: BigInt(parseInt(form.heuresRepas || '0')),
-        heuresTrajet: BigInt(parseInt(form.heuresTrajet || '0')),
-        startAstreinte: form.startAstreinte !== '' ? BigInt(parseInt(form.startAstreinte)) : undefined,
-        endAstreinte: form.endAstreinte !== '' ? BigInt(parseInt(form.endAstreinte)) : undefined,
-        typeOfDay: form.typeOfDay,
-        description: form.description,
-        interventionSlots: slots,
-      };
-
-      if (editingEntryId) {
-        await updateEntry.mutateAsync({ id: editingEntryId, input });
-      } else {
-        await saveEntry.mutateAsync(input);
-      }
-      setDialogOpen(false);
-    } finally {
-      setIsSaving(false);
+    if (editingEntry) {
+      await updateEntry({ id, input });
+    } else {
+      await saveEntry(input);
     }
+    setDialogOpen(false);
   };
 
-  const handleDelete = async () => {
-    if (!editingEntryId) return;
-    setIsDeleting(true);
-    try {
-      await deleteEntry.mutateAsync(editingEntryId);
-      setDialogOpen(false);
-    } finally {
-      setIsDeleting(false);
-    }
+  const handleDelete = async (id: string) => {
+    await deleteEntry(id);
+    setDialogOpen(false);
   };
 
   const addInterventionSlot = () => {
     setForm(f => ({
       ...f,
-      interventionSlots: [...f.interventionSlots, { startHour: '0', startMinute: '0', endHour: '1', endMinute: '0' }],
+      interventionSlots: [...f.interventionSlots, { startHour: '8', startMinute: '0', endHour: '9', endMinute: '0' }],
     }));
   };
 
   const removeInterventionSlot = (idx: number) => {
-    setForm(f => ({
-      ...f,
-      interventionSlots: f.interventionSlots.filter((_, i) => i !== idx),
-    }));
+    setForm(f => ({ ...f, interventionSlots: f.interventionSlots.filter((_, i) => i !== idx) }));
   };
 
   const updateSlot = (idx: number, field: keyof InterventionSlotForm, value: string) => {
@@ -231,341 +205,412 @@ export default function Calendar() {
     }));
   };
 
-  const totalInterventionMin = calcInterventionMinutes(form.interventionSlots);
-  const interventionHours = Math.floor(totalInterventionMin / 60);
-  const interventionMins = totalInterventionMin % 60;
+  const getDayKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 
-  // Calendar grid
-  const cells: (number | null)[] = [];
-  for (let i = 0; i < firstDay; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-
-  const getDayType = (day: number): DayType | null => {
-    const key = formatDateKey(currentYear, currentMonth, day);
-    return entryMap.get(key)?.typeOfDay ?? null;
+  const typeColors: Record<string, string> = {
+    work: 'bg-primary',
+    conge: 'bg-secondary',
+    astreinte: 'bg-accent',
   };
 
-  const getDayColor = (dayType: DayType | null) => {
-    if (dayType === DayType.work) return 'bg-primary/20 border-primary/40';
-    if (dayType === DayType.astreinte) return 'bg-accent/20 border-accent/40';
-    if (dayType === DayType.conge) return 'bg-success/20 border-success/40';
-    return '';
-  };
-
-  const isToday = (day: number) =>
-    day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
-
-  const hasInterventions = (day: number): boolean => {
-    const key = formatDateKey(currentYear, currentMonth, day);
-    const entry = entryMap.get(key);
-    return !!(entry?.interventionSlots && entry.interventionSlots.length > 0);
-  };
+  const isMutating = isSaving || isUpdating || isDeleting;
 
   return (
-    <div className="max-w-2xl mx-auto px-2 sm:px-4 py-4">
+    <div className="space-y-4 pb-6">
       {/* Month navigation */}
-      <div className="flex items-center justify-between mb-4">
-        <Button variant="ghost" size="icon" onClick={prevMonth}>
-          <ChevronLeft className="w-5 h-5" />
-        </Button>
-        <div className="flex items-center gap-2">
-          <select
-            className="bg-background border border-border rounded px-2 py-1 text-sm font-semibold"
-            value={currentMonth}
-            onChange={e => setCurrentMonth(Number(e.target.value))}
-          >
-            {MONTHS_FR.map((m, i) => <option key={i} value={i}>{m}</option>)}
-          </select>
-          <select
-            className="bg-background border border-border rounded px-2 py-1 text-sm font-semibold"
-            value={currentYear}
-            onChange={e => setCurrentYear(Number(e.target.value))}
-          >
-            {Array.from({ length: 10 }, (_, i) => today.getFullYear() - 5 + i).map(y => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </div>
-        <Button variant="ghost" size="icon" onClick={nextMonth}>
-          <ChevronRight className="w-5 h-5" />
-        </Button>
+      <div className="flex items-center justify-between">
+        <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-muted transition-colors">
+          <ChevronLeft className="w-5 h-5 text-foreground" />
+        </button>
+        <h2 className="text-lg font-semibold text-foreground">
+          {MONTHS[viewMonth]} {viewYear}
+        </h2>
+        <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-muted transition-colors">
+          <ChevronRight className="w-5 h-5 text-foreground" />
+        </button>
       </div>
 
       {/* Day headers */}
-      <div className="grid grid-cols-7 mb-1">
-        {DAYS_FR.map(d => (
-          <div key={d} className="text-center text-xs font-semibold text-muted-foreground py-1">{d}</div>
+      <div className="grid grid-cols-7 gap-1">
+        {DAYS_OF_WEEK.map(d => (
+          <div key={d} className="text-center text-xs font-medium text-muted-foreground py-1">{d}</div>
         ))}
       </div>
 
       {/* Calendar grid */}
       <div className="grid grid-cols-7 gap-1">
-        {cells.map((day, idx) => {
-          if (day === null) return <div key={`empty-${idx}`} />;
-          const dayType = getDayType(day);
-          const colorClass = getDayColor(dayType);
-          const todayClass = isToday(day) ? 'ring-2 ring-primary' : '';
-          const hasSlots = hasInterventions(day);
+        {monthDays.map((date, idx) => {
+          if (!date) return <div key={`empty-${idx}`} />;
+          const key = getDayKey(date);
+          const dayEntries = entriesByDay.get(key) ?? [];
+          const isToday = isSameDay(date, today);
+          const isSelected = selectedDate ? isSameDay(date, selectedDate) : false;
+
           return (
             <button
-              key={day}
-              onClick={() => openDay(day)}
-              className={`relative aspect-square rounded-lg border text-sm font-medium flex flex-col items-center justify-center transition-all hover:opacity-80 active:scale-95 ${colorClass || 'border-border hover:bg-muted'} ${todayClass}`}
+              key={key}
+              onClick={() => openNewEntry(date)}
+              className={`
+                relative min-h-[52px] p-1 rounded-lg border text-left transition-all
+                ${isToday ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-muted/50'}
+                ${isSelected ? 'ring-2 ring-primary' : ''}
+              `}
             >
-              <span>{day}</span>
-              {hasSlots && (
-                <span className="absolute bottom-1 right-1 w-2 h-2 rounded-full bg-accent" title="Interventions astreinte" />
-              )}
+              <span className={`text-xs font-medium ${isToday ? 'text-primary' : 'text-foreground'}`}>
+                {date.getDate()}
+              </span>
+              <div className="mt-0.5 space-y-0.5">
+                {dayEntries.slice(0, 2).map((entry) => {
+                  const hours = computeNormalHours(entry);
+                  return (
+                    <div
+                      key={entry.id}
+                      onClick={(e) => { e.stopPropagation(); openEditEntry(entry); }}
+                      className={`text-[9px] leading-tight px-1 py-0.5 rounded text-white truncate ${typeColors[entry.typeOfDay] ?? 'bg-muted'}`}
+                    >
+                      {formatHours(hours)}
+                    </div>
+                  );
+                })}
+                {dayEntries.length > 2 && (
+                  <div className="text-[9px] text-muted-foreground">+{dayEntries.length - 2}</div>
+                )}
+              </div>
             </button>
           );
         })}
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-3 mt-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-primary/30 inline-block" /> Travail</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-accent/30 inline-block" /> Astreinte</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-success/30 inline-block" /> Congé</span>
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-accent inline-block" /> Interventions</span>
-      </div>
+      {/* Entry list for selected month */}
+      {userEntries.filter(e => {
+        const d = timestampToDate(e.date);
+        return d.getFullYear() === viewYear && d.getMonth() === viewMonth;
+      }).length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-foreground">Entrées du mois</h3>
+          {userEntries
+            .filter(e => {
+              const d = timestampToDate(e.date);
+              return d.getFullYear() === viewYear && d.getMonth() === viewMonth;
+            })
+            .sort((a, b) => Number(a.date) - Number(b.date))
+            .map(entry => {
+              const d = timestampToDate(entry.date);
+              const normal = computeNormalHours(entry);
+              const astreinte = computeAstreinteHours(entry);
+              const intervention = computeInterventionHours(entry.interventionSlots);
+              return (
+                <div
+                  key={entry.id}
+                  onClick={() => openEditEntry(entry)}
+                  className="bg-card border border-border rounded-lg p-3 flex items-center gap-3 cursor-pointer hover:bg-muted/30 transition-colors"
+                >
+                  <div className={`w-2 h-10 rounded-full flex-shrink-0 ${typeColors[entry.typeOfDay] ?? 'bg-muted'}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">
+                      {d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                      {normal > 0 && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> {formatHours(normal)}
+                        </span>
+                      )}
+                      {astreinte > 0 && (
+                        <span className="text-xs text-accent">{formatHours(astreinte)} astreinte</span>
+                      )}
+                      {intervention > 0 && (
+                        <span className="text-xs text-foreground">{formatHours(intervention)} intervention</span>
+                      )}
+                      {Number(entry.heuresRepas) > 0 && (
+                        <span className="text-xs text-muted-foreground">{formatHours(Number(entry.heuresRepas))} repas</span>
+                      )}
+                      {Number(entry.heuresTrajet) > 0 && (
+                        <span className="text-xs text-muted-foreground">{formatHours(Number(entry.heuresTrajet))} trajet</span>
+                      )}
+                    </div>
+                  </div>
+                  <Edit2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                </div>
+              );
+            })}
+        </div>
+      )}
 
-      {/* Time entry dialog */}
+      {/* Time Entry Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {selectedDay ? `${selectedDay} ${MONTHS_FR[currentMonth]} ${currentYear}` : 'Journée'}
+              {editingEntry ? 'Modifier la journée' : 'Nouvelle journée'}
+              {selectedDate && (
+                <span className="text-sm font-normal text-muted-foreground ml-2">
+                  — {selectedDate.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </span>
+              )}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-5 py-2">
+          <div className="space-y-4">
             {/* Day type */}
             <div>
-              <Label className="text-sm font-semibold mb-2 block">Type de journée</Label>
+              <Label className="text-sm font-medium mb-2 block">Type de journée</Label>
               <DayTypeCheckboxGroup
                 value={form.typeOfDay}
-                onChange={v => setForm(f => ({ ...f, typeOfDay: v }))}
+                onChange={(v) => setForm(f => ({ ...f, typeOfDay: v as DayType }))}
               />
             </div>
 
-            {/* Regular workday hours */}
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold block text-foreground">Heures de travail</Label>
+            {/* Morning hours */}
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Matin (heures)</Label>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Début matin</Label>
+                  <Label className="text-xs text-muted-foreground">Début</Label>
                   <Input
                     type="number"
-                    min="0" max="24"
+                    min="0"
+                    max="24"
+                    step="0.5"
                     value={form.startMorning}
-                    onChange={e => setForm(f => ({ ...f, startMorning: e.target.value }))}
-                    className="mt-1"
+                    onChange={(e) => setForm(f => ({ ...f, startMorning: e.target.value }))}
+                    placeholder="8"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Fin matin</Label>
+                  <Label className="text-xs text-muted-foreground">Fin</Label>
                   <Input
                     type="number"
-                    min="0" max="24"
+                    min="0"
+                    max="24"
+                    step="0.5"
                     value={form.endMorning}
-                    onChange={e => setForm(f => ({ ...f, endMorning: e.target.value }))}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Début après-midi</Label>
-                  <Input
-                    type="number"
-                    min="0" max="24"
-                    value={form.startAfternoon}
-                    onChange={e => setForm(f => ({ ...f, startAfternoon: e.target.value }))}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Fin après-midi</Label>
-                  <Input
-                    type="number"
-                    min="0" max="24"
-                    value={form.endAfternoon}
-                    onChange={e => setForm(f => ({ ...f, endAfternoon: e.target.value }))}
-                    className="mt-1"
+                    onChange={(e) => setForm(f => ({ ...f, endMorning: e.target.value }))}
+                    placeholder="12"
                   />
                 </div>
               </div>
             </div>
 
-            {/* On-call period */}
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold block text-foreground">Période d'astreinte</Label>
+            {/* Afternoon hours */}
+            <div>
+              <Label className="text-sm font-medium mb-2 block">Après-midi (heures)</Label>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Début astreinte (h)</Label>
+                  <Label className="text-xs text-muted-foreground">Début</Label>
                   <Input
                     type="number"
-                    min="0" max="24"
-                    placeholder="ex: 18"
-                    value={form.startAstreinte}
-                    onChange={e => setForm(f => ({ ...f, startAstreinte: e.target.value }))}
-                    className="mt-1"
+                    min="0"
+                    max="24"
+                    step="0.5"
+                    value={form.startAfternoon}
+                    onChange={(e) => setForm(f => ({ ...f, startAfternoon: e.target.value }))}
+                    placeholder="13"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs text-muted-foreground">Fin astreinte (h)</Label>
+                  <Label className="text-xs text-muted-foreground">Fin</Label>
                   <Input
                     type="number"
-                    min="0" max="24"
-                    placeholder="ex: 8"
-                    value={form.endAstreinte}
-                    onChange={e => setForm(f => ({ ...f, endAstreinte: e.target.value }))}
-                    className="mt-1"
+                    min="0"
+                    max="24"
+                    step="0.5"
+                    value={form.endAfternoon}
+                    onChange={(e) => setForm(f => ({ ...f, endAfternoon: e.target.value }))}
+                    placeholder="17"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Intervention slots */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-accent" />
-                  Interventions durant l'astreinte
-                  {form.interventionSlots.length > 0 && (
-                    <span className="text-xs font-normal text-muted-foreground ml-1">
-                      ({interventionHours}h{interventionMins > 0 ? `${String(interventionMins).padStart(2, '0')}` : ''} total)
-                    </span>
-                  )}
-                </Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addInterventionSlot}
-                  className="flex items-center gap-1 text-xs"
-                >
-                  <Plus className="w-3 h-3" />
-                  Ajouter
-                </Button>
-              </div>
-
-              {form.interventionSlots.length === 0 && (
-                <p className="text-xs text-muted-foreground italic">
-                  Aucune intervention. Cliquez sur "Ajouter" pour saisir les heures précises d'intervention.
+            {/* Computed normal hours display */}
+            {(() => {
+              const morning = Math.max(0, (Number(form.endMorning) || 0) - (Number(form.startMorning) || 0));
+              const afternoon = Math.max(0, (Number(form.endAfternoon) || 0) - (Number(form.startAfternoon) || 0));
+              const total = morning + afternoon;
+              return total > 0 ? (
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Total heures normales : <span className="font-semibold text-foreground">{formatHours(total)}</span>
                 </p>
-              )}
-
-              <div className="space-y-2">
-                {form.interventionSlots.map((slot, idx) => (
-                  <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-accent/10 border border-accent/20">
-                    <span className="text-xs text-muted-foreground w-4 shrink-0">{idx + 1}.</span>
-                    <div className="flex items-center gap-1 flex-1">
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          min="0" max="23"
-                          value={slot.startHour}
-                          onChange={e => updateSlot(idx, 'startHour', e.target.value)}
-                          className="w-12 text-center px-1 text-sm h-8"
-                          placeholder="H"
-                        />
-                        <span className="text-muted-foreground text-xs">:</span>
-                        <Input
-                          type="number"
-                          min="0" max="59"
-                          value={slot.startMinute}
-                          onChange={e => updateSlot(idx, 'startMinute', e.target.value)}
-                          className="w-12 text-center px-1 text-sm h-8"
-                          placeholder="MM"
-                        />
-                      </div>
-                      <span className="text-muted-foreground text-xs mx-1">→</span>
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          min="0" max="23"
-                          value={slot.endHour}
-                          onChange={e => updateSlot(idx, 'endHour', e.target.value)}
-                          className="w-12 text-center px-1 text-sm h-8"
-                          placeholder="H"
-                        />
-                        <span className="text-muted-foreground text-xs">:</span>
-                        <Input
-                          type="number"
-                          min="0" max="59"
-                          value={slot.endMinute}
-                          onChange={e => updateSlot(idx, 'endMinute', e.target.value)}
-                          className="w-12 text-center px-1 text-sm h-8"
-                          placeholder="MM"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeInterventionSlot(idx)}
-                      className="text-destructive hover:text-destructive/80 p-1 rounded shrink-0"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
+              ) : null;
+            })()}
 
             {/* Repas & Trajet */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs text-muted-foreground">Heures repas</Label>
+                <Label className="text-sm font-medium mb-1 block">Repas (h)</Label>
                 <Input
                   type="number"
                   min="0"
+                  max="24"
+                  step="0.5"
                   value={form.heuresRepas}
-                  onChange={e => setForm(f => ({ ...f, heuresRepas: e.target.value }))}
-                  className="mt-1"
+                  onChange={(e) => setForm(f => ({ ...f, heuresRepas: e.target.value }))}
+                  placeholder="1"
                 />
               </div>
               <div>
-                <Label className="text-xs text-muted-foreground">Heures trajet</Label>
+                <Label className="text-sm font-medium mb-1 block">Trajet (h)</Label>
                 <Input
                   type="number"
                   min="0"
+                  max="24"
+                  step="0.5"
                   value={form.heuresTrajet}
-                  onChange={e => setForm(f => ({ ...f, heuresTrajet: e.target.value }))}
-                  className="mt-1"
+                  onChange={(e) => setForm(f => ({ ...f, heuresTrajet: e.target.value }))}
+                  placeholder="0"
                 />
               </div>
+            </div>
+
+            {/* Astreinte */}
+            {form.typeOfDay === DayType.astreinte && (
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Période d'astreinte (heures)</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Début</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="24"
+                      step="0.5"
+                      value={form.startAstreinte}
+                      onChange={(e) => setForm(f => ({ ...f, startAstreinte: e.target.value }))}
+                      placeholder="18"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Fin</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="24"
+                      step="0.5"
+                      value={form.endAstreinte}
+                      onChange={(e) => setForm(f => ({ ...f, endAstreinte: e.target.value }))}
+                      placeholder="8"
+                    />
+                  </div>
+                </div>
+                {form.startAstreinte && form.endAstreinte && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Durée astreinte : <span className="font-semibold text-foreground">
+                      {formatHours(Math.max(0, (Number(form.endAstreinte) || 0) - (Number(form.startAstreinte) || 0)))}
+                    </span>
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Intervention slots */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-medium">Interventions</Label>
+                <Button variant="outline" size="sm" onClick={addInterventionSlot} type="button">
+                  <Plus className="w-3 h-3 mr-1" /> Ajouter
+                </Button>
+              </div>
+              {form.interventionSlots.length === 0 && (
+                <p className="text-xs text-muted-foreground">Aucune intervention</p>
+              )}
+              {form.interventionSlots.map((slot, idx) => (
+                <div key={idx} className="flex items-end gap-2 mb-2 p-2 bg-muted/30 rounded-lg">
+                  <div className="grid grid-cols-2 gap-2 flex-1">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Début (h:min)</Label>
+                      <div className="flex gap-1">
+                        <Input
+                          type="number" min="0" max="23" placeholder="8"
+                          value={slot.startHour}
+                          onChange={(e) => updateSlot(idx, 'startHour', e.target.value)}
+                          className="w-14 text-center px-1"
+                        />
+                        <span className="self-center text-muted-foreground">:</span>
+                        <Input
+                          type="number" min="0" max="59" placeholder="00"
+                          value={slot.startMinute}
+                          onChange={(e) => updateSlot(idx, 'startMinute', e.target.value)}
+                          className="w-14 text-center px-1"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Fin (h:min)</Label>
+                      <div className="flex gap-1">
+                        <Input
+                          type="number" min="0" max="23" placeholder="9"
+                          value={slot.endHour}
+                          onChange={(e) => updateSlot(idx, 'endHour', e.target.value)}
+                          className="w-14 text-center px-1"
+                        />
+                        <span className="self-center text-muted-foreground">:</span>
+                        <Input
+                          type="number" min="0" max="59" placeholder="00"
+                          value={slot.endMinute}
+                          onChange={(e) => updateSlot(idx, 'endMinute', e.target.value)}
+                          className="w-14 text-center px-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {/* Duration preview */}
+                  <div className="text-xs text-muted-foreground self-center min-w-[40px]">
+                    {(() => {
+                      const startTotal = (Number(slot.startHour) || 0) * 60 + (Number(slot.startMinute) || 0);
+                      const endTotal = (Number(slot.endHour) || 0) * 60 + (Number(slot.endMinute) || 0);
+                      const diff = endTotal - startTotal;
+                      return diff > 0 ? formatHours(diff / 60) : '';
+                    })()}
+                  </div>
+                  <button onClick={() => removeInterventionSlot(idx)} className="p-1 text-destructive hover:bg-destructive/10 rounded">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
             </div>
 
             {/* Description */}
             <div>
-              <Label className="text-xs text-muted-foreground">Description</Label>
-              <Input
+              <Label className="text-sm font-medium mb-1 block">Description</Label>
+              <Textarea
                 value={form.description}
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
                 placeholder="Notes sur la journée..."
-                className="mt-1"
+                rows={2}
               />
             </div>
           </div>
 
-          <DialogFooter className="flex gap-2 flex-row justify-between">
-            {editingEntryId && (
+          <DialogFooter className="flex gap-2 mt-4">
+            {editingEntry && (
               <Button
                 variant="destructive"
                 size="sm"
-                onClick={handleDelete}
-                disabled={isDeleting || isSaving}
+                onClick={() => handleDelete(editingEntry.id)}
+                disabled={isMutating}
               >
-                {isDeleting ? 'Suppression...' : 'Supprimer'}
+                {isDeleting ? (
+                  <span className="flex items-center gap-1">
+                    <span className="animate-spin rounded-full h-3 w-3 border-b border-white" /> Suppression...
+                  </span>
+                ) : (
+                  <><Trash2 className="w-4 h-4 mr-1" /> Supprimer</>
+                )}
               </Button>
             )}
-            <div className="flex gap-2 ml-auto">
-              <Button variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
-                Annuler
-              </Button>
-              <Button size="sm" onClick={handleSave} disabled={isSaving || isDeleting}>
-                {isSaving ? 'Enregistrement...' : 'Enregistrer'}
-              </Button>
-            </div>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={isMutating}>
+              Annuler
+            </Button>
+            <Button onClick={handleSave} disabled={isMutating}>
+              {isSaving || isUpdating ? (
+                <span className="flex items-center gap-1">
+                  <span className="animate-spin rounded-full h-3 w-3 border-b border-white" /> Enregistrement...
+                </span>
+              ) : (
+                editingEntry ? 'Mettre à jour' : 'Enregistrer'
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

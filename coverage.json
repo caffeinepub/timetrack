@@ -1,44 +1,32 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-28T23:49:33.220Z",
+  "generatedAt": "2026-03-01T23:40:53.284Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 2,
-    "implemented": 2,
+    "total": 1,
+    "implemented": 1,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Display a welcome/informational message dialog when the application first opens (on initial load). The message should be dismissible by the user and should not reappear on subsequent visits within the same session. The message content should be configurable and displayed in a modal or banner at app startup.",
+        "summary": "Ensure all time durations displayed throughout the application (Dashboard, Calendar, Reports pages) are formatted in hours (e.g., '7h30' or '7.5h') rather than minutes or any other unit. Audit all time-related display values across all pages and components and apply a consistent hours-based format.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/components/WelcomeDialog.tsx",
-          "frontend/src/App.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/components/WelcomeDialog.tsx",
-          "frontend/src/App.tsx"
-        ]
-      },
-      {
-        "id": "REQ-2",
-        "summary": "Investigate and fix the Android Chrome DOMException 'removeChild' crash shown in the uploaded screenshot. The error occurs when a node being removed is not a child of the target node. Audit all components that perform conditional rendering, portal usage, or dynamic DOM manipulation (particularly dialogs, modals, and tab navigation) and apply defensive guards or use stable keying strategies to prevent this crash on Android Chrome.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/hooks/useSafeTap.ts",
-          "frontend/src/components/MobileBottomNav.tsx",
+          "frontend/src/utils/timeFormatting.ts",
+          "frontend/src/pages/Dashboard.tsx",
           "frontend/src/pages/Calendar.tsx",
-          "frontend/src/pages/Journal.tsx",
           "frontend/src/pages/Reports.tsx",
-          "frontend/src/components/ErrorBoundary.tsx"
+          "frontend/src/pages/Journal.tsx",
+          "frontend/src/components/DayTypeCheckboxGroup.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/hooks/useSafeTap.ts",
-          "frontend/src/components/MobileBottomNav.tsx",
-          "frontend/src/components/ErrorBoundary.tsx"
+          "frontend/src/utils/timeFormatting.ts",
+          "frontend/src/pages/Dashboard.tsx",
+          "frontend/src/pages/Calendar.tsx",
+          "frontend/src/pages/Reports.tsx"
         ]
       }
     ]
@@ -48,13 +36,10 @@
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/App.tsx",
-    "frontend/src/components/ErrorBoundary.tsx",
-    "frontend/src/components/Header.tsx",
-    "frontend/src/components/MobileBottomNav.tsx",
-    "frontend/src/components/PublishRetryDialog.tsx",
-    "frontend/src/components/WelcomeDialog.tsx",
-    "frontend/src/hooks/useSafeTap.ts",
+    "frontend/src/pages/Calendar.tsx",
+    "frontend/src/pages/Dashboard.tsx",
+    "frontend/src/pages/Reports.tsx",
+    "frontend/src/utils/timeFormatting.ts",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

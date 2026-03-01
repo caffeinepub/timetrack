@@ -1,45 +1,17 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-28T23:49:33.217Z",
-  "summary": "Both REQ-1 and REQ-2 appear to be substantially implemented. REQ-1 is addressed via a new WelcomeDialog component shown on app load, dismissible with a 'Get Started' button, using session-scoped React state. REQ-2 is addressed via a new useSafeTap hook, updates to MobileBottomNav, ErrorBoundary enhancements, and requestAnimationFrame deferral strategies. However, REQ-1 has a gap: the dismissed state is managed with useState(true) initialized to true, and there is no sessionStorage or equivalent mechanism to prevent it from reappearing if AppContent remounts within the same session.",
-  "missing_requirements": [
-    {
-      "id": "REQ-1",
-      "requirement": "The message does not reappear after being dismissed within the same session",
-      "reason": "The dismissed state is stored in React component state (useState) inside AppContent. If AppContent unmounts and remounts within the same session (e.g., auth state change causing conditional rendering), the showWelcomeDialog resets to true and the dialog reappears. No sessionStorage or module-level variable is used to persist the dismissed state across remounts within the same session.",
-      "evidence": [
-        "frontend/src/App.tsx"
-      ]
-    }
-  ],
-  "hallucinated_features": [
-    {
-      "description": "Android regression checklist confirmation checkbox and pre-publish verification workflow in PublishRetryDialog",
-      "reason": "Neither REQ-1 nor REQ-2 requested a publish retry dialog with a regression checklist confirmation. This feature appears to be an addition beyond the stated requirements.",
-      "evidence": [
-        "frontend/src/components/PublishRetryDialog.tsx",
-        "frontend-file-summaries.txt"
-      ]
-    },
-    {
-      "description": "ANDROID_REGRESSION_CHECKLIST.md file with production build verification and pre-publish manual testing requirements",
-      "reason": "The build request did not ask for any regression checklist documentation or pre-publish workflow artifacts.",
-      "evidence": [
-        "frontend-file-summaries.txt"
-      ]
-    }
-  ],
-  "confidence": 0.78,
+  "generatedAt": "2026-03-01T23:40:53.281Z",
+  "summary": "The diff implements a centralized time formatting utility and applies it across Dashboard, Calendar, and Reports pages. All three pages import and use formatHours() and related helpers from the new timeFormatting.ts utility. The implementation appears to cover all acceptance criteria for REQ-1.",
+  "missing_requirements": [],
+  "hallucinated_features": [],
+  "confidence": 0.88,
   "changed_files": [
     "frontend-file-summaries.txt",
-    "frontend/src/App.tsx",
-    "frontend/src/components/ErrorBoundary.tsx",
-    "frontend/src/components/Header.tsx",
-    "frontend/src/components/MobileBottomNav.tsx",
-    "frontend/src/components/PublishRetryDialog.tsx",
-    "frontend/src/components/WelcomeDialog.tsx",
-    "frontend/src/hooks/useSafeTap.ts",
+    "frontend/src/pages/Calendar.tsx",
+    "frontend/src/pages/Dashboard.tsx",
+    "frontend/src/pages/Reports.tsx",
+    "frontend/src/utils/timeFormatting.ts",
     "project_state.json"
   ]
 }

@@ -1,68 +1,48 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Display welcome message on app open + fix Android Chrome removeChild crash",
+  "title": "Display time in hours format throughout the app",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Display a dismissible welcome message dialog on app startup",
+      "summary": "Ensure all time durations are formatted in hours (e.g., '7h30' or '7.5h') across Dashboard, Calendar, Reports pages and all components",
       "acceptanceCriteria": [
-        "A dialog or modal appears automatically when the app first loads",
-        "The user can dismiss the message with a close/confirm button",
-        "The message does not reappear after being dismissed within the same session",
-        "The message is displayed in English"
+        "Time values on the Dashboard page are displayed in hours format (e.g., '7h30' or '7.5h'), not in minutes.",
+        "Time values on the Calendar page entry list and dialogs are displayed in hours format.",
+        "Time values on the Reports page totals and rows are displayed in hours format.",
+        "No time value anywhere in the UI is displayed as a raw number of minutes (e.g., '450' instead of '7h30').",
+        "The hours format is consistent across all pages and components."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/WelcomeDialog.tsx",
+          "path": "frontend/src/utils/timeFormatting.ts",
           "operation": "create",
-          "description": "Create a new WelcomeDialog component that displays a dismissible modal with configurable welcome message content. Use shadcn/ui Dialog primitives for consistent styling. The dialog should accept a boolean 'open' prop and an 'onClose' callback. Include a title, message body, and a confirm/dismiss button. Style with Tailwind classes matching the existing design system."
+          "description": "Create a centralized time formatting utility module that converts minutes (bigint) to hours format. Provide two functions: formatMinutesToHoursDecimal (e.g., '7.5h') and formatMinutesToHoursMinutes (e.g., '7h30'). Both functions should handle bigint input from the backend and return formatted strings. Include edge cases for zero minutes and validate the output format matches the acceptance criteria."
         },
         {
-          "path": "frontend/src/App.tsx",
+          "path": "frontend/src/pages/Dashboard.tsx",
           "operation": "modify",
-          "description": "Integrate the WelcomeDialog component into the App component. Add a state variable (e.g., showWelcomeDialog) initialized to true. Conditionally render the WelcomeDialog when showWelcomeDialog is true. On dismiss, set showWelcomeDialog to false. Place the WelcomeDialog before the ErrorBoundary so it appears on top of all content. The dialog should be shown only once per session (no need for localStorage persistence per the BuildRequest)."
-        }
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "summary": "Fix Android Chrome DOMException removeChild crash",
-      "acceptanceCriteria": [
-        "The app no longer crashes with a DOMException removeChild error on Android Chrome",
-        "The ErrorBoundary screen showing 'Quelque chose s'est mal passé' is no longer triggered by this specific error",
-        "All dialogs, modals, and navigation components render and unmount without DOM errors on Android Chrome"
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/hooks/useSafeTap.ts",
-          "operation": "modify",
-          "description": "Review and strengthen the useSafeTap hook to prevent rapid-fire taps and async state issues. Ensure that the debounce and async-lock logic correctly guard against DOM manipulation errors during concurrent tap events. Add additional safeguards if needed (e.g., check that DOM nodes exist before manipulation, use refs instead of state for transient UI). Verify that the hook is correctly applied to all interactive elements in MobileBottomNav, Calendar dialogs, Journal dialogs, and Reports dialogs."
-        },
-        {
-          "path": "frontend/src/components/MobileBottomNav.tsx",
-          "operation": "modify",
-          "description": "Audit the MobileBottomNav component for safe tab-switching behavior. Ensure that tab change handlers use the useSafeTap hook or equivalent debouncing/locking to prevent rapid consecutive state changes that can cause React to remove child nodes prematurely. Add stable key props to tab buttons if not already present. Verify that no conditional rendering of tab icons or labels can cause removeChild errors."
+          "description": "Import the new time formatting utilities and apply them to all time duration displays in the Dashboard page. Update chart labels, statistic cards, and any aggregated totals to use the hours format (e.g., '7h30' or '7.5h'). Ensure bar charts and pie charts display hours instead of raw minute values. Audit all numeric displays related to heuresTrajet, heuresTravailNormales, heuresAstreinte, and heuresRepas to apply consistent formatting."
         },
         {
           "path": "frontend/src/pages/Calendar.tsx",
           "operation": "modify",
-          "description": "Audit the Calendar page for any conditional rendering or portal usage in the time entry dialog that could trigger removeChild errors on Android Chrome. Ensure that the dialog open/close state transitions are guarded by useSafeTap or similar logic. Add stable keys to dynamically rendered elements (e.g., intervention slots). Verify that dialog unmounting does not attempt to remove nodes that are not children of the expected parent. Test rapid open/close cycles and ensure no DOM errors occur."
-        },
-        {
-          "path": "frontend/src/pages/Journal.tsx",
-          "operation": "modify",
-          "description": "Audit the Journal page for any conditional rendering or portal usage in the journal entry dialog that could trigger removeChild errors on Android Chrome. Ensure that the dialog open/close state transitions are guarded by useSafeTap or similar logic. Add stable keys to dynamically rendered photo and audio elements. Verify that dialog unmounting does not attempt to remove nodes that are not children of the expected parent. Test rapid open/close cycles and ensure no DOM errors occur."
+          "description": "Import the time formatting utilities and apply them throughout the Calendar page. Update the TimeEntryDialog form to display duration values in hours format. Update the day-cell summaries and entry list items to show time values in hours format (e.g., '7h30'). Ensure intervention slot durations, meal hours, and travel hours all use the centralized formatting functions. Verify that startMorning, endMorning, startAfternoon, endAfternoon, startAstreinte, and endAstreinte display correctly when shown as durations."
         },
         {
           "path": "frontend/src/pages/Reports.tsx",
           "operation": "modify",
-          "description": "Audit the Reports page for any conditional rendering or portal usage in dialogs or modals that could trigger removeChild errors on Android Chrome. Ensure that any dialog open/close state transitions are guarded by useSafeTap or similar logic. Add stable keys to dynamically rendered report rows if not already present. Verify that no removeChild errors occur during PDF generation or filter changes."
+          "description": "Import the time formatting utilities and apply them to the Reports page. Update the totals summary section to display heuresTrajet, heuresTravailNormales, heuresAstreinte, and heuresRepas in hours format. Update the report table rows to format all time columns consistently. Ensure the PDF export data preparation also formats time values in hours before passing to the backend (if formatted strings are expected) or document that backend handles PDF formatting separately."
         },
         {
-          "path": "frontend/src/components/ErrorBoundary.tsx",
+          "path": "frontend/src/pages/Journal.tsx",
           "operation": "modify",
-          "description": "Enhance the ErrorBoundary component to log additional context about removeChild errors specifically on Android Chrome. Add a check in componentDidCatch to detect DOMException removeChild errors and log the component stack, recent debug interactions, and any relevant state. This will help diagnose any remaining removeChild issues after the fixes. Do not change the UI or fallback behavior; only improve diagnostics."
+          "description": "Audit the Journal page for any time duration displays. If journal entries reference time-related fields (e.g., dayType statistics or summaries), apply the time formatting utilities to ensure consistency. If no time durations are currently displayed, no changes are needed, but document the audit in a code comment confirming the page was reviewed."
+        },
+        {
+          "path": "frontend/src/components/DayTypeCheckboxGroup.tsx",
+          "operation": "modify",
+          "description": "Review this component for any time-related displays or labels. If day type selections show associated time statistics or summaries, apply the time formatting utilities. If no time values are displayed, document the review in a comment."
         }
       ]
     }

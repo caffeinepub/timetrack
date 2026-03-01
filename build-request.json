@@ -1,57 +1,34 @@
 {
   "kind": "build_request",
-  "title": "Display welcome message on app open + fix Android Chrome removeChild crash",
+  "title": "Display time in hours format throughout the app",
   "projectName": "Heures Tracker",
-  "priority": "high",
+  "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Display a welcome/informational message dialog when the application first opens (on initial load). The message should be dismissible by the user and should not reappear on subsequent visits within the same session. The message content should be configurable and displayed in a modal or banner at app startup.",
+      "text": "Ensure all time durations displayed throughout the application (Dashboard, Calendar, Reports pages) are formatted in hours (e.g., '7h30' or '7.5h') rather than minutes or any other unit. Audit all time-related display values across all pages and components and apply a consistent hours-based format.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-5",
-          "msg-6"
+          "msg-7"
         ],
         "quotes": [
-          "Message a louverture",
-          "Afficher un message à l'ouverture de l'application"
+          "Format horaire en heure stp."
         ]
       },
       "acceptanceCriteria": [
-        "A dialog or modal appears automatically when the app first loads",
-        "The user can dismiss the message with a close/confirm button",
-        "The message does not reappear after being dismissed within the same session",
-        "The message is displayed in English"
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "text": "Investigate and fix the Android Chrome DOMException 'removeChild' crash shown in the uploaded screenshot. The error occurs when a node being removed is not a child of the target node. Audit all components that perform conditional rendering, portal usage, or dynamic DOM manipulation (particularly dialogs, modals, and tab navigation) and apply defensive guards or use stable keying strategies to prevent this crash on Android Chrome.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-5"
-        ],
-        "quotes": [
-          "Échec de l'exécution de 'removeChild' sur 'Node' : le nœud à supprimer n'est pas un enfant de ce nœud."
-        ]
-      },
-      "acceptanceCriteria": [
-        "The app no longer crashes with a DOMException removeChild error on Android Chrome",
-        "The ErrorBoundary screen showing 'Quelque chose s'est mal passé' is no longer triggered by this specific error",
-        "All dialogs, modals, and navigation components render and unmount without DOM errors on Android Chrome"
+        "Time values on the Dashboard page are displayed in hours format (e.g., '7h30' or '7.5h'), not in minutes.",
+        "Time values on the Calendar page entry list and dialogs are displayed in hours format.",
+        "Time values on the Reports page totals and rows are displayed in hours format.",
+        "No time value anywhere in the UI is displayed as a raw number of minutes (e.g., '450' instead of '7h30').",
+        "The hours format is consistent across all pages and components."
       ]
     }
   ],
-  "constraints": [
-    "Do not modify files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui",
-    "The welcome message feature must not require backend changes"
-  ],
+  "constraints": [],
   "nonGoals": [
-    "Changing the overall app layout or navigation structure",
-    "Persisting the dismissed state across multiple sessions or in the backend",
-    "Rewriting the ErrorBoundary component logic beyond fixing the root cause"
+    "Changing how time data is stored in the backend — only display formatting is affected.",
+    "Adding user-configurable time format preferences."
   ],
   "imageRequirements": {
     "required": [],

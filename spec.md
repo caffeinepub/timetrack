@@ -1,10 +1,10 @@
 # Specification
 
 ## Summary
-**Goal:** Display a welcome message dialog on app startup and fix the Android Chrome `removeChild` DOM crash.
+**Goal:** Display all time durations throughout the app in a consistent hours-based format (e.g., '7h30') instead of minutes or other units.
 
 **Planned changes:**
-- Add a dismissible welcome/informational modal that appears automatically when the app first loads, shown only once per session
-- Audit and fix all components with conditional rendering, portals, or dynamic DOM manipulation (dialogs, modals, tab navigation) to prevent the `DOMException: removeChild` crash on Android Chrome using defensive guards or stable keying strategies
+- Audit all time-related display values across Dashboard, Calendar, and Reports pages
+- Format all time durations in hours format (e.g., '7h30' or '7.5h') consistently across all pages and components
 
-**User-visible outcome:** Users see a welcome message when opening the app (dismissible, not repeated in the same session), and the app no longer crashes with the "Quelque chose s'est mal passé" error boundary screen on Android Chrome.
+**User-visible outcome:** All time values shown in the app (Dashboard, Calendar, Reports) appear in hours format rather than as raw minutes or other units.
