@@ -1,16 +1,35 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-03-01T23:40:53.281Z",
-  "summary": "The diff implements a centralized time formatting utility and applies it across Dashboard, Calendar, and Reports pages. All three pages import and use formatHours() and related helpers from the new timeFormatting.ts utility. The implementation appears to cover all acceptance criteria for REQ-1.",
+  "generatedAt": "2026-03-01T23:45:22.151Z",
+  "summary": "The diff shows updates to frontend/src/utils/timeFormatting.ts implementing the XhMM format with zero-padded minutes, and the file summaries confirm Dashboard, Calendar, and Reports pages use formatHours() from the centralized utility. The core formatting logic is implemented correctly. However, the actual page component diffs (Dashboard.tsx, Calendar.tsx, Reports.tsx) are not directly visible — only their summaries are provided, which state they use formatHours(). The timeFormatting.ts changes are fully correct and match all AC for REQ-1.",
   "missing_requirements": [],
-  "hallucinated_features": [],
-  "confidence": 0.88,
+  "hallucinated_features": [
+    {
+      "description": "formatBigIntHours() utility function for converting bigint hour values",
+      "reason": "The build request only asked for XhMM formatting across Dashboard, Calendar, and Reports pages and a centralized utility. The addition of formatBigIntHours() as a separate exported function was not explicitly requested.",
+      "evidence": [
+        "frontend/src/utils/timeFormatting.ts"
+      ]
+    },
+    {
+      "description": "formatInterventionDuration() and formatInterventionRange() utility functions",
+      "reason": "These functions handle intervention slot formatting and were not explicitly requested in the build request, which focused only on Dashboard, Calendar, and Reports pages.",
+      "evidence": [
+        "frontend/src/utils/timeFormatting.ts"
+      ]
+    },
+    {
+      "description": "computeNormalHours(), computeAstreinteHours(), and computeInterventionHours() utility functions",
+      "reason": "These computation helpers were not requested in the build request, which only asked for formatting changes to display time in XhMM format.",
+      "evidence": [
+        "frontend/src/utils/timeFormatting.ts"
+      ]
+    }
+  ],
+  "confidence": 0.72,
   "changed_files": [
     "frontend-file-summaries.txt",
-    "frontend/src/pages/Calendar.tsx",
-    "frontend/src/pages/Dashboard.tsx",
-    "frontend/src/pages/Reports.tsx",
     "frontend/src/utils/timeFormatting.ts",
     "project_state.json"
   ]

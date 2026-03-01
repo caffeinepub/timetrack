@@ -1,48 +1,40 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Display time in hours format throughout the app",
+  "title": "Format time display as hours and minutes (XhMM)",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Ensure all time durations are formatted in hours (e.g., '7h30' or '7.5h') across Dashboard, Calendar, Reports pages and all components",
+      "summary": "Update all time duration displays throughout the application to show time in hours and minutes format (e.g., '7h30' for 7 hours 30 minutes), ensuring both the hours and the two-digit zero-padded minutes are always visible",
       "acceptanceCriteria": [
-        "Time values on the Dashboard page are displayed in hours format (e.g., '7h30' or '7.5h'), not in minutes.",
-        "Time values on the Calendar page entry list and dialogs are displayed in hours format.",
-        "Time values on the Reports page totals and rows are displayed in hours format.",
-        "No time value anywhere in the UI is displayed as a raw number of minutes (e.g., '450' instead of '7h30').",
-        "The hours format is consistent across all pages and components."
+        "Time durations on the Dashboard page display both hours and minutes (e.g., '7h30', '1h05').",
+        "Time durations on the Calendar page display both hours and minutes.",
+        "Time durations on the Reports page (table rows and totals) display both hours and minutes.",
+        "Minutes are always zero-padded to two digits (e.g., '2h05' not '2h5').",
+        "The shared timeFormatting utility (frontend/src/utils/timeFormatting.ts) produces the 'XhMM' format correctly for all callers.",
+        "A duration of 0 minutes displays as '0h00'.",
+        "A duration with no fractional hours (e.g., exactly 3 hours) displays as '3h00'."
       ],
       "file_operations": [
         {
           "path": "frontend/src/utils/timeFormatting.ts",
-          "operation": "create",
-          "description": "Create a centralized time formatting utility module that converts minutes (bigint) to hours format. Provide two functions: formatMinutesToHoursDecimal (e.g., '7.5h') and formatMinutesToHoursMinutes (e.g., '7h30'). Both functions should handle bigint input from the backend and return formatted strings. Include edge cases for zero minutes and validate the output format matches the acceptance criteria."
+          "operation": "modify",
+          "description": "Update the formatHours function to consistently format time as 'XhMM' with zero-padded minutes. Ensure hours are displayed as integers (no decimals) and minutes are always two digits (e.g., '7h30', '2h05', '0h00', '3h00'). Update any other formatting helper functions to maintain consistency across all time displays in the application."
         },
         {
           "path": "frontend/src/pages/Dashboard.tsx",
           "operation": "modify",
-          "description": "Import the new time formatting utilities and apply them to all time duration displays in the Dashboard page. Update chart labels, statistic cards, and any aggregated totals to use the hours format (e.g., '7h30' or '7.5h'). Ensure bar charts and pie charts display hours instead of raw minute values. Audit all numeric displays related to heuresTrajet, heuresTravailNormales, heuresAstreinte, and heuresRepas to apply consistent formatting."
+          "description": "Review all time duration displays on the Dashboard page (totals, chart labels, aggregated statistics) and ensure they use the updated formatHours utility from timeFormatting.ts. Verify that all durations are rendered in 'XhMM' format with zero-padded minutes (e.g., '7h30', '1h05', '0h00')."
         },
         {
           "path": "frontend/src/pages/Calendar.tsx",
           "operation": "modify",
-          "description": "Import the time formatting utilities and apply them throughout the Calendar page. Update the TimeEntryDialog form to display duration values in hours format. Update the day-cell summaries and entry list items to show time values in hours format (e.g., '7h30'). Ensure intervention slot durations, meal hours, and travel hours all use the centralized formatting functions. Verify that startMorning, endMorning, startAfternoon, endAfternoon, startAstreinte, and endAstreinte display correctly when shown as durations."
+          "description": "Review all time duration displays on the Calendar page (day summaries, entry cards, dialog displays) and ensure they use the updated formatHours utility from timeFormatting.ts. Verify that all durations are rendered in 'XhMM' format with zero-padded minutes."
         },
         {
           "path": "frontend/src/pages/Reports.tsx",
           "operation": "modify",
-          "description": "Import the time formatting utilities and apply them to the Reports page. Update the totals summary section to display heuresTrajet, heuresTravailNormales, heuresAstreinte, and heuresRepas in hours format. Update the report table rows to format all time columns consistently. Ensure the PDF export data preparation also formats time values in hours before passing to the backend (if formatted strings are expected) or document that backend handles PDF formatting separately."
-        },
-        {
-          "path": "frontend/src/pages/Journal.tsx",
-          "operation": "modify",
-          "description": "Audit the Journal page for any time duration displays. If journal entries reference time-related fields (e.g., dayType statistics or summaries), apply the time formatting utilities to ensure consistency. If no time durations are currently displayed, no changes are needed, but document the audit in a code comment confirming the page was reviewed."
-        },
-        {
-          "path": "frontend/src/components/DayTypeCheckboxGroup.tsx",
-          "operation": "modify",
-          "description": "Review this component for any time-related displays or labels. If day type selections show associated time statistics or summaries, apply the time formatting utilities. If no time values are displayed, document the review in a comment."
+          "description": "Review all time duration displays on the Reports page (table rows, totals row, filtered summaries) and ensure they use the updated formatHours utility from timeFormatting.ts. Verify that all durations are rendered in 'XhMM' format with zero-padded minutes in both the data rows and the totals/summary sections."
         }
       ]
     }

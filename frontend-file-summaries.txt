@@ -21,5 +21,5 @@
   "frontend/index.html": "HTML entry point with mobile-optimized viewport meta tag supporting safe-area-inset and preventing unwanted zoom while allowing user scaling up to 5x.",
   "frontend/src/utils/weekOptions.ts": "Utility functions for computing ISO week ranges with Monday-start weeks, including functions to get weeks for a given month/year, format week labels with precise dates and years, and check if timestamps fall within week ranges.",
   "frontend/src/components/WelcomeDialog.tsx": "New dismissible welcome dialog component using shadcn/ui Dialog primitives, shown once per session with a title, description, and \"Get Started\" button.",
-  "frontend/src/utils/timeFormatting.ts": "Centralized time formatting utility that converts hour values (stored as bigint/number) to human-readable \"Xh\" or \"XhMM\" format, with helpers for computing normal hours, astreinte hours, intervention durations, and formatting intervention ranges."
+  "frontend/src/utils/timeFormatting.ts": "Centralized time formatting utility that converts hour values to \"XhMM\" format always showing zero-padded minutes (e.g., \"8h00\", \"7h30\", \"0h00\"), with helpers for computing normal hours, astreinte hours, intervention durations, and formatting intervention ranges."
 }

@@ -1,7 +1,7 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-03-01T23:40:53.284Z",
+  "generatedAt": "2026-03-01T23:45:22.154Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
@@ -12,21 +12,16 @@
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Ensure all time durations displayed throughout the application (Dashboard, Calendar, Reports pages) are formatted in hours (e.g., '7h30' or '7.5h') rather than minutes or any other unit. Audit all time-related display values across all pages and components and apply a consistent hours-based format.",
+        "summary": "Update all time duration displays throughout the application (Dashboard, Calendar, Reports pages, and any shared timeFormatting utility) to show time in hours and minutes format (e.g., '7h30' for 7 hours 30 minutes), ensuring both the hours and the two-digit zero-padded minutes are always visible.",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/utils/timeFormatting.ts",
           "frontend/src/pages/Dashboard.tsx",
           "frontend/src/pages/Calendar.tsx",
-          "frontend/src/pages/Reports.tsx",
-          "frontend/src/pages/Journal.tsx",
-          "frontend/src/components/DayTypeCheckboxGroup.tsx"
+          "frontend/src/pages/Reports.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/utils/timeFormatting.ts",
-          "frontend/src/pages/Dashboard.tsx",
-          "frontend/src/pages/Calendar.tsx",
-          "frontend/src/pages/Reports.tsx"
+          "frontend/src/utils/timeFormatting.ts"
         ]
       }
     ]
@@ -36,9 +31,6 @@
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/pages/Calendar.tsx",
-    "frontend/src/pages/Dashboard.tsx",
-    "frontend/src/pages/Reports.tsx",
     "frontend/src/utils/timeFormatting.ts",
     "project_state.json",
     "scratch/component-selection.json",

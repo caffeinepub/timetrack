@@ -10,20 +10,19 @@
  */
 
 /**
- * Format a duration in hours (number) to "Xh" or "XhMM" format.
- * e.g., 7.5 → "7h30", 8 → "8h", 0.25 → "0h15"
+ * Format a duration in hours (number) to "XhMM" format with zero-padded minutes.
+ * e.g., 7.5 → "7h30", 8 → "8h00", 0.25 → "0h15", 0 → "0h00", 2.083... → "2h05"
  */
 export function formatHours(hours: number): string {
-  if (hours === 0) return '0h';
-  const h = Math.floor(Math.abs(hours));
-  const m = Math.round((Math.abs(hours) - h) * 60);
+  const absHours = Math.abs(hours);
+  const h = Math.floor(absHours);
+  const m = Math.round((absHours - h) * 60);
   const sign = hours < 0 ? '-' : '';
-  if (m === 0) return `${sign}${h}h`;
   return `${sign}${h}h${String(m).padStart(2, '0')}`;
 }
 
 /**
- * Format a bigint hour value to "Xh" or "XhMM" format.
+ * Format a bigint hour value to "XhMM" format with zero-padded minutes.
  * Used for heuresRepas, heuresTrajet, and computed normal/astreinte hours.
  */
 export function formatBigIntHours(value: bigint): string {
@@ -31,7 +30,7 @@ export function formatBigIntHours(value: bigint): string {
 }
 
 /**
- * Format an intervention slot duration (in hours and minutes separately) to "Xh" or "XhMM".
+ * Format an intervention slot duration (in hours and minutes separately) to "XhMM".
  * e.g., startHour=8, startMinute=30, endHour=12, endMinute=0 → "3h30"
  */
 export function formatInterventionDuration(
@@ -43,10 +42,9 @@ export function formatInterventionDuration(
   const startTotal = Number(startHour) * 60 + Number(startMinute);
   const endTotal = Number(endHour) * 60 + Number(endMinute);
   const diffMinutes = endTotal - startTotal;
-  if (diffMinutes <= 0) return '0h';
+  if (diffMinutes <= 0) return '0h00';
   const h = Math.floor(diffMinutes / 60);
   const m = diffMinutes % 60;
-  if (m === 0) return `${h}h`;
   return `${h}h${String(m).padStart(2, '0')}`;
 }
 

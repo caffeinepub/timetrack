@@ -1,34 +1,40 @@
 {
   "kind": "build_request",
-  "title": "Display time in hours format throughout the app",
+  "title": "Format time display as hours and minutes (XhMM)",
   "projectName": "Heures Tracker",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Ensure all time durations displayed throughout the application (Dashboard, Calendar, Reports pages) are formatted in hours (e.g., '7h30' or '7.5h') rather than minutes or any other unit. Audit all time-related display values across all pages and components and apply a consistent hours-based format.",
+      "text": "Update all time duration displays throughout the application (Dashboard, Calendar, Reports pages, and any shared timeFormatting utility) to show time in hours and minutes format (e.g., '7h30' for 7 hours 30 minutes), ensuring both the hours and the two-digit zero-padded minutes are always visible.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-7"
+          "msg-4"
         ],
         "quotes": [
-          "Format horaire en heure stp."
+          "Format heure et minute"
         ]
       },
       "acceptanceCriteria": [
-        "Time values on the Dashboard page are displayed in hours format (e.g., '7h30' or '7.5h'), not in minutes.",
-        "Time values on the Calendar page entry list and dialogs are displayed in hours format.",
-        "Time values on the Reports page totals and rows are displayed in hours format.",
-        "No time value anywhere in the UI is displayed as a raw number of minutes (e.g., '450' instead of '7h30').",
-        "The hours format is consistent across all pages and components."
+        "Time durations on the Dashboard page display both hours and minutes (e.g., '7h30', '1h05').",
+        "Time durations on the Calendar page display both hours and minutes.",
+        "Time durations on the Reports page (table rows and totals) display both hours and minutes.",
+        "Minutes are always zero-padded to two digits (e.g., '2h05' not '2h5').",
+        "The shared timeFormatting utility (frontend/src/utils/timeFormatting.ts) produces the 'XhMM' format correctly for all callers.",
+        "A duration of 0 minutes displays as '0h00'.",
+        "A duration with no fractional hours (e.g., exactly 3 hours) displays as '3h00'."
       ]
     }
   ],
-  "constraints": [],
+  "constraints": [
+    "Do not modify files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui.",
+    "Keep all formatting logic centralized in frontend/src/utils/timeFormatting.ts; do not duplicate logic across pages."
+  ],
   "nonGoals": [
-    "Changing how time data is stored in the backend — only display formatting is affected.",
-    "Adding user-configurable time format preferences."
+    "Changing the backend data model or storage format for time entries.",
+    "Adding a user-configurable time format preference.",
+    "Modifying the Journal page time displays (if any)."
   ],
   "imageRequirements": {
     "required": [],

@@ -2,12 +2,9 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-ensure-all-time-durations-displayed-throughout-the-application-dashboard-calendar-reports-pages-are-formatted-in-hours-e-g-7h30-or-7-5h-rather-than-minutes-or-any-other-unit-audit-all-time-related-display-values-across-all-pages-and-components-and-apply-a-consistent-hours-based-format",
-      "featureTitle": "Ensure all time durations displayed throughout the application (Dashboard, Calendar, Reports pages) are formatted in hours (e.g., '7h30' or '7.5h') rather than minutes or any other unit. Audit all time-related display values across all pages and components and apply a consistent hours-based format.",
+      "featureId": "feature-update-all-time-duration-displays-throughout-the-application-dashboard-calendar-reports-pages-and-any-shared-timeformatting-utility-to-show-time-in-hours-and-minutes-format-e-g-7h30-for-7-hours-30-minutes-ensuring-both-the-hours-and-the-two-digit-zero-padded-minutes-are-always-visible",
+      "featureTitle": "Update all time duration displays throughout the application (Dashboard, Calendar, Reports pages, and any shared timeFormatting utility) to show time in hours and minutes format (e.g., '7h30' for 7 hours 30 minutes), ensuring both the hours and the two-digit zero-padded minutes are always visible.",
       "files": [
-        "frontend/src/pages/Calendar.tsx",
-        "frontend/src/pages/Dashboard.tsx",
-        "frontend/src/pages/Reports.tsx",
         "frontend/src/utils/timeFormatting.ts"
       ],
       "components": [

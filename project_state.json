@@ -1,14 +1,14 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "New project",
+  "summary": "Project with a time display feature, formatted in hours and minutes.",
   "architectural_notes": [],
   "known_issues": [],
   "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-ensure-all-time-durations-displayed-throughout-the-application-dashboard-calendar-reports-pages-are-formatted-in-hours-e-g-7h30-or-7-5h-rather-than-minutes-or-any-other-unit-audit-all-time-related-display-values-across-all-pages-and-components-and-apply-a-consistent-hours-based-format",
-      "title": "Ensure all time durations displayed throughout the application (Dashboard, Calendar, Reports pages) are formatted in hours (e.g., '7h30' or '7.5h') rather than minutes or any other unit. Audit all time-related display values across all pages and components and apply a consistent hours-based format.",
+      "id": "feature-update-all-time-duration-displays-throughout-the-application-dashboard-calendar-reports-pages-and-any-shared-timeformatting-utility-to-show-time-in-hours-and-minutes-format-e-g-7h30-for-7-hours-30-minutes-ensuring-both-the-hours-and-the-two-digit-zero-padded-minutes-are-always-visible",
+      "title": "Update all time duration displays throughout the application (Dashboard, Calendar, Reports pages, and any shared timeFormatting utility) to show time in hours and minutes format (e.g., '7h30' for 7 hours 30 minutes), ensuring both the hours and the two-digit zero-padded minutes are always visible.",
       "reqIds": [
         "REQ-1"
       ],
@@ -18,7 +18,7 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Afficher le format horaire en heures (et non en minutes ou autre format)",
+      "summary": "Display time format in hours and minutes (HH:MM)",
       "reqIds": [],
       "status": "pending"
     }
