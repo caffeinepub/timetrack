@@ -1,616 +1,555 @@
-import { useMemo, useState } from 'react';
-import { useGetTimeEntries, useGeneratePdfReportData } from '../hooks/useQueries';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { FileText, Table as TableIcon, Download } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { DayType } from '../backend';
-import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from "@/components/ui/button";
+import {
+  ChevronDown,
+  ChevronUp,
+  Download,
+  FileText,
+  Loader2,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { useGetPdfReportData, useGetTimeEntries } from "../hooks/useQueries";
+import {
+  computeAstreinteHours,
+  computeInterventionHours,
+  computeNormalHours,
+  formatInterventionRange,
+  formatMinutes,
+} from "../utils/timeFormatting";
+import {
+  type WeekOption,
+  getISOWeekNumber,
+  getWeeksForMonth,
+  isDateInWeek,
+} from "../utils/weekOptions";
 
-// Helper function to check if a date is a weekday (Monday-Friday)
-function isWeekday(date: Date): boolean {
-  const day = date.getDay();
-  return day >= 1 && day <= 5; // 1 = Monday, 5 = Friday
-}
+type PeriodType = "weekly" | "monthly";
 
-// Helper function to get week number
-function getWeekNumber(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-}
+const MONTHS = [
+  "Janvier",
+  "Février",
+  "Mars",
+  "Avril",
+  "Mai",
+  "Juin",
+  "Juillet",
+  "Août",
+  "Septembre",
+  "Octobre",
+  "Novembre",
+  "Décembre",
+];
 
 export default function Reports() {
-  const { data: timeEntries = [], isLoading } = useGetTimeEntries();
-  const [reportType, setReportType] = useState<'weekly' | 'monthly'>('monthly');
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('current');
-  const generatePdfData = useGeneratePdfReportData();
+  const { identity } = useInternetIdentity();
+  const { data: allEntries = [], isLoading } = useGetTimeEntries();
+  const { mutateAsync: generatePdf, isPending: isPdfLoading } =
+    useGetPdfReportData();
 
-  const reportData = useMemo(() => {
-    const now = new Date();
-    let filteredEntries = timeEntries;
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth();
 
-    if (reportType === 'monthly') {
-      if (selectedPeriod === 'current') {
-        filteredEntries = timeEntries.filter((entry) => {
-          const date = new Date(Number(entry.date) / 1000000);
-          return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-        });
-      }
-    } else {
-      // Weekly
-      if (selectedPeriod === 'current') {
-        const startOfWeek = new Date(now);
-        startOfWeek.setDate(now.getDate() - now.getDay());
-        startOfWeek.setHours(0, 0, 0, 0);
-        
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 7);
+  const [periodType, setPeriodType] = useState<PeriodType>("monthly");
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedWeekIndex, setSelectedWeekIndex] = useState(0);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
-        filteredEntries = timeEntries.filter((entry) => {
-          const date = new Date(Number(entry.date) / 1000000);
-          return date >= startOfWeek && date < endOfWeek;
-        });
-      }
+  const years = useMemo(() => {
+    const y: number[] = [];
+    for (let i = currentYear - 2; i <= currentYear + 1; i++) y.push(i);
+    return y;
+  }, [currentYear]);
+
+  const weeksForMonth = useMemo(
+    () => getWeeksForMonth(selectedYear, selectedMonth + 1),
+    [selectedMonth, selectedYear],
+  );
+
+  const safeWeekIndex = Math.min(
+    selectedWeekIndex,
+    Math.max(0, weeksForMonth.length - 1),
+  );
+
+  const userEntries = useMemo(() => {
+    if (!identity) return [];
+    const principal = identity.getPrincipal().toString();
+    return allEntries.filter((e) => e.user.toString() === principal);
+  }, [allEntries, identity]);
+
+  const filteredEntries = useMemo(() => {
+    return userEntries
+      .filter((entry) => {
+        const date = new Date(Number(entry.date) / 1_000_000);
+        const entryYear = date.getFullYear();
+        if (periodType === "monthly") {
+          return (
+            entryYear === selectedYear && date.getMonth() === selectedMonth
+          );
+        }
+        const week: WeekOption | undefined = weeksForMonth[safeWeekIndex];
+        if (!week) return false;
+        return isDateInWeek(entry.date, week.startDate, week.endDate);
+      })
+      .sort((a, b) => Number(a.date) - Number(b.date));
+  }, [
+    userEntries,
+    periodType,
+    selectedYear,
+    selectedMonth,
+    safeWeekIndex,
+    weeksForMonth,
+  ]);
+
+  const totals = useMemo(() => {
+    let totalNormal = 0;
+    let totalAstreinte = 0;
+    let totalRepas = 0;
+    let totalTrajet = 0;
+    let totalIntervention = 0;
+
+    for (const entry of filteredEntries) {
+      totalNormal += computeNormalHours(entry);
+      totalAstreinte += computeAstreinteHours(entry);
+      totalRepas += Number(entry.heuresRepas);
+      totalTrajet += Number(entry.heuresTrajet);
+      totalIntervention += computeInterventionHours(entry.interventionSlots);
     }
-
-    // Count work days: regular work days + weekday on-call days
-    let workDaysCount = 0;
-    const workEntries = filteredEntries.filter((e) => e.typeOfDay === DayType.work);
-    workDaysCount += workEntries.length;
-    
-    const astreinteEntries = filteredEntries.filter((e) => e.typeOfDay === DayType.astreinte);
-    astreinteEntries.forEach((entry) => {
-      const date = new Date(Number(entry.date) / 1000000);
-      if (isWeekday(date)) {
-        workDaysCount++;
-      }
-    });
-
-    const congeEntries = filteredEntries.filter((e) => e.typeOfDay === DayType.conge);
-
-    // Calculate total hours from time differences
-    const totalHeuresNormales = filteredEntries.reduce((sum, entry) => {
-      const morning = (Number(entry.endMorning) - Number(entry.startMorning)) / 60;
-      const afternoon = (Number(entry.endAfternoon) - Number(entry.startAfternoon)) / 60;
-      return sum + morning + afternoon;
-    }, 0);
-
-    const totalHeuresAstreinte = filteredEntries.reduce((sum, entry) => {
-      if (entry.startAstreinte !== undefined && entry.endAstreinte !== undefined) {
-        return sum + (Number(entry.endAstreinte) - Number(entry.startAstreinte)) / 60;
-      }
-      return sum;
-    }, 0);
-
-    const totalHeuresRepas = filteredEntries.reduce((sum, entry) => {
-      return sum + Number(entry.heuresRepas) / 60;
-    }, 0);
-
-    const totalHeuresTrajet = filteredEntries.reduce((sum, entry) => {
-      return sum + Number(entry.heuresTrajet) / 60;
-    }, 0);
 
     return {
-      entries: filteredEntries.sort((a, b) => Number(b.date - a.date)),
-      totalHeuresNormales: Math.round(totalHeuresNormales * 10) / 10,
-      totalHeuresAstreinte: Math.round(totalHeuresAstreinte * 10) / 10,
-      totalHeuresRepas: Math.round(totalHeuresRepas * 10) / 10,
-      totalHeuresTrajet: Math.round(totalHeuresTrajet * 10) / 10,
-      workDays: workDaysCount,
-      congeDays: congeEntries.length,
-      astreinteDays: astreinteEntries.length,
+      totalNormal,
+      totalAstreinte,
+      totalRepas,
+      totalTrajet,
+      totalIntervention,
     };
-  }, [timeEntries, reportType, selectedPeriod]);
+  }, [filteredEntries]);
 
-  const handleExportCSV = () => {
-    const headers = ['Date', 'Jour', 'Type', 'Début Matin', 'Fin Matin', 'Début Après-midi', 'Fin Après-midi', 'Début Astreinte', 'Fin Astreinte', 'Heures Normales', 'Heures Astreinte', 'Heures Repas', 'Heures Trajet', 'Description'];
-    const rows = reportData.entries.map((entry) => {
-      const date = new Date(Number(entry.date) / 1000000);
-      const dayName = date.toLocaleDateString('fr-FR', { weekday: 'long' });
-      const isWeekdayDate = isWeekday(date);
-      
-      let type = entry.typeOfDay === DayType.work ? 'Travail' : 
-                 entry.typeOfDay === DayType.conge ? 'Congé' : 'Astreinte';
-      
-      // Add indicator for weekday on-call days
-      if (entry.typeOfDay === DayType.astreinte && isWeekdayDate) {
-        type += ' (Travail+Astreinte)';
-      }
-      
-      const startMorning = entry.typeOfDay !== DayType.conge ? 
-        `${Math.floor(Number(entry.startMorning) / 60)}:${String(Number(entry.startMorning) % 60).padStart(2, '0')}` : '-';
-      const endMorning = entry.typeOfDay !== DayType.conge ? 
-        `${Math.floor(Number(entry.endMorning) / 60)}:${String(Number(entry.endMorning) % 60).padStart(2, '0')}` : '-';
-      const startAfternoon = entry.typeOfDay !== DayType.conge ? 
-        `${Math.floor(Number(entry.startAfternoon) / 60)}:${String(Number(entry.startAfternoon) % 60).padStart(2, '0')}` : '-';
-      const endAfternoon = entry.typeOfDay !== DayType.conge ? 
-        `${Math.floor(Number(entry.endAfternoon) / 60)}:${String(Number(entry.endAfternoon) % 60).padStart(2, '0')}` : '-';
-      
-      const startAstreinte = entry.startAstreinte !== undefined ?
-        `${Math.floor(Number(entry.startAstreinte) / 60)}:${String(Number(entry.startAstreinte) % 60).padStart(2, '0')}` : '-';
-      const endAstreinte = entry.endAstreinte !== undefined ?
-        `${Math.floor(Number(entry.endAstreinte) / 60)}:${String(Number(entry.endAstreinte) % 60).padStart(2, '0')}` : '-';
-      
-      const heuresNormales = Math.round(((Number(entry.endMorning) - Number(entry.startMorning)) + (Number(entry.endAfternoon) - Number(entry.startAfternoon))) / 60 * 10) / 10;
-      const heuresAstreinte = entry.startAstreinte !== undefined && entry.endAstreinte !== undefined ?
-        Math.round((Number(entry.endAstreinte) - Number(entry.startAstreinte)) / 60 * 10) / 10 : 0;
-      const heuresRepas = Math.round(Number(entry.heuresRepas) / 60 * 10) / 10;
-      const heuresTrajet = Math.round(Number(entry.heuresTrajet) / 60 * 10) / 10;
-      
+  const handleExportCsv = () => {
+    const headers = [
+      "Date",
+      "Type",
+      "Heures normales",
+      "Astreinte",
+      "Interventions",
+      "Repas",
+      "Trajet",
+      "Description",
+    ];
+    const rows = filteredEntries.map((entry) => {
+      const date = new Date(Number(entry.date) / 1_000_000);
+      const dateStr = date.toLocaleDateString("fr-FR");
+      const typeMap: Record<string, string> = {
+        work: "Travail",
+        conge: "Congé",
+        astreinte: "Astreinte",
+      };
       return [
-        date.toLocaleDateString('fr-FR'),
-        dayName,
-        type,
-        startMorning,
-        endMorning,
-        startAfternoon,
-        endAfternoon,
-        startAstreinte,
-        endAstreinte,
-        heuresNormales,
-        heuresAstreinte,
-        heuresRepas,
-        heuresTrajet,
-        entry.description || '-'
-      ];
+        dateStr,
+        typeMap[entry.typeOfDay] ?? entry.typeOfDay,
+        formatMinutes(computeNormalHours(entry)),
+        formatMinutes(computeAstreinteHours(entry)),
+        formatMinutes(computeInterventionHours(entry.interventionSlots)),
+        formatMinutes(Number(entry.heuresRepas)),
+        formatMinutes(Number(entry.heuresTrajet)),
+        `"${entry.description.replace(/"/g, '""')}"`,
+      ].join(",");
     });
-
-    const csv = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `rapport-${reportType}-${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `rapport_${periodType === "monthly" ? `${selectedMonth + 1}_${selectedYear}` : `sem${safeWeekIndex + 1}_${selectedYear}`}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
-  const handleExportPDF = async () => {
+  const handleExportPdf = async () => {
+    if (!identity) return;
+    const principal = identity.getPrincipal();
     try {
-      const now = new Date();
-      const period = reportType === 'monthly' 
-        ? { month: now.getMonth() + 1, year: now.getFullYear() }
-        : { week: getWeekNumber(now), year: now.getFullYear() };
-
-      const pdfData = await generatePdfData.mutateAsync({ reportType, period });
-      
-      // Generate PDF using canvas
-      generatePDFFromData(pdfData);
-      
-      toast.success('PDF généré avec succès');
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      toast.error('Erreur lors de la génération du PDF');
+      if (periodType === "monthly") {
+        await generatePdf({
+          typePeriode: {
+            __kind__: "mois",
+            mois: [BigInt(selectedMonth + 1), BigInt(selectedYear)],
+          },
+          user: principal,
+        });
+      } else {
+        const week: WeekOption | undefined = weeksForMonth[safeWeekIndex];
+        if (!week) return;
+        const weekNum = getISOWeekNumber(week.startDate);
+        await generatePdf({
+          typePeriode: {
+            __kind__: "semaine",
+            semaine: [BigInt(weekNum), BigInt(selectedYear)],
+          },
+          user: principal,
+        });
+      }
+    } catch (e) {
+      console.error("PDF generation error:", e);
     }
   };
 
-  const generatePDFFromData = (data: any) => {
-    // Create a new window for PDF generation
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error('Veuillez autoriser les pop-ups pour générer le PDF');
-      return;
-    }
+  const formatDate = (timestamp: bigint) => {
+    const date = new Date(Number(timestamp) / 1_000_000);
+    return date.toLocaleDateString("fr-FR", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+    });
+  };
 
-    const html = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>${data.titre}</title>
-        <style>
-          @page {
-            size: A4;
-            margin: 20mm;
-          }
-          body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            color: #333;
-          }
-          .header {
-            text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 2px solid #2563eb;
-            padding-bottom: 15px;
-          }
-          .header h1 {
-            margin: 0 0 10px 0;
-            color: #1e40af;
-            font-size: 28px;
-          }
-          .header p {
-            margin: 5px 0;
-            color: #64748b;
-            font-size: 14px;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            font-size: 11px;
-          }
-          th {
-            background-color: #2563eb;
-            color: white;
-            padding: 10px 8px;
-            text-align: left;
-            font-weight: 600;
-            border: 1px solid #1e40af;
-          }
-          td {
-            padding: 8px;
-            border: 1px solid #e2e8f0;
-          }
-          tr:nth-child(even) {
-            background-color: #f8fafc;
-          }
-          .totals {
-            margin-top: 30px;
-            padding: 20px;
-            background-color: #f1f5f9;
-            border-radius: 8px;
-            border-left: 4px solid #2563eb;
-          }
-          .totals h2 {
-            margin: 0 0 15px 0;
-            color: #1e40af;
-            font-size: 18px;
-          }
-          .totals-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-          }
-          .total-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 12px;
-            background-color: white;
-            border-radius: 4px;
-            border: 1px solid #e2e8f0;
-          }
-          .total-label {
-            font-weight: 600;
-            color: #475569;
-          }
-          .total-value {
-            font-weight: 700;
-            color: #1e40af;
-            font-size: 16px;
-          }
-          .footer {
-            margin-top: 40px;
-            text-align: center;
-            font-size: 10px;
-            color: #94a3b8;
-            border-top: 1px solid #e2e8f0;
-            padding-top: 15px;
-          }
-          @media print {
-            body {
-              padding: 0;
-            }
-            .no-print {
-              display: none;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>${data.titre}</h1>
-          <p>${data.periode}</p>
-          <p>Généré le ${new Date(Number(data.exportTimestamp) / 1000000).toLocaleDateString('fr-FR', { 
-            day: 'numeric', 
-            month: 'long', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}</p>
-        </div>
+  const typeLabel: Record<string, string> = {
+    work: "Travail",
+    conge: "Congé",
+    astreinte: "Astreinte",
+  };
 
-        <table>
-          <thead>
-            <tr>
-              ${data.enteteTableau.map((header: string) => `<th>${header}</th>`).join('')}
-            </tr>
-          </thead>
-          <tbody>
-            ${data.lignesTableau.map((row: string[]) => `
-              <tr>
-                ${row.map(cell => `<td>${cell}</td>`).join('')}
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+  // Color-coded badges per type
+  const typeBadgeClass: Record<string, string> = {
+    work: "bg-blue-100 text-blue-700",
+    conge: "bg-emerald-100 text-emerald-700",
+    astreinte: "bg-orange-100 text-orange-700",
+  };
 
-        <div class="totals">
-          <h2>📊 Totaux</h2>
-          <div class="totals-grid">
-            <div class="total-item">
-              <span class="total-label">Heures normales :</span>
-              <span class="total-value">${data.totaux.heuresTravailNormales}</span>
-            </div>
-            <div class="total-item">
-              <span class="total-label">Heures astreinte :</span>
-              <span class="total-value">${data.totaux.heuresAstreinte}</span>
-            </div>
-            <div class="total-item">
-              <span class="total-label">Heures repas :</span>
-              <span class="total-value">${data.totaux.heuresRepas}</span>
-            </div>
-            <div class="total-item">
-              <span class="total-label">Heures trajet :</span>
-              <span class="total-value">${data.totaux.heuresTrajet}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="footer">
-          <p>© 2025. Généré avec ❤️ par caffeine.ai</p>
-        </div>
-
-        <script>
-          window.onload = function() {
-            window.print();
-          };
-        </script>
-      </body>
-      </html>
-    `;
-
-    printWindow.document.write(html);
-    printWindow.document.close();
+  const typeDotClass: Record<string, string> = {
+    work: "bg-blue-600",
+    conge: "bg-emerald-600",
+    astreinte: "bg-orange-500",
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Chargement des rapports...</p>
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Rapports</h2>
-        <p className="text-sm md:text-base text-muted-foreground">Exportez vos données de temps de travail</p>
-      </div>
-
-      <div className="p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
-        <p className="text-xs sm:text-sm text-blue-900 dark:text-blue-100">
-          <strong>Note :</strong> Les jours d'astreinte en semaine (lundi-vendredi) sont comptés à la fois dans les jours travaillés et les jours d'astreinte. Les heures d'astreinte sont calculées à partir des créneaux horaires précis.
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Configuration du rapport</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Type de rapport</label>
-              <Select value={reportType} onValueChange={(value: any) => setReportType(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="weekly">Hebdomadaire</SelectItem>
-                  <SelectItem value="monthly">Mensuel</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Période</label>
-              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="current">
-                    {reportType === 'monthly' ? 'Mois en cours' : 'Semaine en cours'}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button onClick={handleExportCSV} className="gap-2 w-full sm:w-auto">
-              <TableIcon className="w-4 h-4" />
-              Exporter en CSV
-            </Button>
-            <Button 
-              onClick={handleExportPDF} 
-              variant="outline" 
-              className="gap-2 w-full sm:w-auto"
-              disabled={generatePdfData.isPending}
+    <div className="space-y-6 pb-6">
+      {/* Controls */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex rounded-lg overflow-hidden border border-border">
+          {(["monthly", "weekly"] as PeriodType[]).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setPeriodType(p)}
+              data-ocid={`reports.${p}_period.tab`}
+              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                periodType === p
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card text-muted-foreground hover:bg-muted"
+              }`}
             >
-              {generatePdfData.isPending ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  Génération...
-                </>
-              ) : (
-                <>
-                  <FileText className="w-4 h-4" />
-                  Exporter en PDF
-                </>
-              )}
-            </Button>
+              {p === "monthly" ? "Mensuel" : "Hebdomadaire"}
+            </button>
+          ))}
+        </div>
+
+        <select
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(Number(e.target.value))}
+          className="px-3 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground"
+          data-ocid="reports.year.select"
+        >
+          {years.map((y) => (
+            <option key={y} value={y}>
+              {y}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={selectedMonth}
+          onChange={(e) => {
+            setSelectedMonth(Number(e.target.value));
+            setSelectedWeekIndex(0);
+          }}
+          className="px-3 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground"
+          data-ocid="reports.month.select"
+        >
+          {MONTHS.map((m) => (
+            <option key={m} value={MONTHS.indexOf(m)}>
+              {m}
+            </option>
+          ))}
+        </select>
+
+        {periodType === "weekly" && weeksForMonth.length > 0 && (
+          <select
+            value={safeWeekIndex}
+            onChange={(e) => setSelectedWeekIndex(Number(e.target.value))}
+            className="px-3 py-1.5 text-sm rounded-lg border border-border bg-card text-foreground"
+            data-ocid="reports.week.select"
+          >
+            {weeksForMonth.map((week) => (
+              <option key={week.label} value={weeksForMonth.indexOf(week)}>
+                {week.label}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <div className="flex gap-2 ml-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCsv}
+            disabled={filteredEntries.length === 0}
+            data-ocid="reports.export_csv.button"
+          >
+            <Download className="w-4 h-4 mr-1" />
+            CSV
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPdf}
+            disabled={filteredEntries.length === 0 || isPdfLoading || !identity}
+            data-ocid="reports.export_pdf.button"
+          >
+            {isPdfLoading ? (
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            ) : (
+              <FileText className="w-4 h-4 mr-1" />
+            )}
+            PDF
+          </Button>
+        </div>
+      </div>
+
+      {/* Totals summary */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        {[
+          {
+            label: "Heures travail",
+            value: formatMinutes(totals.totalNormal),
+            colorClass: "text-blue-600",
+          },
+          {
+            label: "Astreinte",
+            value: formatMinutes(totals.totalAstreinte),
+            colorClass: "text-orange-500",
+          },
+          {
+            label: "Interventions",
+            value: formatMinutes(totals.totalIntervention),
+            colorClass: "text-foreground",
+          },
+          {
+            label: "Repas",
+            value: formatMinutes(totals.totalRepas),
+            colorClass: "text-slate-500",
+          },
+          {
+            label: "Trajet",
+            value: formatMinutes(totals.totalTrajet),
+            colorClass: "text-slate-400",
+          },
+        ].map((item) => (
+          <div
+            key={item.label}
+            className="bg-card rounded-xl border border-border p-3 text-center"
+          >
+            <p className={`text-xl font-bold ${item.colorClass}`}>
+              {item.value}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">{item.label}</p>
           </div>
-        </CardContent>
-      </Card>
+        ))}
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Résumé</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3 sm:gap-4">
-            <div className="text-center p-3 sm:p-4 bg-muted/50 rounded-lg">
-              <div className="text-xl sm:text-2xl font-bold text-foreground">{reportData.totalHeuresNormales}h</div>
-              <div className="text-xs sm:text-sm text-muted-foreground">Heures normales</div>
-            </div>
-            <div className="text-center p-3 sm:p-4 bg-muted/50 rounded-lg">
-              <div className="text-xl sm:text-2xl font-bold text-foreground">{reportData.totalHeuresAstreinte}h</div>
-              <div className="text-xs sm:text-sm text-muted-foreground">Heures astreinte</div>
-            </div>
-            <div className="text-center p-3 sm:p-4 bg-muted/50 rounded-lg">
-              <div className="text-xl sm:text-2xl font-bold text-foreground">{reportData.totalHeuresRepas}h</div>
-              <div className="text-xs sm:text-sm text-muted-foreground">Heures repas</div>
-            </div>
-            <div className="text-center p-3 sm:p-4 bg-muted/50 rounded-lg">
-              <div className="text-xl sm:text-2xl font-bold text-foreground">{reportData.totalHeuresTrajet}h</div>
-              <div className="text-xs sm:text-sm text-muted-foreground">Heures trajet</div>
-            </div>
-            <div className="text-center p-3 sm:p-4 bg-muted/50 rounded-lg">
-              <div className="text-xl sm:text-2xl font-bold text-foreground">{reportData.workDays}</div>
-              <div className="text-xs sm:text-sm text-muted-foreground">Jours travaillés</div>
-              <div className="text-[0.65rem] text-muted-foreground mt-1">(incl. astreintes semaine)</div>
-            </div>
-            <div className="text-center p-3 sm:p-4 bg-muted/50 rounded-lg">
-              <div className="text-xl sm:text-2xl font-bold text-foreground">{reportData.congeDays}</div>
-              <div className="text-xs sm:text-sm text-muted-foreground">Jours de congé</div>
-            </div>
-            <div className="text-center p-3 sm:p-4 bg-muted/50 rounded-lg">
-              <div className="text-xl sm:text-2xl font-bold text-foreground">{reportData.astreinteDays}</div>
-              <div className="text-xs sm:text-sm text-muted-foreground">Jours d'astreinte</div>
-            </div>
+      {/* Entries table */}
+      {filteredEntries.length === 0 ? (
+        <div
+          className="text-center py-12 text-muted-foreground"
+          data-ocid="reports.entries.empty_state"
+        >
+          <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="text-sm">Aucune entrée pour cette période</p>
+        </div>
+      ) : (
+        <div
+          className="bg-card rounded-xl border border-border overflow-hidden"
+          data-ocid="reports.entries.table"
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/50">
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+                    Date
+                  </th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">
+                    Type
+                  </th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">
+                    Normal
+                  </th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">
+                    Astreinte
+                  </th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">
+                    Repas
+                  </th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">
+                    Trajet
+                  </th>
+                  <th className="text-right px-4 py-3 font-medium text-muted-foreground">
+                    Interv.
+                  </th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {filteredEntries.map((entry) => {
+                  const normal = computeNormalHours(entry);
+                  const astreinte = computeAstreinteHours(entry);
+                  const intervention = computeInterventionHours(
+                    entry.interventionSlots,
+                  );
+                  const isExpanded = expandedRow === entry.id;
+                  const hasDetails =
+                    entry.interventionSlots.length > 0 || !!entry.description;
+
+                  return (
+                    <>
+                      <tr
+                        key={entry.id}
+                        className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
+                        onClick={() =>
+                          setExpandedRow(isExpanded ? null : entry.id)
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter")
+                            setExpandedRow(isExpanded ? null : entry.id);
+                        }}
+                        data-ocid="reports.entry.row"
+                      >
+                        <td className="px-4 py-3 font-medium text-foreground">
+                          {formatDate(entry.date)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${typeBadgeClass[entry.typeOfDay] ?? ""}`}
+                          >
+                            <span
+                              className={`w-2 h-2 rounded-full ${typeDotClass[entry.typeOfDay] ?? "bg-muted"}`}
+                            />
+                            {typeLabel[entry.typeOfDay] ?? entry.typeOfDay}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right text-blue-600 font-medium">
+                          {formatMinutes(normal)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-orange-500 font-medium">
+                          {formatMinutes(astreinte)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-slate-500">
+                          {formatMinutes(Number(entry.heuresRepas))}
+                        </td>
+                        <td className="px-4 py-3 text-right text-slate-400">
+                          {formatMinutes(Number(entry.heuresTrajet))}
+                        </td>
+                        <td className="px-4 py-3 text-right text-foreground">
+                          {formatMinutes(intervention)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {hasDetails &&
+                            (isExpanded ? (
+                              <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                            ))}
+                        </td>
+                      </tr>
+                      {isExpanded && (
+                        <tr key={`${entry.id}-detail`} className="bg-muted/20">
+                          <td colSpan={8} className="px-4 py-3">
+                            {entry.description && (
+                              <p className="text-sm text-muted-foreground mb-2 italic">
+                                "{entry.description}"
+                              </p>
+                            )}
+                            {entry.interventionSlots.length > 0 && (
+                              <div>
+                                <p className="text-xs font-semibold text-foreground mb-1">
+                                  Interventions :
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {entry.interventionSlots.map((slot) => {
+                                    const slotMin =
+                                      Number(slot.endHour) * 60 +
+                                      Number(slot.endMinute) -
+                                      (Number(slot.startHour) * 60 +
+                                        Number(slot.startMinute));
+                                    const slotKey = `${slot.startHour}-${slot.startMinute}-${slot.endHour}-${slot.endMinute}`;
+                                    return (
+                                      <span
+                                        key={slotKey}
+                                        className="text-xs bg-orange-50 border border-orange-200 rounded px-2 py-1 text-orange-700"
+                                      >
+                                        {formatInterventionRange(
+                                          slot.startHour,
+                                          slot.startMinute,
+                                          slot.endHour,
+                                          slot.endMinute,
+                                        )}{" "}
+                                        ({formatMinutes(slotMin)})
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                            {entry.startAstreinte != null &&
+                              entry.endAstreinte != null && (
+                                <p className="text-xs text-orange-600 mt-1">
+                                  Astreinte :{" "}
+                                  {formatMinutes(Number(entry.startAstreinte))}{" "}
+                                  → {formatMinutes(Number(entry.endAstreinte))}
+                                </p>
+                              )}
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-border bg-muted/50 font-semibold">
+                  <td className="px-4 py-3 text-foreground" colSpan={2}>
+                    Total
+                  </td>
+                  <td className="px-4 py-3 text-right text-blue-600">
+                    {formatMinutes(totals.totalNormal)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-orange-500">
+                    {formatMinutes(totals.totalAstreinte)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-500">
+                    {formatMinutes(totals.totalRepas)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-400">
+                    {formatMinutes(totals.totalTrajet)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-foreground">
+                    {formatMinutes(totals.totalIntervention)}
+                  </td>
+                  <td />
+                </tr>
+              </tfoot>
+            </table>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Détails des entrées</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {reportData.entries.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Aucune donnée pour cette période
-            </div>
-          ) : (
-            <ScrollArea className="w-full">
-              <div className="min-w-[800px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Horaires travail</TableHead>
-                      <TableHead>Horaires astreinte</TableHead>
-                      <TableHead>H. Normales</TableHead>
-                      <TableHead>H. Astreinte</TableHead>
-                      <TableHead>H. Repas</TableHead>
-                      <TableHead>H. Trajet</TableHead>
-                      <TableHead>Description</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {reportData.entries.map((entry) => {
-                      const date = new Date(Number(entry.date) / 1000000);
-                      const isWeekdayDate = isWeekday(date);
-                      const heuresNormales = Math.round(((Number(entry.endMorning) - Number(entry.startMorning)) + (Number(entry.endAfternoon) - Number(entry.startAfternoon))) / 60 * 10) / 10;
-                      const heuresAstreinte = entry.startAstreinte !== undefined && entry.endAstreinte !== undefined ?
-                        Math.round((Number(entry.endAstreinte) - Number(entry.startAstreinte)) / 60 * 10) / 10 : 0;
-                      const heuresRepas = Math.round(Number(entry.heuresRepas) / 60 * 10) / 10;
-                      const heuresTrajet = Math.round(Number(entry.heuresTrajet) / 60 * 10) / 10;
-
-                      const formatTime = (minutes: bigint) => {
-                        const h = Math.floor(Number(minutes) / 60);
-                        const m = Number(minutes) % 60;
-                        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                      };
-
-                      return (
-                        <TableRow key={entry.id}>
-                          <TableCell>
-                            {date.toLocaleDateString('fr-FR', {
-                              weekday: 'short',
-                              day: 'numeric',
-                              month: 'short',
-                            })}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {entry.typeOfDay === DayType.work && (
-                                <Badge variant="default">Travail</Badge>
-                              )}
-                              {entry.typeOfDay === DayType.conge && (
-                                <Badge variant="secondary" className="bg-purple-500 text-white">
-                                  Congé
-                                </Badge>
-                              )}
-                              {entry.typeOfDay === DayType.astreinte && (
-                                <>
-                                  <Badge variant="secondary" className="bg-orange-500 text-white">
-                                    Astreinte
-                                  </Badge>
-                                  {isWeekdayDate && (
-                                    <Badge variant="outline" className="text-xs bg-green-50 dark:bg-green-950 border-green-400">
-                                      +Travail
-                                    </Badge>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {entry.typeOfDay !== DayType.conge ? (
-                              <div className="space-y-1">
-                                <div>M: {formatTime(entry.startMorning)}-{formatTime(entry.endMorning)}</div>
-                                <div>AM: {formatTime(entry.startAfternoon)}-{formatTime(entry.endAfternoon)}</div>
-                              </div>
-                            ) : '-'}
-                          </TableCell>
-                          <TableCell className="text-xs">
-                            {entry.startAstreinte !== undefined && entry.endAstreinte !== undefined ? (
-                              <div className="text-orange-600 dark:text-orange-400 font-medium">
-                                {formatTime(entry.startAstreinte)}-{formatTime(entry.endAstreinte)}
-                              </div>
-                            ) : '-'}
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {heuresNormales > 0 ? `${heuresNormales}h` : '-'}
-                          </TableCell>
-                          <TableCell className="font-medium text-orange-600 dark:text-orange-400">
-                            {heuresAstreinte > 0 ? `${heuresAstreinte}h` : '-'}
-                          </TableCell>
-                          <TableCell className="font-medium text-rose-600 dark:text-rose-400">
-                            {heuresRepas > 0 ? `${heuresRepas}h` : '-'}
-                          </TableCell>
-                          <TableCell className="font-medium text-cyan-600 dark:text-cyan-400">
-                            {heuresTrajet > 0 ? `${heuresTrajet}h` : '-'}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {entry.description || '-'}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
     </div>
   );
 }

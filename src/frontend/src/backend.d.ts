@@ -50,6 +50,7 @@ export interface TimeEntryInput {
     description: string;
     startMorning: bigint;
     endAstreinte?: bigint;
+    interventionSlots: Array<InterventionSlot>;
     startAstreinte?: bigint;
     endMorning: bigint;
     endAfternoon: bigint;
@@ -62,6 +63,12 @@ export interface Totals {
     heuresTravailNormales: bigint;
     heuresAstreinte: bigint;
     heuresRepas: bigint;
+}
+export interface InterventionSlot {
+    endHour: bigint;
+    endMinute: bigint;
+    startMinute: bigint;
+    startHour: bigint;
 }
 export interface PdfReportData {
     titre: string;
@@ -95,6 +102,7 @@ export interface TimeEntry {
     description: string;
     startMorning: bigint;
     endAstreinte?: bigint;
+    interventionSlots: Array<InterventionSlot>;
     startAstreinte?: bigint;
     endMorning: bigint;
     endAfternoon: bigint;

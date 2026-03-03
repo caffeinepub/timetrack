@@ -1,18 +1,41 @@
-import { useState, useRef, useEffect } from 'react';
-import { useGetJournalEntries, useSaveJournalEntry, useUpdateJournalEntry, useDeleteJournalEntry } from '../hooks/useQueries';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Mic, Square, Plus, Edit, Trash2, Save, AlertCircle, Upload, X, Image as ImageIcon } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Label } from '@/components/ui/label';
-import { ExternalBlob, DayType } from '../backend';
-import { toast } from 'sonner';
-import { DayTypeCheckboxGroup } from '../components/DayTypeCheckboxGroup';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertCircle,
+  Edit,
+  Image as ImageIcon,
+  Mic,
+  Plus,
+  Save,
+  Square,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { DayType, ExternalBlob } from "../backend";
+import { DayTypeCheckboxGroup } from "../components/DayTypeCheckboxGroup";
+import {
+  useDeleteJournalEntry,
+  useGetJournalEntries,
+  useSaveJournalEntry,
+  useUpdateJournalEntry,
+} from "../hooks/useQueries";
 
-type MicrophonePermissionState = 'checking' | 'granted' | 'denied' | 'error';
+type MicrophonePermissionState = "checking" | "granted" | "denied" | "error";
 
 export default function Journal() {
   const { data: journalEntries = [], isLoading } = useGetJournalEntries();
@@ -24,13 +47,16 @@ export default function Journal() {
   const [isRecording, setIsRecording] = useState(false);
   const [editingEntry, setEditingEntry] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    transcription: '',
-    notes: '',
+    transcription: "",
+    notes: "",
     photos: [] as ExternalBlob[],
     dayType: DayType.work,
   });
-  const [micPermission, setMicPermission] = useState<MicrophonePermissionState>('checking');
-  const [uploadProgress, setUploadProgress] = useState<{ [key: number]: number }>({});
+  const [micPermission, setMicPermission] =
+    useState<MicrophonePermissionState>("checking");
+  const [uploadProgress, setUploadProgress] = useState<{
+    [key: number]: number;
+  }>({});
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -41,18 +67,23 @@ export default function Journal() {
   useEffect(() => {
     const requestMicrophonePermission = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach((track) => track.stop());
-        setMicPermission('granted');
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+        for (const track of stream.getTracks()) track.stop();
+        setMicPermission("granted");
       } catch (error: any) {
-        console.error('Microphone permission error:', error);
-        
-        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-          setMicPermission('denied');
-        } else if (error.name === 'NotFoundError') {
-          setMicPermission('error');
+        console.error("Microphone permission error:", error);
+
+        if (
+          error.name === "NotAllowedError" ||
+          error.name === "PermissionDeniedError"
+        ) {
+          setMicPermission("denied");
+        } else if (error.name === "NotFoundError") {
+          setMicPermission("error");
         } else {
-          setMicPermission('denied');
+          setMicPermission("denied");
         }
       }
     };
@@ -74,27 +105,35 @@ export default function Journal() {
       };
 
       mediaRecorder.onstop = async () => {
-        const simulatedTranscription = 'Transcription automatique non disponible. Veuillez ajouter vos notes manuellement.';
-        
+        const simulatedTranscription =
+          "Transcription automatique non disponible. Veuillez ajouter vos notes manuellement.";
+
         setFormData({
           ...formData,
           transcription: simulatedTranscription,
         });
 
-        stream.getTracks().forEach((track) => track.stop());
+        for (const track of stream.getTracks()) track.stop();
       };
 
       mediaRecorder.start();
       setIsRecording(true);
-      setMicPermission('granted');
+      setMicPermission("granted");
     } catch (error: any) {
-      console.error('Error accessing microphone:', error);
-      
-      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        setMicPermission('denied');
-        toast.error('Accès au microphone refusé. Veuillez autoriser l\'accès dans les paramètres de votre navigateur.');
+      console.error("Error accessing microphone:", error);
+
+      if (
+        error.name === "NotAllowedError" ||
+        error.name === "PermissionDeniedError"
+      ) {
+        setMicPermission("denied");
+        toast.error(
+          "Accès au microphone refusé. Veuillez autoriser l'accès dans les paramètres de votre navigateur.",
+        );
       } else {
-        toast.error('Impossible d\'accéder au microphone. Veuillez vérifier les permissions.');
+        toast.error(
+          "Impossible d'accéder au microphone. Veuillez vérifier les permissions.",
+        );
       }
     }
   };
@@ -111,39 +150,41 @@ export default function Journal() {
 
     setIsUploading(true);
     const newPhotos: ExternalBlob[] = [];
-    let hasErrors = false;
-    
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      
-      if (!file.type.startsWith('image/')) {
-        toast.error(`Le fichier "${file.name}" n'est pas une image valide. Formats acceptés : JPG, PNG, GIF.`);
-        hasErrors = true;
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/")) {
+        toast.error(
+          `Le fichier "${file.name}" n'est pas une image valide. Formats acceptés : JPG, PNG, GIF.`,
+        );
         continue;
       }
 
       const maxSize = 10 * 1024 * 1024;
       if (file.size > maxSize) {
         const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-        toast.error(`Le fichier "${file.name}" est trop volumineux (${sizeMB}MB). Taille maximale : 10MB.`);
-        hasErrors = true;
+        toast.error(
+          `Le fichier "${file.name}" est trop volumineux (${sizeMB}MB). Taille maximale : 10MB.`,
+        );
         continue;
       }
 
       try {
         const arrayBuffer = await file.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
-        
+
         const photoIndex = formData.photos.length + newPhotos.length;
-        const blob = ExternalBlob.fromBytes(uint8Array).withUploadProgress((percentage) => {
-          setUploadProgress((prev) => ({ ...prev, [photoIndex]: percentage }));
-        });
-        
+        const blob = ExternalBlob.fromBytes(uint8Array).withUploadProgress(
+          (percentage) => {
+            setUploadProgress((prev) => ({
+              ...prev,
+              [photoIndex]: percentage,
+            }));
+          },
+        );
+
         newPhotos.push(blob);
       } catch (error) {
-        console.error('Error processing file:', error);
+        console.error("Error processing file:", error);
         toast.error(`Erreur lors du traitement du fichier "${file.name}".`);
-        hasErrors = true;
       }
     }
 
@@ -152,13 +193,15 @@ export default function Journal() {
         ...formData,
         photos: [...formData.photos, ...newPhotos],
       });
-      toast.success(`${newPhotos.length} photo${newPhotos.length > 1 ? 's' : ''} ajoutée${newPhotos.length > 1 ? 's' : ''} avec succès.`);
+      toast.success(
+        `${newPhotos.length} photo${newPhotos.length > 1 ? "s" : ""} ajoutée${newPhotos.length > 1 ? "s" : ""} avec succès.`,
+      );
     }
 
     setIsUploading(false);
 
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -188,17 +231,22 @@ export default function Journal() {
       delete newProgress[index];
       return newProgress;
     });
-    toast.success('Photo supprimée.');
+    toast.success("Photo supprimée.");
   };
 
   const handleNewEntry = () => {
     setEditingEntry(null);
-    setFormData({ transcription: '', notes: '', photos: [], dayType: DayType.work });
+    setFormData({
+      transcription: "",
+      notes: "",
+      photos: [],
+      dayType: DayType.work,
+    });
     setUploadProgress({});
     setIsDialogOpen(true);
   };
 
-  const handleEditEntry = (entry: typeof journalEntries[0]) => {
+  const handleEditEntry = (entry: (typeof journalEntries)[0]) => {
     setEditingEntry(entry.id);
     setFormData({
       transcription: entry.transcription,
@@ -213,7 +261,7 @@ export default function Journal() {
   const handleSave = async () => {
     try {
       const id = editingEntry || `journal-${Date.now()}`;
-      const audioUrl = '';
+      const audioUrl = "";
 
       if (editingEntry) {
         await updateEntry.mutateAsync({
@@ -224,7 +272,7 @@ export default function Journal() {
           photos: formData.photos,
           dayType: formData.dayType,
         });
-        toast.success('Entrée de journal mise à jour avec succès.');
+        toast.success("Entrée de journal mise à jour avec succès.");
       } else {
         await saveEntry.mutateAsync({
           id,
@@ -234,54 +282,61 @@ export default function Journal() {
           photos: formData.photos,
           dayType: formData.dayType,
         });
-        toast.success('Entrée de journal enregistrée avec succès.');
+        toast.success("Entrée de journal enregistrée avec succès.");
       }
       setIsDialogOpen(false);
-      setFormData({ transcription: '', notes: '', photos: [], dayType: DayType.work });
+      setFormData({
+        transcription: "",
+        notes: "",
+        photos: [],
+        dayType: DayType.work,
+      });
       setUploadProgress({});
     } catch (error) {
-      console.error('Error saving journal entry:', error);
-      toast.error('Erreur lors de l\'enregistrement de l\'entrée de journal.');
+      console.error("Error saving journal entry:", error);
+      toast.error("Erreur lors de l'enregistrement de l'entrée de journal.");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette entrée ?')) {
+    if (confirm("Êtes-vous sûr de vouloir supprimer cette entrée ?")) {
       try {
         await deleteEntry.mutateAsync(id);
-        toast.success('Entrée de journal supprimée.');
+        toast.success("Entrée de journal supprimée.");
       } catch (error) {
-        console.error('Error deleting journal entry:', error);
-        toast.error('Erreur lors de la suppression de l\'entrée de journal.');
+        console.error("Error deleting journal entry:", error);
+        toast.error("Erreur lors de la suppression de l'entrée de journal.");
       }
     }
   };
 
   const getDayTypeLabel = (dayType: DayType | null | undefined): string => {
-    if (!dayType) return 'Non spécifié';
+    if (!dayType) return "Non spécifié";
     switch (dayType) {
       case DayType.work:
-        return 'Travail';
+        return "Travail";
       case DayType.conge:
-        return 'Congé';
+        return "Congé";
       case DayType.astreinte:
-        return 'Astreinte';
+        return "Astreinte";
       default:
-        return 'Non spécifié';
+        return "Non spécifié";
     }
   };
 
-  const getDayTypeBadgeVariant = (dayType: DayType | null | undefined): 'default' | 'secondary' | 'outline' => {
-    if (!dayType) return 'outline';
+  const getDayTypeBadgeVariant = (
+    dayType: DayType | null | undefined,
+  ): "default" | "secondary" | "outline" => {
+    if (!dayType) return "outline";
     switch (dayType) {
       case DayType.work:
-        return 'default';
+        return "default";
       case DayType.conge:
-        return 'secondary';
+        return "secondary";
       case DayType.astreinte:
-        return 'outline';
+        return "outline";
       default:
-        return 'outline';
+        return "outline";
     }
   };
 
@@ -289,7 +344,7 @@ export default function Journal() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-muted-foreground">Chargement du journal...</p>
         </div>
       </div>
@@ -300,8 +355,12 @@ export default function Journal() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Journal de travail</h2>
-          <p className="text-sm md:text-base text-muted-foreground">Enregistrez vos mémos, notes et photos quotidiennes</p>
+          <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+            Journal de travail
+          </h2>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Enregistrez vos mémos, notes et photos quotidiennes
+          </p>
         </div>
         <Button onClick={handleNewEntry} className="gap-2 w-full sm:w-auto">
           <Plus className="w-4 h-4" />
@@ -309,7 +368,7 @@ export default function Journal() {
         </Button>
       </div>
 
-      {micPermission === 'checking' && (
+      {micPermission === "checking" && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -318,28 +377,33 @@ export default function Journal() {
         </Alert>
       )}
 
-      {micPermission === 'denied' && (
+      {micPermission === "denied" && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            <strong>Accès au microphone refusé.</strong> Pour utiliser l'enregistrement vocal, veuillez autoriser l'accès au microphone dans les paramètres de votre navigateur.
+            <strong>Accès au microphone refusé.</strong> Pour utiliser
+            l'enregistrement vocal, veuillez autoriser l'accès au microphone
+            dans les paramètres de votre navigateur.
           </AlertDescription>
         </Alert>
       )}
 
-      {micPermission === 'error' && (
+      {micPermission === "error" && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            <strong>Aucun microphone détecté.</strong> Veuillez connecter un microphone pour utiliser l'enregistrement vocal.
+            <strong>Aucun microphone détecté.</strong> Veuillez connecter un
+            microphone pour utiliser l'enregistrement vocal.
           </AlertDescription>
         </Alert>
       )}
 
-      {micPermission === 'granted' && (
+      {micPermission === "granted" && (
         <Alert>
           <AlertDescription>
-            💡 Astuce : Utilisez l'enregistrement vocal pour capturer rapidement vos pensées, ajoutez des notes écrites et des photos pour plus de détails.
+            💡 Astuce : Utilisez l'enregistrement vocal pour capturer rapidement
+            vos pensées, ajoutez des notes écrites et des photos pour plus de
+            détails.
           </AlertDescription>
         </Alert>
       )}
@@ -348,8 +412,14 @@ export default function Journal() {
         {journalEntries.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground mb-4">Aucune entrée dans votre journal</p>
-              <Button onClick={handleNewEntry} variant="outline" className="gap-2">
+              <p className="text-muted-foreground mb-4">
+                Aucune entrée dans votre journal
+              </p>
+              <Button
+                onClick={handleNewEntry}
+                variant="outline"
+                className="gap-2"
+              >
                 <Plus className="w-4 h-4" />
                 Créer votre première entrée
               </Button>
@@ -362,13 +432,15 @@ export default function Journal() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="text-base sm:text-lg mb-2">
-                      {new Date(Number(entry.createdAt) / 1000000).toLocaleDateString('fr-FR', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
+                      {new Date(
+                        Number(entry.createdAt) / 1000000,
+                      ).toLocaleDateString("fr-FR", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
                       })}
                     </CardTitle>
                     <div className="flex gap-2 flex-wrap">
@@ -376,13 +448,12 @@ export default function Journal() {
                         {getDayTypeLabel(entry.dayType)}
                       </Badge>
                       {entry.transcription && (
-                        <Badge variant="secondary">
-                          Transcription vocale
-                        </Badge>
+                        <Badge variant="secondary">Transcription vocale</Badge>
                       )}
                       {entry.photos && entry.photos.length > 0 && (
                         <Badge variant="secondary">
-                          {entry.photos.length} photo{entry.photos.length > 1 ? 's' : ''}
+                          {entry.photos.length} photo
+                          {entry.photos.length > 1 ? "s" : ""}
                         </Badge>
                       )}
                     </div>
@@ -408,32 +479,41 @@ export default function Journal() {
               <CardContent className="space-y-4">
                 {entry.transcription && (
                   <div className="bg-muted/50 p-4 rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-1 font-medium">Transcription :</p>
+                    <p className="text-sm text-muted-foreground mb-1 font-medium">
+                      Transcription :
+                    </p>
                     <p className="text-sm">{entry.transcription}</p>
                   </div>
                 )}
                 {entry.notes && (
                   <div>
-                    <p className="text-sm text-muted-foreground mb-1 font-medium">Notes :</p>
+                    <p className="text-sm text-muted-foreground mb-1 font-medium">
+                      Notes :
+                    </p>
                     <p className="text-sm whitespace-pre-wrap">{entry.notes}</p>
                   </div>
                 )}
                 {entry.photos && entry.photos.length > 0 && (
                   <div>
-                    <p className="text-sm text-muted-foreground mb-2 font-medium">Photos :</p>
+                    <p className="text-sm text-muted-foreground mb-2 font-medium">
+                      Photos :
+                    </p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                       {entry.photos.map((photo, index) => (
-                        <div
-                          key={index}
-                          className="relative aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => window.open(photo.getDirectURL(), '_blank')}
+                        <button
+                          key={photo.getDirectURL()}
+                          type="button"
+                          className="relative aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-90 transition-opacity w-full"
+                          onClick={() =>
+                            window.open(photo.getDirectURL(), "_blank")
+                          }
                         >
                           <img
                             src={photo.getDirectURL()}
-                            alt={`Photo ${index + 1}`}
+                            alt={`Vue ${index + 1}`}
                             className="w-full h-full object-cover"
                           />
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -448,7 +528,7 @@ export default function Journal() {
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingEntry ? 'Modifier' : 'Nouvelle'} entrée de journal
+              {editingEntry ? "Modifier" : "Nouvelle"} entrée de journal
             </DialogTitle>
             <DialogDescription>
               Enregistrez un mémo vocal, ajoutez des notes écrites et des photos
@@ -459,24 +539,28 @@ export default function Journal() {
               <Label className="text-base font-semibold">Type de journée</Label>
               <DayTypeCheckboxGroup
                 value={formData.dayType}
-                onChange={(value) => setFormData({ ...formData, dayType: value })}
+                onChange={(value) =>
+                  setFormData({ ...formData, dayType: value })
+                }
               />
             </div>
 
-            {micPermission === 'denied' && (
+            {micPermission === "denied" && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-sm">
-                  L'enregistrement vocal est désactivé. Veuillez autoriser l'accès au microphone dans les paramètres de votre navigateur.
+                  L'enregistrement vocal est désactivé. Veuillez autoriser
+                  l'accès au microphone dans les paramètres de votre navigateur.
                 </AlertDescription>
               </Alert>
             )}
 
-            {micPermission === 'error' && (
+            {micPermission === "error" && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-sm">
-                  Aucun microphone détecté. Veuillez connecter un microphone pour utiliser l'enregistrement vocal.
+                  Aucun microphone détecté. Veuillez connecter un microphone
+                  pour utiliser l'enregistrement vocal.
                 </AlertDescription>
               </Alert>
             )}
@@ -488,14 +572,14 @@ export default function Journal() {
                   size="lg"
                   className="gap-2"
                   variant="default"
-                  disabled={micPermission !== 'granted'}
+                  disabled={micPermission !== "granted"}
                 >
                   <Mic className="w-5 h-5" />
-                  {micPermission === 'granted' 
-                    ? 'Démarrer l\'enregistrement' 
-                    : micPermission === 'checking'
-                    ? 'Vérification...'
-                    : 'Enregistrement indisponible'}
+                  {micPermission === "granted"
+                    ? "Démarrer l'enregistrement"
+                    : micPermission === "checking"
+                      ? "Vérification..."
+                      : "Enregistrement indisponible"}
                 </Button>
               ) : (
                 <Button
@@ -512,10 +596,18 @@ export default function Journal() {
 
             {formData.transcription && (
               <div className="space-y-2">
-                <label className="text-sm font-medium">Transcription</label>
+                <Label
+                  htmlFor="transcription-input"
+                  className="text-sm font-medium"
+                >
+                  Transcription
+                </Label>
                 <Textarea
+                  id="transcription-input"
                   value={formData.transcription}
-                  onChange={(e) => setFormData({ ...formData, transcription: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, transcription: e.target.value })
+                  }
                   rows={4}
                   className="bg-muted/50"
                 />
@@ -523,21 +615,28 @@ export default function Journal() {
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Notes écrites</label>
+              <Label htmlFor="notes-input" className="text-sm font-medium">
+                Notes écrites
+              </Label>
               <Textarea
+                id="notes-input"
                 value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, notes: e.target.value })
+                }
                 placeholder="Ajoutez vos notes ici..."
                 rows={6}
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Photos</label>
-              
+              <Label className="text-sm font-medium">Photos</Label>
+
               <div
                 className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                  isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
+                  isDragging
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/25"
                 }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -564,7 +663,7 @@ export default function Journal() {
                   disabled={isUploading}
                 >
                   <Upload className="w-4 h-4" />
-                  {isUploading ? 'Chargement...' : 'Sélectionner des fichiers'}
+                  {isUploading ? "Chargement..." : "Sélectionner des fichiers"}
                 </Button>
                 <p className="text-xs text-muted-foreground mt-2">
                   Formats acceptés : JPG, PNG, GIF (max 10MB par fichier)
@@ -574,19 +673,23 @@ export default function Journal() {
               {formData.photos.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
                   {formData.photos.map((photo, index) => (
-                    <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-muted group">
+                    <div
+                      key={photo.getDirectURL()}
+                      className="relative aspect-square rounded-lg overflow-hidden bg-muted group"
+                    >
                       <img
                         src={photo.getDirectURL()}
-                        alt={`Photo ${index + 1}`}
+                        alt={`Vue ${index + 1}`}
                         className="w-full h-full object-cover"
                       />
-                      {uploadProgress[index] !== undefined && uploadProgress[index] < 100 && (
-                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <div className="text-white text-sm font-medium">
-                            {uploadProgress[index]}%
+                      {uploadProgress[index] !== undefined &&
+                        uploadProgress[index] < 100 && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <div className="text-white text-sm font-medium">
+                              {uploadProgress[index]}%
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                       <Button
                         type="button"
                         variant="destructive"
@@ -608,11 +711,19 @@ export default function Journal() {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={saveEntry.isPending || updateEntry.isPending || (!formData.transcription && !formData.notes && formData.photos.length === 0)}
+              disabled={
+                saveEntry.isPending ||
+                updateEntry.isPending ||
+                (!formData.transcription &&
+                  !formData.notes &&
+                  formData.photos.length === 0)
+              }
               className="gap-2"
             >
               <Save className="w-4 h-4" />
-              {saveEntry.isPending || updateEntry.isPending ? 'Enregistrement...' : 'Enregistrer'}
+              {saveEntry.isPending || updateEntry.isPending
+                ? "Enregistrement..."
+                : "Enregistrer"}
             </Button>
           </DialogFooter>
         </DialogContent>

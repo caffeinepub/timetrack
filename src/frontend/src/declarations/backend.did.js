@@ -37,6 +37,12 @@ export const DayType = IDL.Variant({
   'astreinte' : IDL.Null,
 });
 export const Time = IDL.Int;
+export const InterventionSlot = IDL.Record({
+  'endHour' : IDL.Int,
+  'endMinute' : IDL.Int,
+  'startMinute' : IDL.Int,
+  'startHour' : IDL.Int,
+});
 export const TimeEntryInput = IDL.Record({
   'id' : IDL.Text,
   'heuresTrajet' : IDL.Int,
@@ -44,6 +50,7 @@ export const TimeEntryInput = IDL.Record({
   'description' : IDL.Text,
   'startMorning' : IDL.Int,
   'endAstreinte' : IDL.Opt(IDL.Int),
+  'interventionSlots' : IDL.Vec(InterventionSlot),
   'startAstreinte' : IDL.Opt(IDL.Int),
   'endMorning' : IDL.Int,
   'endAfternoon' : IDL.Int,
@@ -101,6 +108,7 @@ export const TimeEntry = IDL.Record({
   'description' : IDL.Text,
   'startMorning' : IDL.Int,
   'endAstreinte' : IDL.Opt(IDL.Int),
+  'interventionSlots' : IDL.Vec(InterventionSlot),
   'startAstreinte' : IDL.Opt(IDL.Int),
   'endMorning' : IDL.Int,
   'endAfternoon' : IDL.Int,
@@ -274,6 +282,12 @@ export const idlFactory = ({ IDL }) => {
     'astreinte' : IDL.Null,
   });
   const Time = IDL.Int;
+  const InterventionSlot = IDL.Record({
+    'endHour' : IDL.Int,
+    'endMinute' : IDL.Int,
+    'startMinute' : IDL.Int,
+    'startHour' : IDL.Int,
+  });
   const TimeEntryInput = IDL.Record({
     'id' : IDL.Text,
     'heuresTrajet' : IDL.Int,
@@ -281,6 +295,7 @@ export const idlFactory = ({ IDL }) => {
     'description' : IDL.Text,
     'startMorning' : IDL.Int,
     'endAstreinte' : IDL.Opt(IDL.Int),
+    'interventionSlots' : IDL.Vec(InterventionSlot),
     'startAstreinte' : IDL.Opt(IDL.Int),
     'endMorning' : IDL.Int,
     'endAfternoon' : IDL.Int,
@@ -335,6 +350,7 @@ export const idlFactory = ({ IDL }) => {
     'description' : IDL.Text,
     'startMorning' : IDL.Int,
     'endAstreinte' : IDL.Opt(IDL.Int),
+    'interventionSlots' : IDL.Vec(InterventionSlot),
     'startAstreinte' : IDL.Opt(IDL.Int),
     'endMorning' : IDL.Int,
     'endAfternoon' : IDL.Int,

@@ -136,6 +136,7 @@ export interface TimeEntryInput {
     description: string;
     startMorning: bigint;
     endAstreinte?: bigint;
+    interventionSlots: Array<InterventionSlot>;
     startAstreinte?: bigint;
     endMorning: bigint;
     endAfternoon: bigint;
@@ -148,6 +149,12 @@ export interface Totals {
     heuresTravailNormales: bigint;
     heuresAstreinte: bigint;
     heuresRepas: bigint;
+}
+export interface InterventionSlot {
+    endHour: bigint;
+    endMinute: bigint;
+    startMinute: bigint;
+    startHour: bigint;
 }
 export interface PdfReportData {
     titre: string;
@@ -181,6 +188,7 @@ export interface TimeEntry {
     description: string;
     startMorning: bigint;
     endAstreinte?: bigint;
+    interventionSlots: Array<InterventionSlot>;
     startAstreinte?: bigint;
     endMorning: bigint;
     endAfternoon: bigint;
@@ -245,7 +253,7 @@ export interface backendInterface {
     supprimerMediaQuotidien(id: string): Promise<void>;
     uploadPhotoDansStoic(filename: string, content: ExternalBlob, mimeType: string, taille: bigint, description: string): Promise<bigint | null>;
 }
-import type { DailyMediaEntry as _DailyMediaEntry, DayType as _DayType, ExternalBlob as _ExternalBlob, Fichier as _Fichier, JournalEntry as _JournalEntry, MediaType as _MediaType, Time as _Time, TimeEntry as _TimeEntry, TimeEntryInput as _TimeEntryInput, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
+import type { DailyMediaEntry as _DailyMediaEntry, DayType as _DayType, ExternalBlob as _ExternalBlob, Fichier as _Fichier, InterventionSlot as _InterventionSlot, JournalEntry as _JournalEntry, MediaType as _MediaType, Time as _Time, TimeEntry as _TimeEntry, TimeEntryInput as _TimeEntryInput, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
     async _caffeineStorageBlobIsLive(arg0: Uint8Array): Promise<boolean> {
@@ -917,6 +925,7 @@ function from_candid_record_n36(_uploadFile: (file: ExternalBlob) => Promise<Uin
     description: string;
     startMorning: bigint;
     endAstreinte: [] | [bigint];
+    interventionSlots: Array<_InterventionSlot>;
     startAstreinte: [] | [bigint];
     endMorning: bigint;
     endAfternoon: bigint;
@@ -931,6 +940,7 @@ function from_candid_record_n36(_uploadFile: (file: ExternalBlob) => Promise<Uin
     description: string;
     startMorning: bigint;
     endAstreinte?: bigint;
+    interventionSlots: Array<InterventionSlot>;
     startAstreinte?: bigint;
     endMorning: bigint;
     endAfternoon: bigint;
@@ -946,6 +956,7 @@ function from_candid_record_n36(_uploadFile: (file: ExternalBlob) => Promise<Uin
         description: value.description,
         startMorning: value.startMorning,
         endAstreinte: record_opt_to_undefined(from_candid_opt_n37(_uploadFile, _downloadFile, value.endAstreinte)),
+        interventionSlots: value.interventionSlots,
         startAstreinte: record_opt_to_undefined(from_candid_opt_n37(_uploadFile, _downloadFile, value.startAstreinte)),
         endMorning: value.endMorning,
         endAfternoon: value.endAfternoon,
@@ -1070,6 +1081,7 @@ function to_candid_record_n16(_uploadFile: (file: ExternalBlob) => Promise<Uint8
     description: string;
     startMorning: bigint;
     endAstreinte?: bigint;
+    interventionSlots: Array<InterventionSlot>;
     startAstreinte?: bigint;
     endMorning: bigint;
     endAfternoon: bigint;
@@ -1083,6 +1095,7 @@ function to_candid_record_n16(_uploadFile: (file: ExternalBlob) => Promise<Uint8
     description: string;
     startMorning: bigint;
     endAstreinte: [] | [bigint];
+    interventionSlots: Array<_InterventionSlot>;
     startAstreinte: [] | [bigint];
     endMorning: bigint;
     endAfternoon: bigint;
@@ -1097,6 +1110,7 @@ function to_candid_record_n16(_uploadFile: (file: ExternalBlob) => Promise<Uint8
         description: value.description,
         startMorning: value.startMorning,
         endAstreinte: value.endAstreinte ? candid_some(value.endAstreinte) : candid_none(),
+        interventionSlots: value.interventionSlots,
         startAstreinte: value.startAstreinte ? candid_some(value.startAstreinte) : candid_none(),
         endMorning: value.endMorning,
         endAfternoon: value.endAfternoon,

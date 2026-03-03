@@ -32,6 +32,12 @@ export interface Fichier {
   'proprietaire' : Principal,
   'dateAjout' : Time,
 }
+export interface InterventionSlot {
+  'endHour' : bigint,
+  'endMinute' : bigint,
+  'startMinute' : bigint,
+  'startHour' : bigint,
+}
 export interface JournalEntry {
   'id' : string,
   'createdAt' : Time,
@@ -66,6 +72,7 @@ export interface TimeEntry {
   'description' : string,
   'startMorning' : bigint,
   'endAstreinte' : [] | [bigint],
+  'interventionSlots' : Array<InterventionSlot>,
   'startAstreinte' : [] | [bigint],
   'endMorning' : bigint,
   'endAfternoon' : bigint,
@@ -80,6 +87,7 @@ export interface TimeEntryInput {
   'description' : string,
   'startMorning' : bigint,
   'endAstreinte' : [] | [bigint],
+  'interventionSlots' : Array<InterventionSlot>,
   'startAstreinte' : [] | [bigint],
   'endMorning' : bigint,
   'endAfternoon' : bigint,

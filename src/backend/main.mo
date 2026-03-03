@@ -13,6 +13,8 @@ import MixinStorage "blob-storage/Mixin";
 
 import Nat "mo:core/Nat";
 
+
+
 actor {
   include MixinStorage();
 
@@ -20,6 +22,13 @@ actor {
     #work;
     #conge;
     #astreinte;
+  };
+
+  public type InterventionSlot = {
+    startHour : Int;
+    startMinute : Int;
+    endHour : Int;
+    endMinute : Int;
   };
 
   type TimeEntry = {
@@ -36,6 +45,7 @@ actor {
     typeOfDay : DayType;
     user : Principal;
     description : Text;
+    interventionSlots : [InterventionSlot];
   };
 
   module TimeEntry {
@@ -57,6 +67,7 @@ actor {
     endAstreinte : ?Int;
     typeOfDay : DayType;
     description : Text;
+    interventionSlots : [InterventionSlot];
   };
 
   public type MediaType = {
@@ -306,6 +317,7 @@ actor {
       endAstreinte = input.endAstreinte;
       user = caller;
       description = input.description;
+      interventionSlots = input.interventionSlots;
     };
     timeEntries.add(input.id, timeEntry);
   };
@@ -340,6 +352,7 @@ actor {
       endAstreinte = input.endAstreinte;
       user = caller;
       description = input.description;
+      interventionSlots = input.interventionSlots;
     };
     timeEntries.add(id, timeEntry);
   };
@@ -915,3 +928,4 @@ actor {
     Runtime.trap("Publish restart workflow triggered. This actor is already running the latest version. If a publish failure occurred, redeploying should automatically resolve it. No further action is needed.");
   };
 };
+

@@ -7,6 +7,16 @@ This checklist verifies that icon-based UI controls work correctly on Android Ch
 - Application deployed and accessible
 - User logged in with Internet Identity
 
+## Production Build Verification Requirement
+
+**IMPORTANT:** This checklist MUST be completed on a production-mode build (minified) before publishing.
+
+- [ ] **Production build tested**: Confirm you are testing the production bundle (check build mode badge in UI)
+- [ ] **Build mode verified**: UI shows "v7 (MODE=production)" or similar production indicator
+- [ ] **Timestamp visible** (if configured): Build timestamp is displayed in the UI
+
+See `frontend/PRODUCTION_BUILD_RUNBOOK.md` for instructions on building and serving the production bundle locally.
+
 ## Test Steps
 
 ### 1. Bottom Navigation Tabs
@@ -42,6 +52,13 @@ Open Chrome DevTools (chrome://inspect on desktop, connect Android device):
 - [ ] **Debug logs present** (if enabled): See `[DEBUG:MobileBottomNav]`, `[DEBUG:Header]`, `[DEBUG:App]` logs
 - [ ] **No React errors**: No "Cannot read property" or "undefined" errors in console
 
+### 5. Admin Publish Dialog Verification (Admin Only)
+
+- [ ] **Checklist confirmation required**: Restart Publish dialog shows pre-publish verification gate
+- [ ] **Checklist link works**: "View Checklist" button opens this document
+- [ ] **Publish disabled without confirmation**: Restart Publish button is disabled until checkbox is checked
+- [ ] **Publish enabled after confirmation**: Checking the checkbox enables the Restart Publish button
+
 ## Debug Logging
 
 To enable console debug logs for UI interactions:
@@ -52,3 +69,4 @@ To enable console debug logs for UI interactions:
 4. Tap controls and verify logs appear: `[DEBUG:ComponentName] message`
 
 To disable:
+
