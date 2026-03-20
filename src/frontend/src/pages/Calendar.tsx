@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ChevronLeft, ChevronRight, Clock, Edit2, Plus, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { DayType, type TimeEntry } from "../backend";
 import {
   DayTypeCheckboxGroup,
@@ -476,84 +477,107 @@ export default function Calendar() {
 
   const handleSave = async () => {
     if (!selectedDate) return;
-    const id =
-      editingEntry?.id ??
-      `entry-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const input = {
-      id,
-      date: dateToTimestamp(selectedDate),
-      startMorning: toMinutes(form.startMorning),
-      endMorning: toMinutes(form.endMorning),
-      startAfternoon: toMinutes(form.startAfternoon),
-      endAfternoon: toMinutes(form.endAfternoon),
-      heuresRepas: toMinutes(form.heuresRepas),
-      heuresTrajet: toMinutes(form.heuresTrajet),
-      startAstreinte: form.startAstreinte
-        ? toMinutes(form.startAstreinte)
-        : undefined,
-      endAstreinte: form.endAstreinte
-        ? toMinutes(form.endAstreinte)
-        : undefined,
-      typeOfDay: form.typeOfDay,
-      description: form.description,
-      interventionSlots: form.interventionSlots.map((_s) => ({
-        startHour: BigInt(0),
-        startMinute: BigInt(0),
-        endHour: BigInt(0),
-        endMinute: BigInt(0),
-      })),
-    };
-
-    if (editingEntry) {
-      await updateEntry({ id, input });
-    } else {
-      await saveEntry(input);
-    }
-
-    // Save fiche interventions for each slot
-    const dateTs = dateToTimestamp(selectedDate);
-    for (const slot of form.interventionSlots) {
-      if (!slot.clientNom && !slot.ficheId) continue;
-      const interventionInput = {
-        id:
-          slot.ficheId ||
-          `intv-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        date: dateTs,
-        clientNom: slot.clientNom,
-        clientAdresse: slot.clientAdresse,
-        heureMatinDebutH: BigInt(Number(slot.matinDebutH) || 0),
-        heureMatinDebutMin: BigInt(Number(slot.matinDebutMin) || 0),
-        heureMatinFinH: BigInt(Number(slot.matinFinH) || 0),
-        heureMatinFinMin: BigInt(Number(slot.matinFinMin) || 0),
-        heureApremDebutH: BigInt(Number(slot.apremDebutH) || 0),
-        heureApremDebutMin: BigInt(Number(slot.apremDebutMin) || 0),
-        heureApremFinH: BigInt(Number(slot.apremFinH) || 0),
-        heureApremFinMin: BigInt(Number(slot.apremFinMin) || 0),
-        description: slot.ficheDescription,
-        signatureClient: slot.signatureClient,
-        signatureIntervenant: slot.signatureIntervenant,
-        pieces: slot.piecesLignes.map((l) => ({
-          reference: l.reference,
-          article: l.article,
-          quantite: BigInt(Number(l.quantite) || 0),
+    try {
+      const id =
+        editingEntry?.id ??
+        `entry-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const input = {
+        id,
+        date: dateToTimestamp(selectedDate),
+        startMorning: toMinutes(form.startMorning),
+        endMorning: toMinutes(form.endMorning),
+        startAfternoon: toMinutes(form.startAfternoon),
+        endAfternoon: toMinutes(form.endAfternoon),
+        heuresRepas: toMinutes(form.heuresRepas),
+        heuresTrajet: toMinutes(form.heuresTrajet),
+        startAstreinte: form.startAstreinte
+          ? toMinutes(form.startAstreinte)
+          : undefined,
+        endAstreinte: form.endAstreinte
+          ? toMinutes(form.endAstreinte)
+          : undefined,
+        typeOfDay: form.typeOfDay,
+        description: form.description,
+        interventionSlots: form.interventionSlots.map((_s) => ({
+          startHour: BigInt(0),
+          startMinute: BigInt(0),
+          endHour: BigInt(0),
+          endMinute: BigInt(0),
         })),
       };
-      if (slot.ficheId) {
-        await updateIntervention({
-          id: slot.ficheId,
-          input: interventionInput,
-        });
-      } else {
-        await addIntervention(interventionInput);
-      }
-    }
 
-    setDialogOpen(false);
+      if (editingEntry) {
+        await updateEntry({ id, input });
+      } else {
+        await saveEntry(input);
+      }
+
+      // Save fiche interventions for each slot
+      const dateTs = dateToTimestamp(selectedDate);
+      for (const slot of form.interventionSlots) {
+        const hasContent =
+          slot.clientNom ||
+          slot.ficheDescription ||
+          slot.signatureClient ||
+          slot.signatureIntervenant ||
+          slot.ficheId ||
+          slot.piecesLignes.length > 0;
+        if (!hasContent) continue;
+        const interventionInput = {
+          id:
+            slot.ficheId ||
+            `intv-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          date: dateTs,
+          clientNom: slot.clientNom,
+          clientAdresse: slot.clientAdresse,
+          heureMatinDebutH: BigInt(Number(slot.matinDebutH) || 0),
+          heureMatinDebutMin: BigInt(Number(slot.matinDebutMin) || 0),
+          heureMatinFinH: BigInt(Number(slot.matinFinH) || 0),
+          heureMatinFinMin: BigInt(Number(slot.matinFinMin) || 0),
+          heureApremDebutH: BigInt(Number(slot.apremDebutH) || 0),
+          heureApremDebutMin: BigInt(Number(slot.apremDebutMin) || 0),
+          heureApremFinH: BigInt(Number(slot.apremFinH) || 0),
+          heureApremFinMin: BigInt(Number(slot.apremFinMin) || 0),
+          description: slot.ficheDescription,
+          signatureClient: slot.signatureClient,
+          signatureIntervenant: slot.signatureIntervenant,
+          pieces: slot.piecesLignes.map((l) => ({
+            reference: l.reference,
+            article: l.article,
+            quantite: BigInt(Number(l.quantite) || 0),
+          })),
+        };
+        if (slot.ficheId) {
+          await updateIntervention({
+            id: slot.ficheId,
+            input: interventionInput,
+          });
+        } else {
+          await addIntervention(interventionInput);
+        }
+      }
+
+      toast.success(
+        editingEntry ? "Journée mise à jour" : "Journée enregistrée",
+      );
+      setDialogOpen(false);
+    } catch (e) {
+      toast.error(
+        `Erreur lors de l'enregistrement : ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await deleteEntry(id);
-    setDialogOpen(false);
+    try {
+      await deleteEntry(id);
+      toast.success("Journée supprimée");
+      setDialogOpen(false);
+    } catch (e) {
+      toast.error(
+        `Erreur lors de la suppression : ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
   };
 
   const addInterventionSlot = () => {

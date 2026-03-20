@@ -191,6 +191,7 @@ export function InterventionFormModal({
     description: form.description,
     signatureClient: form.signatureClient,
     signatureIntervenant: form.signatureIntervenant,
+    pieces: [],
   });
 
   const handleSave = async () => {

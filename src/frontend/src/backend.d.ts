@@ -135,6 +135,7 @@ export interface Intervention {
     description: string;
     signatureClient: string;
     signatureIntervenant: string;
+    pieces: Array<{ reference: string; article: string; quantite: bigint }>;
     user: Principal;
     createdAt: Time;
 }
@@ -154,6 +155,7 @@ export interface InterventionInput {
     description: string;
     signatureClient: string;
     signatureIntervenant: string;
+    pieces: Array<{ reference: string; article: string; quantite: bigint }>;
 }
 export enum DayType {
     conge = "conge",
