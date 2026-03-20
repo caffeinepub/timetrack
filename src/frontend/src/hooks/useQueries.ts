@@ -474,3 +474,68 @@ export function useToggleBlacklist() {
     },
   });
 }
+
+// ---- Interventions ----
+
+export function useGetInterventionsPourJour(date: bigint) {
+  const { actor, isFetching } = useActor();
+  return useQuery<import("../backend.d").Intervention[]>({
+    queryKey: ["interventions", date.toString()],
+    queryFn: async () => {
+      if (!actor) return [];
+      return (actor as any).obtenirInterventionsPourJour(date);
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useAddIntervention() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: import("../backend.d").InterventionInput) => {
+      if (!actor) throw new Error("Actor not available");
+      return (actor as any).ajouterIntervention(input);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["interventions", variables.date.toString()],
+      });
+    },
+  });
+}
+
+export function useUpdateIntervention() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      input,
+    }: { id: string; input: import("../backend.d").InterventionInput }) => {
+      if (!actor) throw new Error("Actor not available");
+      return (actor as any).modifierIntervention(id, input);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["interventions", variables.input.date.toString()],
+      });
+    },
+  });
+}
+
+export function useDeleteIntervention() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; date: bigint }) => {
+      if (!actor) throw new Error("Actor not available");
+      return (actor as any).supprimerIntervention(id);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["interventions", variables.date.toString()],
+      });
+    },
+  });
+}

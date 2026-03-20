@@ -154,6 +154,45 @@ actor {
     createdAt : Time.Time;
   };
 
+  // Intervention type
+  public type Intervention = {
+    id : Text;
+    date : Time.Time;
+    clientNom : Text;
+    clientAdresse : Text;
+    heureMatinDebutH : Int;
+    heureMatinDebutMin : Int;
+    heureMatinFinH : Int;
+    heureMatinFinMin : Int;
+    heureApremDebutH : Int;
+    heureApremDebutMin : Int;
+    heureApremFinH : Int;
+    heureApremFinMin : Int;
+    description : Text;
+    signatureClient : Text;
+    signatureIntervenant : Text;
+    user : Principal;
+    createdAt : Time.Time;
+  };
+
+  public type InterventionInput = {
+    id : Text;
+    date : Time.Time;
+    clientNom : Text;
+    clientAdresse : Text;
+    heureMatinDebutH : Int;
+    heureMatinDebutMin : Int;
+    heureMatinFinH : Int;
+    heureMatinFinMin : Int;
+    heureApremDebutH : Int;
+    heureApremDebutMin : Int;
+    heureApremFinH : Int;
+    heureApremFinMin : Int;
+    description : Text;
+    signatureClient : Text;
+    signatureIntervenant : Text;
+  };
+
   // Persistent storage
   let timeEntries = Map.empty<Text, TimeEntry>();
   let journalEntries = Map.empty<Text, JournalEntry>();
@@ -162,6 +201,7 @@ actor {
   var fichiersStockes = Map.empty<Nat, Fichier>();
   var compteurFichiers : Nat = 0;
   let clients = Map.empty<Text, Client>();
+  let interventions = Map.empty<Text, Intervention>();
 
   // Autorisation système
   let accessControlState = AccessControl.initState();
@@ -234,6 +274,92 @@ actor {
         clients.add(id, updatedClient);
       };
     };
+  };
+
+  // Intervention management functions
+  public shared ({ caller }) func ajouterIntervention(input : InterventionInput) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Non autorisé");
+    };
+    let intervention : Intervention = {
+      id = input.id;
+      date = input.date;
+      clientNom = input.clientNom;
+      clientAdresse = input.clientAdresse;
+      heureMatinDebutH = input.heureMatinDebutH;
+      heureMatinDebutMin = input.heureMatinDebutMin;
+      heureMatinFinH = input.heureMatinFinH;
+      heureMatinFinMin = input.heureMatinFinMin;
+      heureApremDebutH = input.heureApremDebutH;
+      heureApremDebutMin = input.heureApremDebutMin;
+      heureApremFinH = input.heureApremFinH;
+      heureApremFinMin = input.heureApremFinMin;
+      description = input.description;
+      signatureClient = input.signatureClient;
+      signatureIntervenant = input.signatureIntervenant;
+      user = caller;
+      createdAt = Time.now();
+    };
+    interventions.add(input.id, intervention);
+  };
+
+  public shared ({ caller }) func modifierIntervention(id : Text, input : InterventionInput) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Non autorisé");
+    };
+    switch (interventions.get(id)) {
+      case (null) { Runtime.trap("Intervention non trouvée") };
+      case (?existing) {
+        if (existing.user != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Non autorisé");
+        };
+      };
+    };
+    let intervention : Intervention = {
+      id;
+      date = input.date;
+      clientNom = input.clientNom;
+      clientAdresse = input.clientAdresse;
+      heureMatinDebutH = input.heureMatinDebutH;
+      heureMatinDebutMin = input.heureMatinDebutMin;
+      heureMatinFinH = input.heureMatinFinH;
+      heureMatinFinMin = input.heureMatinFinMin;
+      heureApremDebutH = input.heureApremDebutH;
+      heureApremDebutMin = input.heureApremDebutMin;
+      heureApremFinH = input.heureApremFinH;
+      heureApremFinMin = input.heureApremFinMin;
+      description = input.description;
+      signatureClient = input.signatureClient;
+      signatureIntervenant = input.signatureIntervenant;
+      user = caller;
+      createdAt = Time.now();
+    };
+    interventions.add(id, intervention);
+  };
+
+  public shared ({ caller }) func supprimerIntervention(id : Text) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Non autorisé");
+    };
+    switch (interventions.get(id)) {
+      case (null) { Runtime.trap("Intervention non trouvée") };
+      case (?existing) {
+        if (existing.user != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Non autorisé");
+        };
+      };
+    };
+    interventions.remove(id);
+  };
+
+  public query ({ caller }) func obtenirInterventionsPourJour(date : Time.Time) : async [Intervention] {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Non autorisé");
+    };
+    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
+    interventions.values().filter(func(i : Intervention) : Bool {
+      i.date == date and (i.user == caller or isAdmin)
+    }).toArray();
   };
 
   // Fichier functions

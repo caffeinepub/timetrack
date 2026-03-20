@@ -119,6 +119,42 @@ export interface TimeEntry {
     heuresRepas: bigint;
     startAfternoon: bigint;
 }
+export interface Intervention {
+    id: string;
+    date: Time;
+    clientNom: string;
+    clientAdresse: string;
+    heureMatinDebutH: bigint;
+    heureMatinDebutMin: bigint;
+    heureMatinFinH: bigint;
+    heureMatinFinMin: bigint;
+    heureApremDebutH: bigint;
+    heureApremDebutMin: bigint;
+    heureApremFinH: bigint;
+    heureApremFinMin: bigint;
+    description: string;
+    signatureClient: string;
+    signatureIntervenant: string;
+    user: Principal;
+    createdAt: Time;
+}
+export interface InterventionInput {
+    id: string;
+    date: Time;
+    clientNom: string;
+    clientAdresse: string;
+    heureMatinDebutH: bigint;
+    heureMatinDebutMin: bigint;
+    heureMatinFinH: bigint;
+    heureMatinFinMin: bigint;
+    heureApremDebutH: bigint;
+    heureApremDebutMin: bigint;
+    heureApremFinH: bigint;
+    heureApremFinMin: bigint;
+    description: string;
+    signatureClient: string;
+    signatureIntervenant: string;
+}
 export enum DayType {
     conge = "conge",
     work = "work",
@@ -131,6 +167,7 @@ export enum UserRole {
 }
 export interface backendInterface {
     ajouterClient(client: Client): Promise<void>;
+    ajouterIntervention(input: InterventionInput): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     basculerListeNoire(id: string): Promise<void>;
     calculerNombreAstreinte(user: Principal): Promise<bigint>;
@@ -156,9 +193,11 @@ export interface backendInterface {
     isCallerAdmin(): Promise<boolean>;
     listerFichiers(): Promise<Array<Fichier>>;
     modifierClient(id: string, client: Client): Promise<void>;
+    modifierIntervention(id: string, input: InterventionInput): Promise<void>;
     modifierJournal(id: string, audioUrl: string, transcription: string, notes: string, photos: Array<ExternalBlob>, dayType: DayType | null): Promise<void>;
     modifierJournee(id: string, input: TimeEntryInput): Promise<void>;
     obtenirClients(): Promise<Array<Client>>;
+    obtenirInterventionsPourJour(date: Time): Promise<Array<Intervention>>;
     obtenirJournaux(): Promise<Array<JournalEntry>>;
     obtenirJournees(): Promise<Array<TimeEntry>>;
     obtenirMediasAudioPourJour(date: Time): Promise<Array<ExternalBlob>>;
@@ -170,6 +209,7 @@ export interface backendInterface {
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     supprimerClient(id: string): Promise<void>;
     supprimerFichier(_id: bigint): Promise<boolean>;
+    supprimerIntervention(id: string): Promise<void>;
     supprimerJournal(id: string): Promise<void>;
     supprimerJournee(id: string): Promise<void>;
     supprimerMediaQuotidien(id: string): Promise<void>;

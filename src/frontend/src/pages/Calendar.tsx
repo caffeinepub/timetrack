@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Clock,
   Edit2,
   Plus,
@@ -24,6 +25,7 @@ import {
   DayTypeCheckboxGroup,
   getDayTypeColors,
 } from "../components/DayTypeCheckboxGroup";
+import { InterventionFormModal } from "../components/InterventionFormModal";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useDeleteTimeEntry,
@@ -266,6 +268,12 @@ export default function Calendar() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [form, setForm] = useState<TimeEntryForm>(defaultForm());
+  const [interventionDialogOpen, setInterventionDialogOpen] = useState(false);
+  const [selectedDateForIntervention, setSelectedDateForIntervention] =
+    useState<bigint>(BigInt(0));
+  const [editingIntervention, setEditingIntervention] = useState<
+    import("../backend.d").Intervention | null
+  >(null);
 
   const userEntries = useMemo(() => {
     if (!identity) return [];
@@ -584,58 +592,87 @@ export default function Calendar() {
               );
               const colors = getDayTypeColors(entry.typeOfDay);
               return (
-                <button
+                <div
                   key={entry.id}
-                  type="button"
-                  onClick={() => openEditEntry(entry)}
-                  data-ocid="calendar.entry.row"
-                  className="w-full bg-card border border-border rounded-lg p-3 flex items-center gap-3 cursor-pointer hover:bg-muted/30 transition-colors text-left"
+                  className="bg-card border border-border rounded-lg overflow-hidden"
                 >
-                  <div
-                    className={`w-2 h-10 rounded-full flex-shrink-0 ${colors.bg}`}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">
-                      {d.toLocaleDateString("fr-FR", {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </p>
-                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
-                      {normal > 0 && (
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> {formatMinutes(normal)}
-                        </span>
-                      )}
-                      {astreinte > 0 && (
-                        <span className="text-xs text-orange-500">
-                          {formatMinutes(astreinte)} astreinte
-                        </span>
-                      )}
-                      {intervention > 0 && (
-                        <span className="text-xs text-foreground">
-                          {formatMinutes(intervention)} intervention
-                        </span>
-                      )}
-                      {Number(entry.heuresRepas) > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          {formatMinutes(Number(entry.heuresRepas))} repas
-                        </span>
-                      )}
-                      {Number(entry.heuresTrajet) > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          {formatMinutes(Number(entry.heuresTrajet))} trajet
-                        </span>
-                      )}
+                  <button
+                    type="button"
+                    onClick={() => openEditEntry(entry)}
+                    data-ocid="calendar.entry.row"
+                    className="w-full p-3 flex items-center gap-3 cursor-pointer hover:bg-muted/30 transition-colors text-left"
+                  >
+                    <div
+                      className={`w-2 h-10 rounded-full flex-shrink-0 ${colors.bg}`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">
+                        {d.toLocaleDateString("fr-FR", {
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </p>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                        {normal > 0 && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Clock className="w-3 h-3" />{" "}
+                            {formatMinutes(normal)}
+                          </span>
+                        )}
+                        {astreinte > 0 && (
+                          <span className="text-xs text-orange-500">
+                            {formatMinutes(astreinte)} astreinte
+                          </span>
+                        )}
+                        {intervention > 0 && (
+                          <span className="text-xs text-foreground">
+                            {formatMinutes(intervention)} intervention
+                          </span>
+                        )}
+                        {Number(entry.heuresRepas) > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            {formatMinutes(Number(entry.heuresRepas))} repas
+                          </span>
+                        )}
+                        {Number(entry.heuresTrajet) > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            {formatMinutes(Number(entry.heuresTrajet))} trajet
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    <Edit2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  </button>
+                  <div className="px-3 pb-2 border-t border-border/50">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 w-full justify-start gap-1"
+                      onClick={() => {
+                        setSelectedDateForIntervention(entry.date);
+                        setEditingIntervention(null);
+                        setInterventionDialogOpen(true);
+                      }}
+                      data-ocid="calendar.intervention.open_modal_button"
+                    >
+                      <ClipboardList className="w-3 h-3" /> + Intervention
+                    </Button>
                   </div>
-                  <Edit2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                </button>
+                </div>
               );
             })}
         </div>
       )}
+
+      {/* Intervention Form Modal */}
+      <InterventionFormModal
+        open={interventionDialogOpen}
+        onClose={() => setInterventionDialogOpen(false)}
+        date={selectedDateForIntervention}
+        editingIntervention={editingIntervention}
+      />
 
       {/* Time Entry Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
