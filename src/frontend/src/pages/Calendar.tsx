@@ -9,16 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  Clock,
-  Edit2,
-  Plus,
-  X,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Edit2, Plus, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { DayType, type TimeEntry } from "../backend";
 import {
@@ -173,11 +164,13 @@ function DurationHMInput({ value, onChange, maxH = 24 }: DurationHMInputProps) {
   );
 }
 
+interface PieceLigne {
+  reference: string;
+  article: string;
+  quantite: string;
+}
+
 interface InterventionSlotForm {
-  startHour: string;
-  startMinute: string;
-  endHour: string;
-  endMinute: string;
   // Fiche fields
   ficheId: string;
   clientNom: string;
@@ -193,7 +186,7 @@ interface InterventionSlotForm {
   ficheDescription: string;
   signatureClient: string;
   signatureIntervenant: string;
-  showFiche: boolean;
+  piecesLignes: PieceLigne[];
 }
 
 interface TimeEntryForm {
@@ -211,10 +204,6 @@ interface TimeEntryForm {
 }
 
 const defaultSlot = (): InterventionSlotForm => ({
-  startHour: "8",
-  startMinute: "0",
-  endHour: "9",
-  endMinute: "0",
   ficheId: "",
   clientNom: "",
   clientAdresse: "",
@@ -229,7 +218,7 @@ const defaultSlot = (): InterventionSlotForm => ({
   ficheDescription: "",
   signatureClient: "",
   signatureIntervenant: "",
-  showFiche: false,
+  piecesLignes: [],
 });
 
 const defaultForm = (): TimeEntryForm => ({
@@ -417,12 +406,8 @@ export default function Calendar() {
     setSelectedDate(timestampToDate(entry.date));
     setEditingEntry(entry);
     const baseSlots: InterventionSlotForm[] = entry.interventionSlots.map(
-      (s) => ({
+      (_s) => ({
         ...defaultSlot(),
-        startHour: String(Number(s.startHour)),
-        startMinute: String(Number(s.startMinute)),
-        endHour: String(Number(s.endHour)),
-        endMinute: String(Number(s.endMinute)),
       }),
     );
     setForm({
@@ -468,7 +453,13 @@ export default function Calendar() {
               ficheDescription: intv.description,
               signatureClient: intv.signatureClient,
               signatureIntervenant: intv.signatureIntervenant,
-              showFiche: intv.clientNom !== "",
+              piecesLignes: Array.isArray(intv.pieces)
+                ? intv.pieces.map((p: any) => ({
+                    reference: p.reference ?? "",
+                    article: p.article ?? "",
+                    quantite: String(Number(p.quantite ?? 0)),
+                  }))
+                : [],
             };
           }),
         }));
@@ -505,11 +496,11 @@ export default function Calendar() {
         : undefined,
       typeOfDay: form.typeOfDay,
       description: form.description,
-      interventionSlots: form.interventionSlots.map((s) => ({
-        startHour: BigInt(Number(s.startHour) || 0),
-        startMinute: BigInt(Number(s.startMinute) || 0),
-        endHour: BigInt(Number(s.endHour) || 0),
-        endMinute: BigInt(Number(s.endMinute) || 0),
+      interventionSlots: form.interventionSlots.map((_s) => ({
+        startHour: BigInt(0),
+        startMinute: BigInt(0),
+        endHour: BigInt(0),
+        endMinute: BigInt(0),
       })),
     };
 
@@ -541,6 +532,11 @@ export default function Calendar() {
         description: slot.ficheDescription,
         signatureClient: slot.signatureClient,
         signatureIntervenant: slot.signatureIntervenant,
+        pieces: slot.piecesLignes.map((l) => ({
+          reference: l.reference,
+          article: l.article,
+          quantite: BigInt(Number(l.quantite) || 0),
+        })),
       };
       if (slot.ficheId) {
         await updateIntervention({
@@ -576,7 +572,7 @@ export default function Calendar() {
 
   const updateSlot = (
     idx: number,
-    field: keyof InterventionSlotForm,
+    field: keyof Omit<InterventionSlotForm, "piecesLignes">,
     value: string,
   ) => {
     setForm((f) => ({
@@ -587,11 +583,54 @@ export default function Calendar() {
     }));
   };
 
-  const toggleSlotFiche = (idx: number) => {
+  const addPieceLigne = (slotIdx: number) => {
     setForm((f) => ({
       ...f,
       interventionSlots: f.interventionSlots.map((s, i) =>
-        i === idx ? { ...s, showFiche: !s.showFiche } : s,
+        i === slotIdx
+          ? {
+              ...s,
+              piecesLignes: [
+                ...s.piecesLignes,
+                { reference: "", article: "", quantite: "" },
+              ],
+            }
+          : s,
+      ),
+    }));
+  };
+
+  const removePieceLigne = (slotIdx: number, ligneIdx: number) => {
+    setForm((f) => ({
+      ...f,
+      interventionSlots: f.interventionSlots.map((s, i) =>
+        i === slotIdx
+          ? {
+              ...s,
+              piecesLignes: s.piecesLignes.filter((_, li) => li !== ligneIdx),
+            }
+          : s,
+      ),
+    }));
+  };
+
+  const updatePieceLigne = (
+    slotIdx: number,
+    ligneIdx: number,
+    field: keyof PieceLigne,
+    value: string,
+  ) => {
+    setForm((f) => ({
+      ...f,
+      interventionSlots: f.interventionSlots.map((s, i) =>
+        i === slotIdx
+          ? {
+              ...s,
+              piecesLignes: s.piecesLignes.map((l, li) =>
+                li === ligneIdx ? { ...l, [field]: value } : l,
+              ),
+            }
+          : s,
       ),
     }));
   };
@@ -1012,316 +1051,304 @@ export default function Calendar() {
                   key={`slot-${String(idx)}`}
                   className="mb-3 border border-orange-200 rounded-lg overflow-hidden"
                 >
-                  {/* Slot timing row */}
-                  <div className="flex items-end gap-2 p-2 bg-orange-50">
-                    <div className="grid grid-cols-2 gap-2 flex-1">
-                      <div>
-                        <Label className="text-xs text-muted-foreground mb-1 block">
-                          Début (h:min)
-                        </Label>
-                        <div className="flex gap-1">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="23"
-                            placeholder="8"
-                            value={slot.startHour}
-                            onChange={(e) =>
-                              updateSlot(idx, "startHour", e.target.value)
-                            }
-                            className="w-14 text-center px-1"
-                          />
-                          <span className="self-center text-muted-foreground font-semibold">
-                            h
-                          </span>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="59"
-                            placeholder="00"
-                            value={slot.startMinute}
-                            onChange={(e) =>
-                              updateSlot(idx, "startMinute", e.target.value)
-                            }
-                            className="w-14 text-center px-1"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground mb-1 block">
-                          Fin (h:min)
-                        </Label>
-                        <div className="flex gap-1">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="23"
-                            placeholder="9"
-                            value={slot.endHour}
-                            onChange={(e) =>
-                              updateSlot(idx, "endHour", e.target.value)
-                            }
-                            className="w-14 text-center px-1"
-                          />
-                          <span className="self-center text-muted-foreground font-semibold">
-                            h
-                          </span>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="59"
-                            placeholder="00"
-                            value={slot.endMinute}
-                            onChange={(e) =>
-                              updateSlot(idx, "endMinute", e.target.value)
-                            }
-                            className="w-14 text-center px-1"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-xs text-orange-600 font-medium self-center min-w-[40px]">
-                      {(() => {
-                        const startTotal =
-                          (Number(slot.startHour) || 0) * 60 +
-                          (Number(slot.startMinute) || 0);
-                        const endTotal =
-                          (Number(slot.endHour) || 0) * 60 +
-                          (Number(slot.endMinute) || 0);
-                        const diff = endTotal - startTotal;
-                        return diff > 0 ? formatHours(diff / 60) : "";
-                      })()}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => toggleSlotFiche(idx)}
-                        data-ocid="calendar.fiche_client.toggle"
-                        className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded transition-colors"
-                      >
-                        {slot.showFiche ? (
-                          <>
-                            <ChevronUp className="w-3 h-3" /> Fiche
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="w-3 h-3" /> Fiche
-                          </>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeInterventionSlot(idx)}
-                        data-ocid="calendar.remove_intervention.button"
-                        className="p-1 text-destructive hover:bg-destructive/10 rounded"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
+                  {/* Slot header */}
+                  <div className="flex items-center justify-between p-2 bg-orange-50">
+                    <span className="text-xs font-semibold text-orange-700">
+                      Intervention N°{idx + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeInterventionSlot(idx)}
+                      data-ocid="calendar.remove_intervention.button"
+                      className="p-1 text-destructive hover:bg-destructive/10 rounded"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
 
-                  {/* Fiche client inline section */}
-                  {slot.showFiche && (
-                    <div className="p-3 bg-blue-50/60 border-t border-blue-100 space-y-3">
-                      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
-                        Fiche client
-                      </p>
+                  {/* Fiche client inline section — always visible */}
+                  <div className="p-3 bg-blue-50/60 border-t border-blue-100 space-y-3">
+                    <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
+                      Fiche client
+                    </p>
 
-                      {/* Client nom autocomplete */}
-                      <div>
-                        <Label className="text-xs text-muted-foreground mb-1 block">
-                          Nom client
-                        </Label>
-                        <ClientAutocomplete
-                          value={slot.clientNom}
-                          onChange={(nom, adresse) => {
-                            updateSlot(idx, "clientNom", nom);
-                            if (adresse !== undefined)
-                              updateSlot(idx, "clientAdresse", adresse);
-                          }}
-                          clients={clients}
-                        />
-                      </div>
-
-                      {/* Adresse */}
-                      <div>
-                        <Label className="text-xs text-muted-foreground mb-1 block">
-                          Adresse
-                        </Label>
-                        <Input
-                          value={slot.clientAdresse}
-                          onChange={(e) =>
-                            updateSlot(idx, "clientAdresse", e.target.value)
-                          }
-                          placeholder="Adresse du client"
-                          className="text-sm"
-                        />
-                      </div>
-
-                      {/* Horaires matin / après-midi */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-xs text-muted-foreground mb-1 block">
-                            Matin début
-                          </Label>
-                          <div className="flex gap-1">
-                            <Input
-                              type="number"
-                              min="0"
-                              max="23"
-                              placeholder="HH"
-                              value={slot.matinDebutH}
-                              onChange={(e) =>
-                                updateSlot(idx, "matinDebutH", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                            <span className="self-center text-xs text-muted-foreground font-semibold">
-                              h
-                            </span>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="59"
-                              placeholder="MM"
-                              value={slot.matinDebutMin}
-                              onChange={(e) =>
-                                updateSlot(idx, "matinDebutMin", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground mb-1 block">
-                            Matin fin
-                          </Label>
-                          <div className="flex gap-1">
-                            <Input
-                              type="number"
-                              min="0"
-                              max="23"
-                              placeholder="HH"
-                              value={slot.matinFinH}
-                              onChange={(e) =>
-                                updateSlot(idx, "matinFinH", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                            <span className="self-center text-xs text-muted-foreground font-semibold">
-                              h
-                            </span>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="59"
-                              placeholder="MM"
-                              value={slot.matinFinMin}
-                              onChange={(e) =>
-                                updateSlot(idx, "matinFinMin", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground mb-1 block">
-                            Après-midi début
-                          </Label>
-                          <div className="flex gap-1">
-                            <Input
-                              type="number"
-                              min="0"
-                              max="23"
-                              placeholder="HH"
-                              value={slot.apremDebutH}
-                              onChange={(e) =>
-                                updateSlot(idx, "apremDebutH", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                            <span className="self-center text-xs text-muted-foreground font-semibold">
-                              h
-                            </span>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="59"
-                              placeholder="MM"
-                              value={slot.apremDebutMin}
-                              onChange={(e) =>
-                                updateSlot(idx, "apremDebutMin", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground mb-1 block">
-                            Après-midi fin
-                          </Label>
-                          <div className="flex gap-1">
-                            <Input
-                              type="number"
-                              min="0"
-                              max="23"
-                              placeholder="HH"
-                              value={slot.apremFinH}
-                              onChange={(e) =>
-                                updateSlot(idx, "apremFinH", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                            <span className="self-center text-xs text-muted-foreground font-semibold">
-                              h
-                            </span>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="59"
-                              placeholder="MM"
-                              value={slot.apremFinMin}
-                              onChange={(e) =>
-                                updateSlot(idx, "apremFinMin", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Description */}
-                      <div>
-                        <Label className="text-xs text-muted-foreground mb-1 block">
-                          Description
-                        </Label>
-                        <Textarea
-                          value={slot.ficheDescription}
-                          onChange={(e) =>
-                            updateSlot(idx, "ficheDescription", e.target.value)
-                          }
-                          placeholder="Description de l'intervention..."
-                          rows={2}
-                          className="text-sm"
-                          data-ocid="calendar.fiche_description.textarea"
-                        />
-                      </div>
-
-                      {/* Signatures */}
-                      <SignaturePad
-                        label="Signature client"
-                        value={slot.signatureClient}
-                        onChange={(v) => updateSlot(idx, "signatureClient", v)}
-                      />
-                      <SignaturePad
-                        label="Signature intervenant"
-                        value={slot.signatureIntervenant}
-                        onChange={(v) =>
-                          updateSlot(idx, "signatureIntervenant", v)
-                        }
+                    {/* Client nom autocomplete */}
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1 block">
+                        Nom client
+                      </Label>
+                      <ClientAutocomplete
+                        value={slot.clientNom}
+                        onChange={(nom, adresse) => {
+                          updateSlot(idx, "clientNom", nom);
+                          if (adresse !== undefined)
+                            updateSlot(idx, "clientAdresse", adresse);
+                        }}
+                        clients={clients}
                       />
                     </div>
-                  )}
+
+                    {/* Adresse */}
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1 block">
+                        Adresse
+                      </Label>
+                      <Input
+                        value={slot.clientAdresse}
+                        onChange={(e) =>
+                          updateSlot(idx, "clientAdresse", e.target.value)
+                        }
+                        placeholder="Adresse du client"
+                        className="text-sm"
+                      />
+                    </div>
+
+                    {/* Horaires matin / après-midi */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1 block">
+                          Matin début
+                        </Label>
+                        <div className="flex gap-1">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="23"
+                            placeholder="HH"
+                            value={slot.matinDebutH}
+                            onChange={(e) =>
+                              updateSlot(idx, "matinDebutH", e.target.value)
+                            }
+                            className="w-12 text-center px-1 text-sm"
+                          />
+                          <span className="self-center text-xs text-muted-foreground font-semibold">
+                            h
+                          </span>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="59"
+                            placeholder="MM"
+                            value={slot.matinDebutMin}
+                            onChange={(e) =>
+                              updateSlot(idx, "matinDebutMin", e.target.value)
+                            }
+                            className="w-12 text-center px-1 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1 block">
+                          Matin fin
+                        </Label>
+                        <div className="flex gap-1">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="23"
+                            placeholder="HH"
+                            value={slot.matinFinH}
+                            onChange={(e) =>
+                              updateSlot(idx, "matinFinH", e.target.value)
+                            }
+                            className="w-12 text-center px-1 text-sm"
+                          />
+                          <span className="self-center text-xs text-muted-foreground font-semibold">
+                            h
+                          </span>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="59"
+                            placeholder="MM"
+                            value={slot.matinFinMin}
+                            onChange={(e) =>
+                              updateSlot(idx, "matinFinMin", e.target.value)
+                            }
+                            className="w-12 text-center px-1 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1 block">
+                          Après-midi début
+                        </Label>
+                        <div className="flex gap-1">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="23"
+                            placeholder="HH"
+                            value={slot.apremDebutH}
+                            onChange={(e) =>
+                              updateSlot(idx, "apremDebutH", e.target.value)
+                            }
+                            className="w-12 text-center px-1 text-sm"
+                          />
+                          <span className="self-center text-xs text-muted-foreground font-semibold">
+                            h
+                          </span>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="59"
+                            placeholder="MM"
+                            value={slot.apremDebutMin}
+                            onChange={(e) =>
+                              updateSlot(idx, "apremDebutMin", e.target.value)
+                            }
+                            className="w-12 text-center px-1 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1 block">
+                          Après-midi fin
+                        </Label>
+                        <div className="flex gap-1">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="23"
+                            placeholder="HH"
+                            value={slot.apremFinH}
+                            onChange={(e) =>
+                              updateSlot(idx, "apremFinH", e.target.value)
+                            }
+                            className="w-12 text-center px-1 text-sm"
+                          />
+                          <span className="self-center text-xs text-muted-foreground font-semibold">
+                            h
+                          </span>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="59"
+                            placeholder="MM"
+                            value={slot.apremFinMin}
+                            onChange={(e) =>
+                              updateSlot(idx, "apremFinMin", e.target.value)
+                            }
+                            className="w-12 text-center px-1 text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1 block">
+                        Description
+                      </Label>
+                      <Textarea
+                        value={slot.ficheDescription}
+                        onChange={(e) =>
+                          updateSlot(idx, "ficheDescription", e.target.value)
+                        }
+                        placeholder="Description de l'intervention..."
+                        rows={2}
+                        className="text-sm"
+                        data-ocid="calendar.fiche_description.textarea"
+                      />
+                    </div>
+
+                    {/* Pièces utilisées */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
+                          Pièces utilisées
+                        </Label>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          onClick={() => addPieceLigne(idx)}
+                          data-ocid="calendar.add_piece.button"
+                          className="h-6 px-2 text-xs"
+                        >
+                          <Plus className="w-3 h-3 mr-1" /> Ajouter
+                        </Button>
+                      </div>
+                      {slot.piecesLignes.length === 0 && (
+                        <p
+                          className="text-xs text-muted-foreground"
+                          data-ocid="calendar.pieces.empty_state"
+                        >
+                          Aucune pièce
+                        </p>
+                      )}
+                      {slot.piecesLignes.map((ligne, ligneIdx) => (
+                        <div
+                          key={`piece-${String(idx)}-${String(ligneIdx)}`}
+                          className="flex items-center gap-1 mb-2"
+                          data-ocid={`calendar.pieces.item.${ligneIdx + 1}`}
+                        >
+                          <Input
+                            placeholder="Référence"
+                            value={ligne.reference}
+                            onChange={(e) =>
+                              updatePieceLigne(
+                                idx,
+                                ligneIdx,
+                                "reference",
+                                e.target.value,
+                              )
+                            }
+                            className="text-xs flex-1 min-w-0"
+                          />
+                          <Input
+                            placeholder="Article"
+                            value={ligne.article}
+                            onChange={(e) =>
+                              updatePieceLigne(
+                                idx,
+                                ligneIdx,
+                                "article",
+                                e.target.value,
+                              )
+                            }
+                            className="text-xs flex-1 min-w-0"
+                          />
+                          <Input
+                            type="number"
+                            placeholder="Qté"
+                            value={ligne.quantite}
+                            onChange={(e) =>
+                              updatePieceLigne(
+                                idx,
+                                ligneIdx,
+                                "quantite",
+                                e.target.value,
+                              )
+                            }
+                            className="text-xs w-14 text-center px-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removePieceLigne(idx, ligneIdx)}
+                            data-ocid="calendar.pieces.delete_button"
+                            className="p-1 text-destructive hover:bg-destructive/10 rounded flex-shrink-0"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Signatures */}
+                    <SignaturePad
+                      label="Signature client"
+                      value={slot.signatureClient}
+                      onChange={(v) => updateSlot(idx, "signatureClient", v)}
+                    />
+                    <SignaturePad
+                      label="Signature intervenant"
+                      value={slot.signatureIntervenant}
+                      onChange={(v) =>
+                        updateSlot(idx, "signatureIntervenant", v)
+                      }
+                    />
+                  </div>
                 </div>
               ))}
             </div>

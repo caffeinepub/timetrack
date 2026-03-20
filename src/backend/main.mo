@@ -155,6 +155,13 @@ actor {
   };
 
   // Intervention type
+  public type PieceUtilisee = {
+    reference : Text;
+    article : Text;
+    quantite : Int;
+  };
+
+  // Intervention stored without pieces (for stable variable compatibility)
   public type Intervention = {
     id : Text;
     date : Time.Time;
@@ -175,6 +182,28 @@ actor {
     createdAt : Time.Time;
   };
 
+  // Intervention with pieces merged in (returned to frontend)
+  public type InterventionAvecPieces = {
+    id : Text;
+    date : Time.Time;
+    clientNom : Text;
+    clientAdresse : Text;
+    heureMatinDebutH : Int;
+    heureMatinDebutMin : Int;
+    heureMatinFinH : Int;
+    heureMatinFinMin : Int;
+    heureApremDebutH : Int;
+    heureApremDebutMin : Int;
+    heureApremFinH : Int;
+    heureApremFinMin : Int;
+    description : Text;
+    signatureClient : Text;
+    signatureIntervenant : Text;
+    pieces : [PieceUtilisee];
+    user : Principal;
+    createdAt : Time.Time;
+  };
+
   public type InterventionInput = {
     id : Text;
     date : Time.Time;
@@ -191,6 +220,7 @@ actor {
     description : Text;
     signatureClient : Text;
     signatureIntervenant : Text;
+    pieces : [PieceUtilisee];
   };
 
   // Persistent storage
@@ -202,6 +232,7 @@ actor {
   var compteurFichiers : Nat = 0;
   let clients = Map.empty<Text, Client>();
   let interventions = Map.empty<Text, Intervention>();
+  let interventionPieces = Map.empty<Text, [PieceUtilisee]>();
 
   // Autorisation système
   let accessControlState = AccessControl.initState();
@@ -301,6 +332,7 @@ actor {
       createdAt = Time.now();
     };
     interventions.add(input.id, intervention);
+    interventionPieces.add(input.id, input.pieces);
   };
 
   public shared ({ caller }) func modifierIntervention(id : Text, input : InterventionInput) : async () {
@@ -335,6 +367,7 @@ actor {
       createdAt = Time.now();
     };
     interventions.add(id, intervention);
+    interventionPieces.add(id, input.pieces);
   };
 
   public shared ({ caller }) func supprimerIntervention(id : Text) : async () {
@@ -352,13 +385,38 @@ actor {
     interventions.remove(id);
   };
 
-  public query ({ caller }) func obtenirInterventionsPourJour(date : Time.Time) : async [Intervention] {
+  public query ({ caller }) func obtenirInterventionsPourJour(date : Time.Time) : async [InterventionAvecPieces] {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Non autorisé");
     };
     let isAdmin = AccessControl.isAdmin(accessControlState, caller);
     interventions.values().filter(func(i : Intervention) : Bool {
       i.date == date and (i.user == caller or isAdmin)
+    }).map(func(i : Intervention) : InterventionAvecPieces {
+      let pieces = switch (interventionPieces.get(i.id)) {
+        case (?p) { p };
+        case (null) { [] };
+      };
+      {
+        id = i.id;
+        date = i.date;
+        clientNom = i.clientNom;
+        clientAdresse = i.clientAdresse;
+        heureMatinDebutH = i.heureMatinDebutH;
+        heureMatinDebutMin = i.heureMatinDebutMin;
+        heureMatinFinH = i.heureMatinFinH;
+        heureMatinFinMin = i.heureMatinFinMin;
+        heureApremDebutH = i.heureApremDebutH;
+        heureApremDebutMin = i.heureApremDebutMin;
+        heureApremFinH = i.heureApremFinH;
+        heureApremFinMin = i.heureApremFinMin;
+        description = i.description;
+        signatureClient = i.signatureClient;
+        signatureIntervenant = i.signatureIntervenant;
+        pieces;
+        user = i.user;
+        createdAt = i.createdAt;
+      };
     }).toArray();
   };
 
