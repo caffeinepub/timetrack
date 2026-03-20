@@ -10,6 +10,15 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface Client {
+  'id' : string,
+  'nom' : string,
+  'createdAt' : Time,
+  'email' : string,
+  'adresse' : string,
+  'listeNoire' : boolean,
+  'telephone' : string,
+}
 export interface DailyMediaEntry {
   'id' : string,
   'createdAt' : Time,
@@ -132,7 +141,9 @@ export interface _SERVICE {
     _CaffeineStorageRefillResult
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
+  'ajouterClient' : ActorMethod<[Client], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'basculerListeNoire' : ActorMethod<[string], undefined>,
   'calculerNombreAstreinte' : ActorMethod<[Principal], bigint>,
   'calculerNombreConge' : ActorMethod<[Principal], bigint>,
   'calculerTotaux' : ActorMethod<[], Totals>,
@@ -165,11 +176,13 @@ export interface _SERVICE {
   'initializeAccessControl' : ActorMethod<[], undefined>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'listerFichiers' : ActorMethod<[], Array<Fichier>>,
+  'modifierClient' : ActorMethod<[string, Client], undefined>,
   'modifierJournal' : ActorMethod<
     [string, string, string, string, Array<ExternalBlob>, [] | [DayType]],
     undefined
   >,
   'modifierJournee' : ActorMethod<[string, TimeEntryInput], undefined>,
+  'obtenirClients' : ActorMethod<[], Array<Client>>,
   'obtenirJournaux' : ActorMethod<[], Array<JournalEntry>>,
   'obtenirJournees' : ActorMethod<[], Array<TimeEntry>>,
   'obtenirMediasAudioPourJour' : ActorMethod<[Time], Array<ExternalBlob>>,
@@ -179,6 +192,7 @@ export interface _SERVICE {
   'recupererFichier' : ActorMethod<[bigint], [] | [Fichier]>,
   'restartPublish' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'supprimerClient' : ActorMethod<[string], undefined>,
   'supprimerFichier' : ActorMethod<[bigint], boolean>,
   'supprimerJournal' : ActorMethod<[string], undefined>,
   'supprimerJournee' : ActorMethod<[string], undefined>,

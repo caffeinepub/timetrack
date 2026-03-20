@@ -3,12 +3,12 @@ import {
   BookOpen,
   CalendarDays,
   LayoutDashboard,
+  Users,
 } from "lucide-react";
 import type React from "react";
 import { useCallback } from "react";
+import type { Page } from "../App";
 import { useSafeTap } from "../hooks/useSafeTap";
-
-type Page = "dashboard" | "calendar" | "journal" | "reports";
 
 interface MobileBottomNavProps {
   currentPage: Page;
@@ -16,10 +16,11 @@ interface MobileBottomNavProps {
 }
 
 const NAV_ITEMS: { page: Page; label: string; Icon: React.ElementType }[] = [
-  { page: "dashboard", label: "Dashboard", Icon: LayoutDashboard },
-  { page: "calendar", label: "Calendar", Icon: CalendarDays },
+  { page: "dashboard", label: "Bord", Icon: LayoutDashboard },
+  { page: "calendar", label: "Calendrier", Icon: CalendarDays },
   { page: "journal", label: "Journal", Icon: BookOpen },
-  { page: "reports", label: "Reports", Icon: BarChart2 },
+  { page: "reports", label: "Rapports", Icon: BarChart2 },
+  { page: "clients", label: "Clients", Icon: Users },
 ];
 
 export default function MobileBottomNav({
@@ -49,7 +50,7 @@ export default function MobileBottomNav({
               aria-current={isActive ? "page" : undefined}
               onClick={() => handleNavigate(page)}
               className={[
-                "flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors select-none",
+                "flex-1 flex flex-col items-center justify-center gap-0.5 text-[9px] font-medium transition-colors select-none",
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground active:text-primary",

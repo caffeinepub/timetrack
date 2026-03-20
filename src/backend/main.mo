@@ -144,6 +144,16 @@ actor {
     description : Text;
   };
 
+  public type Client = {
+    id : Text;
+    nom : Text;
+    adresse : Text;
+    telephone : Text;
+    email : Text;
+    listeNoire : Bool;
+    createdAt : Time.Time;
+  };
+
   // Persistent storage
   let timeEntries = Map.empty<Text, TimeEntry>();
   let journalEntries = Map.empty<Text, JournalEntry>();
@@ -151,6 +161,7 @@ actor {
   let userProfiles = Map.empty<Principal, UserProfile>();
   var fichiersStockes = Map.empty<Nat, Fichier>();
   var compteurFichiers : Nat = 0;
+  let clients = Map.empty<Text, Client>();
 
   // Autorisation système
   let accessControlState = AccessControl.initState();
@@ -170,6 +181,59 @@ actor {
 
   public query ({ caller }) func isCallerAdmin() : async Bool {
     AccessControl.isAdmin(accessControlState, caller);
+  };
+
+  // Client management functions
+  public shared ({ caller }) func ajouterClient(client : Client) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Non autorisé : seuls les utilisateurs peuvent ajouter des clients");
+    };
+    clients.add(client.id, client);
+  };
+
+  public shared ({ caller }) func modifierClient(id : Text, client : Client) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Non autorisé : seuls les utilisateurs peuvent modifier des clients");
+    };
+    clients.add(id, client);
+  };
+
+  public shared ({ caller }) func supprimerClient(id : Text) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Non autorisé : seuls les utilisateurs peuvent supprimer des clients");
+    };
+    clients.remove(id);
+  };
+
+  public query ({ caller }) func obtenirClients() : async [Client] {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Non autorisé : seuls les utilisateurs peuvent consulter les clients");
+    };
+    clients.values().toArray();
+  };
+
+  public shared ({ caller }) func basculerListeNoire(id : Text) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Non autorisé : seuls les utilisateurs peuvent basculer le statut de liste noire");
+    };
+    
+    switch (clients.get(id)) {
+      case (null) {
+        Runtime.trap("Client non trouvé");
+      };
+      case (?existingClient) {
+        let updatedClient : Client = {
+          id = existingClient.id;
+          nom = existingClient.nom;
+          adresse = existingClient.adresse;
+          telephone = existingClient.telephone;
+          email = existingClient.email;
+          listeNoire = not existingClient.listeNoire;
+          createdAt = existingClient.createdAt;
+        };
+        clients.add(id, updatedClient);
+      };
+    };
   };
 
   // Fichier functions
@@ -928,4 +992,3 @@ actor {
     Runtime.trap("Publish restart workflow triggered. This actor is already running the latest version. If a publish failure occurred, redeploying should automatically resolve it. No further action is needed.");
   };
 };
-

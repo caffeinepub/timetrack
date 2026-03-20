@@ -176,6 +176,15 @@ export type MediaType = {
     __kind__: "photo";
     photo: ExternalBlob;
 };
+export interface Client {
+    id: string;
+    nom: string;
+    createdAt: Time;
+    email: string;
+    adresse: string;
+    listeNoire: boolean;
+    telephone: string;
+}
 export interface UserProfile {
     name: string;
     email: string;
@@ -213,7 +222,9 @@ export interface backendInterface {
     _caffeineStorageCreateCertificate(blobHash: string): Promise<_CaffeineStorageCreateCertificateResult>;
     _caffeineStorageRefillCashier(refillInformation: _CaffeineStorageRefillInformation | null): Promise<_CaffeineStorageRefillResult>;
     _caffeineStorageUpdateGatewayPrincipals(): Promise<void>;
+    ajouterClient(client: Client): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    basculerListeNoire(id: string): Promise<void>;
     calculerNombreAstreinte(user: Principal): Promise<bigint>;
     calculerNombreConge(user: Principal): Promise<bigint>;
     calculerTotaux(): Promise<Totals>;
@@ -236,8 +247,10 @@ export interface backendInterface {
     initializeAccessControl(): Promise<void>;
     isCallerAdmin(): Promise<boolean>;
     listerFichiers(): Promise<Array<Fichier>>;
+    modifierClient(id: string, client: Client): Promise<void>;
     modifierJournal(id: string, audioUrl: string, transcription: string, notes: string, photos: Array<ExternalBlob>, dayType: DayType | null): Promise<void>;
     modifierJournee(id: string, input: TimeEntryInput): Promise<void>;
+    obtenirClients(): Promise<Array<Client>>;
     obtenirJournaux(): Promise<Array<JournalEntry>>;
     obtenirJournees(): Promise<Array<TimeEntry>>;
     obtenirMediasAudioPourJour(date: Time): Promise<Array<ExternalBlob>>;
@@ -247,6 +260,7 @@ export interface backendInterface {
     recupererFichier(_id: bigint): Promise<Fichier | null>;
     restartPublish(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    supprimerClient(id: string): Promise<void>;
     supprimerFichier(_id: bigint): Promise<boolean>;
     supprimerJournal(id: string): Promise<void>;
     supprimerJournee(id: string): Promise<void>;
@@ -340,6 +354,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async ajouterClient(arg0: Client): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.ajouterClient(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.ajouterClient(arg0);
+            return result;
+        }
+    }
     async assignCallerUserRole(arg0: Principal, arg1: UserRole): Promise<void> {
         if (this.processError) {
             try {
@@ -351,6 +379,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n8(this._uploadFile, this._downloadFile, arg1));
+            return result;
+        }
+    }
+    async basculerListeNoire(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.basculerListeNoire(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.basculerListeNoire(arg0);
             return result;
         }
     }
@@ -584,6 +626,20 @@ export class Backend implements backendInterface {
             return from_candid_vec_n23(this._uploadFile, this._downloadFile, result);
         }
     }
+    async modifierClient(arg0: string, arg1: Client): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.modifierClient(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.modifierClient(arg0, arg1);
+            return result;
+        }
+    }
     async modifierJournal(arg0: string, arg1: string, arg2: string, arg3: string, arg4: Array<ExternalBlob>, arg5: DayType | null): Promise<void> {
         if (this.processError) {
             try {
@@ -609,6 +665,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.modifierJournee(arg0, to_candid_TimeEntryInput_n15(this._uploadFile, this._downloadFile, arg1));
+            return result;
+        }
+    }
+    async obtenirClients(): Promise<Array<Client>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.obtenirClients();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.obtenirClients();
             return result;
         }
     }
@@ -735,6 +805,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.saveCallerUserProfile(arg0);
+            return result;
+        }
+    }
+    async supprimerClient(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.supprimerClient(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.supprimerClient(arg0);
             return result;
         }
     }

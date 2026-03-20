@@ -19,6 +19,16 @@ export const _CaffeineStorageRefillResult = IDL.Record({
   'success' : IDL.Opt(IDL.Bool),
   'topped_up_amount' : IDL.Opt(IDL.Nat),
 });
+export const Time = IDL.Int;
+export const Client = IDL.Record({
+  'id' : IDL.Text,
+  'nom' : IDL.Text,
+  'createdAt' : Time,
+  'email' : IDL.Text,
+  'adresse' : IDL.Text,
+  'listeNoire' : IDL.Bool,
+  'telephone' : IDL.Text,
+});
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
@@ -36,7 +46,6 @@ export const DayType = IDL.Variant({
   'work' : IDL.Null,
   'astreinte' : IDL.Null,
 });
-export const Time = IDL.Int;
 export const InterventionSlot = IDL.Record({
   'endHour' : IDL.Int,
   'endMinute' : IDL.Int,
@@ -151,7 +160,9 @@ export const idlService = IDL.Service({
       [],
     ),
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
+  'ajouterClient' : IDL.Func([Client], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'basculerListeNoire' : IDL.Func([IDL.Text], [], []),
   'calculerNombreAstreinte' : IDL.Func([IDL.Principal], [IDL.Int], ['query']),
   'calculerNombreConge' : IDL.Func([IDL.Principal], [IDL.Int], ['query']),
   'calculerTotaux' : IDL.Func([], [Totals], ['query']),
@@ -205,6 +216,7 @@ export const idlService = IDL.Service({
   'initializeAccessControl' : IDL.Func([], [], []),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'listerFichiers' : IDL.Func([], [IDL.Vec(Fichier)], ['query']),
+  'modifierClient' : IDL.Func([IDL.Text, Client], [], []),
   'modifierJournal' : IDL.Func(
       [
         IDL.Text,
@@ -218,6 +230,7 @@ export const idlService = IDL.Service({
       [],
     ),
   'modifierJournee' : IDL.Func([IDL.Text, TimeEntryInput], [], []),
+  'obtenirClients' : IDL.Func([], [IDL.Vec(Client)], ['query']),
   'obtenirJournaux' : IDL.Func([], [IDL.Vec(JournalEntry)], ['query']),
   'obtenirJournees' : IDL.Func([], [IDL.Vec(TimeEntry)], ['query']),
   'obtenirMediasAudioPourJour' : IDL.Func(
@@ -239,6 +252,7 @@ export const idlService = IDL.Service({
   'recupererFichier' : IDL.Func([IDL.Nat], [IDL.Opt(Fichier)], ['query']),
   'restartPublish' : IDL.Func([], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'supprimerClient' : IDL.Func([IDL.Text], [], []),
   'supprimerFichier' : IDL.Func([IDL.Nat], [IDL.Bool], []),
   'supprimerJournal' : IDL.Func([IDL.Text], [], []),
   'supprimerJournee' : IDL.Func([IDL.Text], [], []),
@@ -264,6 +278,16 @@ export const idlFactory = ({ IDL }) => {
     'success' : IDL.Opt(IDL.Bool),
     'topped_up_amount' : IDL.Opt(IDL.Nat),
   });
+  const Time = IDL.Int;
+  const Client = IDL.Record({
+    'id' : IDL.Text,
+    'nom' : IDL.Text,
+    'createdAt' : Time,
+    'email' : IDL.Text,
+    'adresse' : IDL.Text,
+    'listeNoire' : IDL.Bool,
+    'telephone' : IDL.Text,
+  });
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
     'user' : IDL.Null,
@@ -281,7 +305,6 @@ export const idlFactory = ({ IDL }) => {
     'work' : IDL.Null,
     'astreinte' : IDL.Null,
   });
-  const Time = IDL.Int;
   const InterventionSlot = IDL.Record({
     'endHour' : IDL.Int,
     'endMinute' : IDL.Int,
@@ -393,7 +416,9 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
+    'ajouterClient' : IDL.Func([Client], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'basculerListeNoire' : IDL.Func([IDL.Text], [], []),
     'calculerNombreAstreinte' : IDL.Func([IDL.Principal], [IDL.Int], ['query']),
     'calculerNombreConge' : IDL.Func([IDL.Principal], [IDL.Int], ['query']),
     'calculerTotaux' : IDL.Func([], [Totals], ['query']),
@@ -447,6 +472,7 @@ export const idlFactory = ({ IDL }) => {
     'initializeAccessControl' : IDL.Func([], [], []),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'listerFichiers' : IDL.Func([], [IDL.Vec(Fichier)], ['query']),
+    'modifierClient' : IDL.Func([IDL.Text, Client], [], []),
     'modifierJournal' : IDL.Func(
         [
           IDL.Text,
@@ -460,6 +486,7 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'modifierJournee' : IDL.Func([IDL.Text, TimeEntryInput], [], []),
+    'obtenirClients' : IDL.Func([], [IDL.Vec(Client)], ['query']),
     'obtenirJournaux' : IDL.Func([], [IDL.Vec(JournalEntry)], ['query']),
     'obtenirJournees' : IDL.Func([], [IDL.Vec(TimeEntry)], ['query']),
     'obtenirMediasAudioPourJour' : IDL.Func(
@@ -481,6 +508,7 @@ export const idlFactory = ({ IDL }) => {
     'recupererFichier' : IDL.Func([IDL.Nat], [IDL.Opt(Fichier)], ['query']),
     'restartPublish' : IDL.Func([], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'supprimerClient' : IDL.Func([IDL.Text], [], []),
     'supprimerFichier' : IDL.Func([IDL.Nat], [IDL.Bool], []),
     'supprimerJournal' : IDL.Func([IDL.Text], [], []),
     'supprimerJournee' : IDL.Func([IDL.Text], [], []),

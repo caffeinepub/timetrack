@@ -401,3 +401,76 @@ export function useGetPdfReportData() {
 
 // Alias used by old Reports page
 export const useGeneratePdfReportData = useGetPdfReportData;
+
+// ---- Clients ----
+
+export function useGetClients() {
+  const { actor, isFetching } = useActor();
+  return useQuery<import("../backend").Client[]>({
+    queryKey: ["clients"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.obtenirClients();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useAddClient() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (client: import("../backend").Client) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.ajouterClient(client);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+    },
+  });
+}
+
+export function useUpdateClient() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      client,
+    }: { id: string; client: import("../backend").Client }) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.modifierClient(id, client);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+    },
+  });
+}
+
+export function useDeleteClient() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.supprimerClient(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+    },
+  });
+}
+
+export function useToggleBlacklist() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!actor) throw new Error("Actor not available");
+      return actor.basculerListeNoire(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+    },
+  });
+}

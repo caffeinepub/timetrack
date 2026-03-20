@@ -90,6 +90,15 @@ export type MediaType = {
     __kind__: "photo";
     photo: ExternalBlob;
 };
+export interface Client {
+    id: string;
+    nom: string;
+    createdAt: Time;
+    email: string;
+    adresse: string;
+    listeNoire: boolean;
+    telephone: string;
+}
 export interface UserProfile {
     name: string;
     email: string;
@@ -121,7 +130,9 @@ export enum UserRole {
     guest = "guest"
 }
 export interface backendInterface {
+    ajouterClient(client: Client): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    basculerListeNoire(id: string): Promise<void>;
     calculerNombreAstreinte(user: Principal): Promise<bigint>;
     calculerNombreConge(user: Principal): Promise<bigint>;
     calculerTotaux(): Promise<Totals>;
@@ -144,8 +155,10 @@ export interface backendInterface {
     initializeAccessControl(): Promise<void>;
     isCallerAdmin(): Promise<boolean>;
     listerFichiers(): Promise<Array<Fichier>>;
+    modifierClient(id: string, client: Client): Promise<void>;
     modifierJournal(id: string, audioUrl: string, transcription: string, notes: string, photos: Array<ExternalBlob>, dayType: DayType | null): Promise<void>;
     modifierJournee(id: string, input: TimeEntryInput): Promise<void>;
+    obtenirClients(): Promise<Array<Client>>;
     obtenirJournaux(): Promise<Array<JournalEntry>>;
     obtenirJournees(): Promise<Array<TimeEntry>>;
     obtenirMediasAudioPourJour(date: Time): Promise<Array<ExternalBlob>>;
@@ -155,6 +168,7 @@ export interface backendInterface {
     recupererFichier(_id: bigint): Promise<Fichier | null>;
     restartPublish(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    supprimerClient(id: string): Promise<void>;
     supprimerFichier(_id: bigint): Promise<boolean>;
     supprimerJournal(id: string): Promise<void>;
     supprimerJournee(id: string): Promise<void>;

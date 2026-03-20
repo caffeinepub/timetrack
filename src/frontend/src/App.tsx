@@ -21,12 +21,13 @@ import {
   useSaveCallerUserProfile,
 } from "./hooks/useQueries";
 import Calendar from "./pages/Calendar";
+import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
 import Journal from "./pages/Journal";
 import Reports from "./pages/Reports";
 import { getBuildInfo } from "./utils/buildInfo";
 
-type Page = "dashboard" | "calendar" | "journal" | "reports";
+export type Page = "dashboard" | "calendar" | "journal" | "reports" | "clients";
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
@@ -145,6 +146,9 @@ function AppContent() {
         </div>
         <div className={currentPage === "reports" ? "block" : "hidden"}>
           <Reports />
+        </div>
+        <div className={currentPage === "clients" ? "block" : "hidden"}>
+          <Clients />
         </div>
       </main>
 

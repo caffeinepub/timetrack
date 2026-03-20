@@ -1,10 +1,29 @@
-# Specification
+# Suivi du Temps - Module Clients
 
-## Summary
-**Goal:** Update all time duration displays across the application to use an "XhMM" format (e.g., "7h30", "1h05").
+## Current State
+Application de suivi du temps de travail avec calendrier, journal, tableau de bord hebdomadaire/mensuel, rapports PDF. Backend Motoko avec gestion des journées, journaux, médias, profils utilisateurs.
 
-**Planned changes:**
-- Update the shared `timeFormatting.ts` utility to produce the "XhMM" format with zero-padded two-digit minutes
-- Update Dashboard, Calendar, and Reports pages to display time durations using the new format
+## Requested Changes (Diff)
 
-**User-visible outcome:** All time durations throughout the app (Dashboard, Calendar, Reports) are shown as hours and zero-padded minutes (e.g., "7h30", "2h05", "0h00") instead of any previous format.
+### Add
+- Type `Client` dans le backend : id, nom, adresse, telephone, email, listeNoire (Bool), createdAt
+- Fonctions backend : ajouterClient, modifierClient, supprimerClient, obtenirClients, basculerListeNoire
+- Page "Clients" dans le frontend avec onglet dans la navigation mobile
+- Liste des clients avec marquage rouge visible pour ceux en liste noire
+- Formulaire ajout/modification client (nom, adresse, téléphone, email)
+- Bouton pour mettre/enlever de la liste noire avec confirmation
+- Accès lecture+écriture pour tous les utilisateurs authentifiés
+
+### Modify
+- App.tsx : ajouter la page Clients dans la navigation
+- MobileBottomNav : ajouter icône Clients
+- Backend : ajouter stockage clients partagé (visible par tous)
+
+### Remove
+- Rien
+
+## Implementation Plan
+1. Ajouter les types et fonctions Client dans main.mo (sans restriction par utilisateur — partagé entre tous)
+2. Régénérer les bindings frontend
+3. Créer le composant page Clients avec liste, formulaire, et marquage liste noire
+4. Ajouter l'onglet Clients dans App.tsx et MobileBottomNav
