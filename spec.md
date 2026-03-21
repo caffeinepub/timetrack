@@ -1,25 +1,26 @@
-# Suivi du Temps - Correction bugs persistance et enregistrement
+# Suivi du Temps - Amélioration Export PDF
 
 ## Current State
-Le backend utilise `Map.empty()` sans `stable var`, ce qui entraîne la perte de toutes les données à chaque mise à jour (upgrade) du canister. De plus, `modifierJournee` lance une exception si l'entrée n'est pas trouvée, ce qui provoque une erreur d'enregistrement lorsque les données ont été perdues.
+Les rapports ont déjà un bouton d'export PDF (via backend) et un export CSV. L'export PDF actuel dépend d'une fonction backend (`generatePdf`) et ne contient pas les fiches interventions détaillées (pièces, signatures). L'export CSV contient uniquement les journées (pas les interventions).
 
 ## Requested Changes (Diff)
 
 ### Add
-- Déclarations `stable var` pour toutes les collections (timeEntries, journalEntries, dailyMediaEntries, userProfiles, clients, interventions, interventionPieces)
-- Fonctions `system preupgrade()` et `system postupgrade()` pour sérialiser/désérialiser les Maps dans des tableaux stables
+- Export PDF complet côté frontend (sans dépendance backend) utilisant `jsPDF` ou impression navigateur
+- L'export PDF inclut : résumé de la période, tableau des journées (type, heures, astreinte, repas, trajet), section fiches interventions (client, adresse, horaires matin/après-midi, description, pièces utilisées, indication signatures)
+- Bouton "Tout exporter" pour sauvegarder toutes les données de l'année en cours en PDF
+- Export CSV amélioré incluant aussi les interventions
 
 ### Modify
-- `modifierJournee` : utiliser un comportement upsert (créer si non trouvé) plutôt que de lancer une exception
-- `modifierIntervention` : même correction upsert
-- Toutes les Maps initialisées depuis les stable vars au démarrage
+- Bouton PDF existant : utiliser une génération frontend robuste via `window.print()` avec CSS print-friendly, plutôt que de dépendre du backend
+- Améliorer le contenu de l'export pour inclure les fiches interventions
 
 ### Remove
-- Rien
+- Dépendance à `generatePdf` du backend pour l'export (remplacé par génération frontend)
 
 ## Implementation Plan
-1. Ajouter des stable vars pour chaque Map (tableaux de tuples)
-2. Initialiser les Maps depuis ces stable vars au démarrage
-3. Implémenter preupgrade/postupgrade pour sauvegarder/restaurer les données
-4. Corriger modifierJournee et modifierIntervention pour upsert
-5. Correction du compteurFichiers en stable var
+1. Créer un utilitaire `exportPdf.ts` qui génère un contenu HTML print-friendly et déclenche l'impression
+2. L'export contient : titre période, totaux, tableau journées, fiches interventions avec pièces
+3. Ajouter un bouton "Export annuel" pour sauvegarder toute l'année
+4. Améliorer l'export CSV pour inclure les interventions dans un second onglet/section
+5. Mettre à jour Reports.tsx pour utiliser le nouvel utilitaire

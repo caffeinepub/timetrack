@@ -11,11 +11,9 @@ import {
 import { useMemo, useState } from "react";
 import type { InterventionAvecPieces } from "../backend.d";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import {
-  useGetAllInterventions,
-  useGetPdfReportData,
-  useGetTimeEntries,
-} from "../hooks/useQueries";
+import { useGetAllInterventions, useGetTimeEntries } from "../hooks/useQueries";
+import { exportAnnualPdf } from "../utils/exportAnnualPdf";
+import { exportPdf } from "../utils/exportPdf";
 import {
   computeAstreinteHours,
   computeInterventionHours,
@@ -217,8 +215,6 @@ export default function Reports() {
   const { data: allEntries = [], isLoading } = useGetTimeEntries();
   const { data: allInterventions = [], isLoading: isLoadingInterventions } =
     useGetAllInterventions();
-  const { mutateAsync: generatePdf, isPending: isPdfLoading } =
-    useGetPdfReportData();
 
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -339,6 +335,16 @@ export default function Reports() {
     };
   }, [filteredEntries]);
 
+  const getPeriodTitle = () => {
+    if (periodType === "monthly") {
+      return `Rapport Mensuel - ${MONTHS[selectedMonth]} ${selectedYear}`;
+    }
+    const week = weeksForMonth[safeWeekIndex];
+    return week
+      ? `Rapport Hebdomadaire - ${week.label} ${selectedYear}`
+      : `Rapport Hebdomadaire - ${selectedYear}`;
+  };
+
   const handleExportCsv = () => {
     const headers = [
       "Date",
@@ -369,7 +375,45 @@ export default function Reports() {
         `"${entry.description.replace(/"/g, '""')}"`,
       ].join(",");
     });
-    const csv = [headers.join(","), ...rows].join("\n");
+
+    // Add interventions section
+    const interventionHeaders = [
+      "\n\nFICHES INTERVENTIONS",
+      "Date",
+      "Client",
+      "Adresse",
+      "Matin début",
+      "Matin fin",
+      "Après-midi début",
+      "Après-midi fin",
+      "Description",
+      "Signature client",
+      "Signature intervenant",
+    ];
+    const interventionRows = filteredInterventions.map((inv) => {
+      const date = new Date(Number(inv.date) / 1_000_000).toLocaleDateString(
+        "fr-FR",
+      );
+      return [
+        date,
+        `"${inv.clientNom.replace(/"/g, '""')}"`,
+        `"${inv.clientAdresse.replace(/"/g, '""')}"`,
+        formatHeure(inv.heureMatinDebutH, inv.heureMatinDebutMin),
+        formatHeure(inv.heureMatinFinH, inv.heureMatinFinMin),
+        formatHeure(inv.heureApremDebutH, inv.heureApremDebutMin),
+        formatHeure(inv.heureApremFinH, inv.heureApremFinMin),
+        `"${inv.description.replace(/"/g, '""')}"`,
+        inv.signatureClient ? "Oui" : "Non",
+        inv.signatureIntervenant ? "Oui" : "Non",
+      ].join(",");
+    });
+
+    const csv = [
+      headers.join(","),
+      ...rows,
+      interventionHeaders.join(","),
+      ...interventionRows,
+    ].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -379,34 +423,22 @@ export default function Reports() {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportPdf = async () => {
-    if (!identity) return;
-    const principal = identity.getPrincipal();
-    try {
-      if (periodType === "monthly") {
-        await generatePdf({
-          typePeriode: {
-            __kind__: "mois",
-            mois: [BigInt(selectedMonth + 1), BigInt(selectedYear)],
-          },
-          user: principal,
-        });
-      } else {
-        const week: WeekOption | undefined = weeksForMonth[safeWeekIndex];
-        if (!week) return;
-        const weekNum = getISOWeekNumber(week.startDate);
-        await generatePdf({
-          typePeriode: {
-            __kind__: "semaine",
-            semaine: [BigInt(weekNum), BigInt(selectedYear)],
-          },
-          user: principal,
-        });
-      }
-    } catch (e) {
-      console.error("PDF generation error:", e);
-    }
+  const handleExportPdf = () => {
+    exportPdf(getPeriodTitle(), filteredEntries, filteredInterventions, totals);
   };
+
+  const handleExportAnnualPdf = () => {
+    if (!identity) return;
+    exportAnnualPdf(
+      selectedYear,
+      allEntries,
+      allInterventions,
+      identity.getPrincipal().toString(),
+    );
+  };
+
+  // Unused but kept for potential future use
+  const _getISOWeekNumber = getISOWeekNumber;
 
   const formatDate = (timestamp: bigint) => {
     const date = new Date(Number(timestamp) / 1_000_000);
@@ -510,7 +542,7 @@ export default function Reports() {
           </select>
         )}
 
-        <div className="flex gap-2 ml-auto">
+        <div className="flex gap-2 ml-auto flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -525,15 +557,23 @@ export default function Reports() {
             variant="outline"
             size="sm"
             onClick={handleExportPdf}
-            disabled={filteredEntries.length === 0 || isPdfLoading || !identity}
+            disabled={
+              filteredEntries.length === 0 && filteredInterventions.length === 0
+            }
             data-ocid="reports.export_pdf.button"
           >
-            {isPdfLoading ? (
-              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-            ) : (
-              <FileText className="w-4 h-4 mr-1" />
-            )}
+            <FileText className="w-4 h-4 mr-1" />
             PDF
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportAnnualPdf}
+            disabled={!identity}
+            data-ocid="reports.export_annual_pdf.button"
+          >
+            <FileText className="w-4 h-4 mr-1" />
+            PDF Annuel
           </Button>
         </div>
       </div>
