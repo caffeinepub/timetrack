@@ -565,3 +565,57 @@ export function useGetAllInterventions() {
     enabled: !!actor && !isFetching,
   });
 }
+
+// ---- Memos ----
+
+export function useGetMemos() {
+  const { actor, isFetching } = useActor();
+  return useQuery<any[]>({
+    queryKey: ["memos"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return (actor as any).obtenirMemos();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useCreateMemo() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      authorName,
+      content,
+      photos,
+      videos,
+    }: {
+      id: string;
+      authorName: string;
+      content: string;
+      photos: import("../backend").ExternalBlob[];
+      videos: import("../backend").ExternalBlob[];
+    }) => {
+      if (!actor) throw new Error("Actor not available");
+      return (actor as any).creerMemo(id, authorName, content, photos, videos);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["memos"] });
+    },
+  });
+}
+
+export function useDeleteMemo() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!actor) throw new Error("Actor not available");
+      return (actor as any).supprimerMemo(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["memos"] });
+    },
+  });
+}

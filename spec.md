@@ -1,26 +1,37 @@
-# Suivi du Temps - Amélioration Export PDF
+# Suivi du Temps — Version 67
 
 ## Current State
-Les rapports ont déjà un bouton d'export PDF (via backend) et un export CSV. L'export PDF actuel dépend d'une fonction backend (`generatePdf`) et ne contient pas les fiches interventions détaillées (pièces, signatures). L'export CSV contient uniquement les journées (pas les interventions).
+- App has: Dashboard, Calendar (with intervention fiches), Journal, Reports, Clients
+- Journal: private entries with audio recording, photos, notes, dayType
+- Intervention fiche (in Calendar): client name, address, hours, description, parts (reference/article/qty), signatures
+- Backend uses blob-storage for media files
+- Stable maps for persistence
 
 ## Requested Changes (Diff)
 
 ### Add
-- Export PDF complet côté frontend (sans dépendance backend) utilisant `jsPDF` ou impression navigateur
-- L'export PDF inclut : résumé de la période, tableau des journées (type, heures, astreinte, repas, trajet), section fiches interventions (client, adresse, horaires matin/après-midi, description, pièces utilisées, indication signatures)
-- Bouton "Tout exporter" pour sauvegarder toutes les données de l'année en cours en PDF
-- Export CSV amélioré incluant aussi les interventions
+- `MemoEntry` backend type: id, authorName (text entered by user), content (text), createdAt (Time), photos ([ExternalBlob]), videos ([ExternalBlob])
+- Backend functions: `creerMemo(id, authorName, content, photos, videos)`, `obtenirMemos()` (public query, no auth needed), `supprimerMemo(id)` (only authenticated users can delete)
+- `photos` and `videos` fields ([ExternalBlob]) added to Intervention type
+- New `Memo` frontend page (replaces Journal): public section, add dated/named note with photo/video upload, each entry deletable, media viewer with zoom/fullscreen
+- Photo/video upload in intervention form (Calendar page)
+- Media lightbox viewer component for viewing photos/videos fullscreen
 
 ### Modify
-- Bouton PDF existant : utiliser une génération frontend robuste via `window.print()` avec CSS print-friendly, plutôt que de dépendre du backend
-- Améliorer le contenu de l'export pour inclure les fiches interventions
+- Replace `Journal` page with `Memo` page throughout App.tsx
+- Update `MobileBottomNav` label/icon: "Journal" → "Mémo"
+- `Page` type: `"journal"` → `"memo"`
+- Backend Intervention type: add `photos` and `videos` fields
+- `enregistrerIntervention` and `modifierIntervention` accept `photos` and `videos`
+- Calendar intervention form: add photo/video upload section
 
 ### Remove
-- Dépendance à `generatePdf` du backend pour l'export (remplacé par génération frontend)
+- Journal page (replaced by Memo)
+- Journal-specific backend functions (keep or repurpose - keep for backward compat but no longer used in frontend)
 
 ## Implementation Plan
-1. Créer un utilitaire `exportPdf.ts` qui génère un contenu HTML print-friendly et déclenche l'impression
-2. L'export contient : titre période, totaux, tableau journées, fiches interventions avec pièces
-3. Ajouter un bouton "Export annuel" pour sauvegarder toute l'année
-4. Améliorer l'export CSV pour inclure les interventions dans un second onglet/section
-5. Mettre à jour Reports.tsx pour utiliser le nouvel utilitaire
+1. Regenerate backend with MemoEntry type + memo CRUD functions + intervention media fields
+2. Update frontend: rename journal→memo in App.tsx and MobileBottomNav
+3. Create new Memo.tsx page with: public note feed, add note form (author+text+media), delete button, media viewer
+4. Update Calendar.tsx intervention form: add photo/video upload using blob-storage pattern
+5. Create MediaViewer component (lightbox with zoom)

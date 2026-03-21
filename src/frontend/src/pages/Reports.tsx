@@ -1,17 +1,10 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  ChevronDown,
-  ChevronUp,
-  ClipboardList,
-  Download,
-  FileText,
-  Loader2,
-} from "lucide-react";
+import type { Principal } from "@icp-sdk/core/principal";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronDown, ChevronUp, Download, FileText, User } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { InterventionAvecPieces } from "../backend.d";
+import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useGetAllInterventions, useGetTimeEntries } from "../hooks/useQueries";
 import { exportAnnualPdf } from "../utils/exportAnnualPdf";
 import { exportPdf } from "../utils/exportPdf";
 import {
@@ -44,177 +37,25 @@ const MONTHS = [
   "Décembre",
 ];
 
-function toDateKey(nanoTs: bigint): string {
-  const d = new Date(Number(nanoTs) / 1_000_000);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 function formatHeure(h: bigint, m: bigint): string {
   const mm = String(Number(m)).padStart(2, "0");
   return `${Number(h)}h${mm}`;
 }
 
-function InterventionCard({
-  intervention,
-  index,
-}: { intervention: InterventionAvecPieces; index: number }) {
-  const date = new Date(Number(intervention.date) / 1_000_000);
-  const dateStr = date.toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-
-  const hasSignatureClient = intervention.signatureClient.length > 0;
-  const hasSignatureIntervenant = intervention.signatureIntervenant.length > 0;
-  const hasPieces = intervention.pieces.length > 0;
-  const hasDescription = intervention.description.trim().length > 0;
-
-  const matinDebut = formatHeure(
-    intervention.heureMatinDebutH,
-    intervention.heureMatinDebutMin,
-  );
-  const matinFin = formatHeure(
-    intervention.heureMatinFinH,
-    intervention.heureMatinFinMin,
-  );
-  const apremDebut = formatHeure(
-    intervention.heureApremDebutH,
-    intervention.heureApremDebutMin,
-  );
-  const apremFin = formatHeure(
-    intervention.heureApremFinH,
-    intervention.heureApremFinMin,
-  );
-
-  const hasMatin =
-    Number(intervention.heureMatinDebutH) > 0 ||
-    Number(intervention.heureMatinFinH) > 0;
-  const hasAprem =
-    Number(intervention.heureApremDebutH) > 0 ||
-    Number(intervention.heureApremFinH) > 0;
-
+function isSameDay(ts1: bigint, ts2: bigint): boolean {
+  const d1 = new Date(Number(ts1) / 1_000_000);
+  const d2 = new Date(Number(ts2) / 1_000_000);
   return (
-    <div
-      className="bg-card border border-border rounded-xl p-3 space-y-2"
-      data-ocid={`reports.intervention.item.${index}`}
-    >
-      {/* Header: date + signatures */}
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-semibold text-muted-foreground capitalize">
-          {dateStr}
-        </p>
-        <div className="flex gap-1 shrink-0">
-          {hasSignatureClient && (
-            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
-              ✓ Client
-            </span>
-          )}
-          {hasSignatureIntervenant && (
-            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
-              ✓ Intervenant
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Client */}
-      <div>
-        <p className="text-sm font-bold text-foreground">
-          {intervention.clientNom || "—"}
-        </p>
-        {intervention.clientAdresse && (
-          <p className="text-xs text-muted-foreground">
-            {intervention.clientAdresse}
-          </p>
-        )}
-      </div>
-
-      {/* Hours */}
-      {(hasMatin || hasAprem) && (
-        <div className="flex flex-wrap gap-3">
-          {hasMatin && (
-            <div className="text-xs">
-              <span className="text-muted-foreground">Matin : </span>
-              <span className="font-medium text-foreground">
-                {matinDebut} → {matinFin}
-              </span>
-            </div>
-          )}
-          {hasAprem && (
-            <div className="text-xs">
-              <span className="text-muted-foreground">Après-midi : </span>
-              <span className="font-medium text-foreground">
-                {apremDebut} → {apremFin}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Description */}
-      {hasDescription && (
-        <p className="text-xs text-muted-foreground italic border-l-2 border-border pl-2">
-          {intervention.description}
-        </p>
-      )}
-
-      {/* Pieces */}
-      {hasPieces && (
-        <div>
-          <p className="text-xs font-semibold text-foreground mb-1">
-            Pièces utilisées
-          </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-1 pr-2 text-muted-foreground font-medium">
-                    Réf.
-                  </th>
-                  <th className="text-left py-1 pr-2 text-muted-foreground font-medium">
-                    Article
-                  </th>
-                  <th className="text-right py-1 text-muted-foreground font-medium">
-                    Qté
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {intervention.pieces.map((piece, i) => (
-                  <tr
-                    key={`${piece.reference}-${i}`}
-                    className="border-b border-border/50 last:border-0"
-                  >
-                    <td className="py-1 pr-2 text-foreground">
-                      {piece.reference}
-                    </td>
-                    <td className="py-1 pr-2 text-foreground">
-                      {piece.article}
-                    </td>
-                    <td className="py-1 text-right text-foreground">
-                      {Number(piece.quantite)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-    </div>
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
   );
 }
 
 export default function Reports() {
   const { identity } = useInternetIdentity();
-  const { data: allEntries = [], isLoading } = useGetTimeEntries();
-  const { data: allInterventions = [], isLoading: isLoadingInterventions } =
-    useGetAllInterventions();
+  const { actor, isFetching: actorFetching } = useActor();
+  const isAuthenticated = !!identity;
 
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -224,6 +65,9 @@ export default function Reports() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedWeekIndex, setSelectedWeekIndex] = useState(0);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [selectedProfilePrincipal, setSelectedProfilePrincipal] = useState<
+    string | null
+  >(isAuthenticated && identity ? identity.getPrincipal().toString() : null);
 
   const years = useMemo(() => {
     const y: number[] = [];
@@ -241,15 +85,68 @@ export default function Reports() {
     Math.max(0, weeksForMonth.length - 1),
   );
 
-  const userEntries = useMemo(() => {
-    if (!identity) return [];
-    const principal = identity.getPrincipal().toString();
-    return allEntries.filter((e) => e.user.toString() === principal);
-  }, [allEntries, identity]);
+  // Load all profiles (public)
+  const { data: allProfiles = [], isLoading: profilesLoading } = useQuery<
+    Array<[Principal, { name: string; email: string }]>
+  >({
+    queryKey: ["allProfiles"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return (actor as any).obtenirTousLesProfils();
+    },
+    enabled: !!actor && !actorFetching,
+  });
+
+  // Derive selectedProfilePrincipal from identity on mount (once profiles load)
+  const effectiveProfilePrincipal = useMemo(() => {
+    if (selectedProfilePrincipal) return selectedProfilePrincipal;
+    if (isAuthenticated && identity) return identity.getPrincipal().toString();
+    return null;
+  }, [selectedProfilePrincipal, isAuthenticated, identity]);
+
+  // Load entries for selected profile (public)
+  const { data: allEntries = [], isLoading: entriesLoading } = useQuery({
+    queryKey: ["publicEntries", effectiveProfilePrincipal],
+    queryFn: async () => {
+      if (!actor || !effectiveProfilePrincipal) return [];
+      // Principal.fromText isn't directly available, so we pass the string through actor's type system
+      // The backend accepts Principal; we use the internal representation from profile list
+      const matchedProfile = allProfiles.find(
+        ([p]) => p.toString() === effectiveProfilePrincipal,
+      );
+      if (!matchedProfile && isAuthenticated && identity) {
+        return (actor as any).obtenirJourneesPubliques(identity.getPrincipal());
+      }
+      if (!matchedProfile) return [];
+      return (actor as any).obtenirJourneesPubliques(matchedProfile[0]);
+    },
+    enabled: !!actor && !actorFetching && !!effectiveProfilePrincipal,
+  });
+
+  // Load interventions for selected profile (public)
+  const { data: allInterventions = [] } = useQuery({
+    queryKey: ["publicInterventions", effectiveProfilePrincipal],
+    queryFn: async () => {
+      if (!actor || !effectiveProfilePrincipal) return [];
+      const matchedProfile = allProfiles.find(
+        ([p]) => p.toString() === effectiveProfilePrincipal,
+      );
+      if (!matchedProfile && isAuthenticated && identity) {
+        return (actor as any).obtenirInterventionsPubliques(
+          identity.getPrincipal(),
+        );
+      }
+      if (!matchedProfile) return [];
+      return (actor as any).obtenirInterventionsPubliques(matchedProfile[0]);
+    },
+    enabled: !!actor && !actorFetching && !!effectiveProfilePrincipal,
+  });
+
+  const isLoading = entriesLoading || actorFetching;
 
   const filteredEntries = useMemo(() => {
-    return userEntries
-      .filter((entry) => {
+    return allEntries
+      .filter((entry: any) => {
         const date = new Date(Number(entry.date) / 1_000_000);
         const entryYear = date.getFullYear();
         if (periodType === "monthly") {
@@ -261,9 +158,9 @@ export default function Reports() {
         if (!week) return false;
         return isDateInWeek(entry.date, week.startDate, week.endDate);
       })
-      .sort((a, b) => Number(a.date) - Number(b.date));
+      .sort((a: any, b: any) => Number(a.date) - Number(b.date));
   }, [
-    userEntries,
+    allEntries,
     periodType,
     selectedYear,
     selectedMonth,
@@ -272,11 +169,8 @@ export default function Reports() {
   ]);
 
   const filteredInterventions = useMemo(() => {
-    if (!identity) return [];
-    const principal = identity.getPrincipal().toString();
     return allInterventions
-      .filter((intervention) => {
-        if (intervention.user.toString() !== principal) return false;
+      .filter((intervention: any) => {
         const date = new Date(Number(intervention.date) / 1_000_000);
         const entryYear = date.getFullYear();
         if (periodType === "monthly") {
@@ -288,28 +182,15 @@ export default function Reports() {
         if (!week) return false;
         return isDateInWeek(intervention.date, week.startDate, week.endDate);
       })
-      .sort((a, b) => Number(a.date) - Number(b.date));
+      .sort((a: any, b: any) => Number(a.date) - Number(b.date));
   }, [
     allInterventions,
-    identity,
     periodType,
     selectedYear,
     selectedMonth,
     safeWeekIndex,
     weeksForMonth,
   ]);
-
-  // Build a map dateKey -> interventions[] for fast lookup in expanded rows
-  const interventionsByDate = useMemo(() => {
-    const map = new Map<string, InterventionAvecPieces[]>();
-    for (const intervention of allInterventions) {
-      const key = toDateKey(intervention.date);
-      const existing = map.get(key) ?? [];
-      existing.push(intervention);
-      map.set(key, existing);
-    }
-    return map;
-  }, [allInterventions]);
 
   const totals = useMemo(() => {
     let totalNormal = 0;
@@ -336,13 +217,17 @@ export default function Reports() {
   }, [filteredEntries]);
 
   const getPeriodTitle = () => {
+    const profileName =
+      allProfiles.find(([p]) => p.toString() === effectiveProfilePrincipal)?.[1]
+        ?.name ?? "";
+    const nameStr = profileName ? ` — ${profileName}` : "";
     if (periodType === "monthly") {
-      return `Rapport Mensuel - ${MONTHS[selectedMonth]} ${selectedYear}`;
+      return `Rapport Mensuel - ${MONTHS[selectedMonth]} ${selectedYear}${nameStr}`;
     }
     const week = weeksForMonth[safeWeekIndex];
     return week
-      ? `Rapport Hebdomadaire - ${week.label} ${selectedYear}`
-      : `Rapport Hebdomadaire - ${selectedYear}`;
+      ? `Rapport Hebdomadaire - ${week.label} ${selectedYear}${nameStr}`
+      : `Rapport Hebdomadaire - ${selectedYear}${nameStr}`;
   };
 
   const handleExportCsv = () => {
@@ -356,7 +241,7 @@ export default function Reports() {
       "Trajet",
       "Description",
     ];
-    const rows = filteredEntries.map((entry) => {
+    const rows = filteredEntries.map((entry: any) => {
       const date = new Date(Number(entry.date) / 1_000_000);
       const dateStr = date.toLocaleDateString("fr-FR");
       const typeMap: Record<string, string> = {
@@ -376,7 +261,6 @@ export default function Reports() {
       ].join(",");
     });
 
-    // Add interventions section
     const interventionHeaders = [
       "\n\nFICHES INTERVENTIONS",
       "Date",
@@ -390,7 +274,7 @@ export default function Reports() {
       "Signature client",
       "Signature intervenant",
     ];
-    const interventionRows = filteredInterventions.map((inv) => {
+    const interventionRows = filteredInterventions.map((inv: any) => {
       const date = new Date(Number(inv.date) / 1_000_000).toLocaleDateString(
         "fr-FR",
       );
@@ -428,12 +312,12 @@ export default function Reports() {
   };
 
   const handleExportAnnualPdf = () => {
-    if (!identity) return;
+    if (!effectiveProfilePrincipal) return;
     exportAnnualPdf(
       selectedYear,
       allEntries,
       allInterventions,
-      identity.getPrincipal().toString(),
+      effectiveProfilePrincipal,
     );
   };
 
@@ -455,7 +339,6 @@ export default function Reports() {
     astreinte: "Astreinte",
   };
 
-  // Color-coded badges per type
   const typeBadgeClass: Record<string, string> = {
     work: "bg-blue-100 text-blue-700",
     conge: "bg-emerald-100 text-emerald-700",
@@ -468,7 +351,7 @@ export default function Reports() {
     astreinte: "bg-orange-500",
   };
 
-  if (isLoading) {
+  if (isLoading && !allEntries.length) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -478,6 +361,38 @@ export default function Reports() {
 
   return (
     <div className="space-y-6 pb-6">
+      {/* Profile selector */}
+      <div className="flex items-center gap-2 p-3 bg-card rounded-xl border border-border">
+        <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        <label
+          htmlFor="profile-select"
+          className="text-sm font-medium text-muted-foreground whitespace-nowrap"
+        >
+          Profil :
+        </label>
+        <select
+          id="profile-select"
+          value={effectiveProfilePrincipal ?? ""}
+          onChange={(e) => setSelectedProfilePrincipal(e.target.value || null)}
+          className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-border bg-background text-foreground min-w-0"
+          data-ocid="reports.profile.select"
+        >
+          {!isAuthenticated && (
+            <option value="">Sélectionner un profil...</option>
+          )}
+          {profilesLoading && (
+            <option value="" disabled>
+              Chargement des profils...
+            </option>
+          )}
+          {allProfiles.map(([principal, profile]) => (
+            <option key={principal.toString()} value={principal.toString()}>
+              {profile.name || `${principal.toString().slice(0, 12)}...`}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Controls */}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="flex rounded-lg overflow-hidden border border-border">
@@ -569,7 +484,7 @@ export default function Reports() {
             variant="outline"
             size="sm"
             onClick={handleExportAnnualPdf}
-            disabled={!identity}
+            disabled={!effectiveProfilePrincipal}
             data-ocid="reports.export_annual_pdf.button"
           >
             <FileText className="w-4 h-4 mr-1" />
@@ -620,7 +535,17 @@ export default function Reports() {
       </div>
 
       {/* Entries table */}
-      {filteredEntries.length === 0 ? (
+      {!effectiveProfilePrincipal ? (
+        <div
+          className="text-center py-12 text-muted-foreground"
+          data-ocid="reports.entries.empty_state"
+        >
+          <User className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="text-sm">
+            Sélectionnez un profil pour voir les entrées
+          </p>
+        </div>
+      ) : filteredEntries.length === 0 ? (
         <div
           className="text-center py-12 text-muted-foreground"
           data-ocid="reports.entries.empty_state"
@@ -662,17 +587,26 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {filteredEntries.map((entry) => {
+                {filteredEntries.map((entry: any) => {
                   const normal = computeNormalHours(entry);
                   const astreinte = computeAstreinteHours(entry);
                   const intervention = computeInterventionHours(
                     entry.interventionSlots,
                   );
                   const isExpanded = expandedRow === entry.id;
-                  const entryDateKey = toDateKey(entry.date);
-                  const dateInterventions =
-                    interventionsByDate.get(entryDateKey) ?? [];
-                  const hasDetails = dateInterventions.length > 0;
+                  const hasDescription = entry.description.trim().length > 0;
+                  const hasAstreinte =
+                    entry.startAstreinte != null && entry.endAstreinte != null;
+
+                  // Interventions matching this entry's date
+                  const entryInterventions = filteredInterventions.filter(
+                    (inv: any) => isSameDay(entry.date, inv.date),
+                  );
+
+                  const hasDetails =
+                    hasDescription ||
+                    hasAstreinte ||
+                    entryInterventions.length > 0;
 
                   return (
                     <>
@@ -728,34 +662,151 @@ export default function Reports() {
                       {isExpanded && (
                         <tr key={`${entry.id}-detail`} className="bg-muted/20">
                           <td colSpan={8} className="px-4 py-3 space-y-3">
-                            {entry.startAstreinte != null &&
-                              entry.endAstreinte != null && (
-                                <p className="text-xs text-orange-600">
-                                  Astreinte :{" "}
-                                  {formatMinutes(Number(entry.startAstreinte))}{" "}
-                                  → {formatMinutes(Number(entry.endAstreinte))}
-                                </p>
-                              )}
-                            <div>
-                              <p className="text-xs font-semibold text-foreground mb-2">
-                                Interventions :
+                            {hasAstreinte && (
+                              <p className="text-xs text-orange-600">
+                                Astreinte :{" "}
+                                {formatMinutes(Number(entry.startAstreinte))} →{" "}
+                                {formatMinutes(Number(entry.endAstreinte))}
                               </p>
-                              {dateInterventions.length === 0 ? (
+                            )}
+                            {hasDescription && (
+                              <p className="text-xs text-muted-foreground italic border-l-2 border-border pl-2">
+                                {entry.description}
+                              </p>
+                            )}
+                            {entryInterventions.length > 0 && (
+                              <div className="space-y-3 mt-2">
+                                {entryInterventions.map(
+                                  (inv: any, idx: number) => (
+                                    <div
+                                      key={inv.id ?? idx}
+                                      className="rounded-lg border border-border bg-card p-3 space-y-2"
+                                      data-ocid={`reports.intervention.card.${idx + 1}`}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-semibold text-primary">
+                                          Fiche Intervention
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">
+                                          #{idx + 1}
+                                        </span>
+                                      </div>
+                                      {inv.clientNom && (
+                                        <div>
+                                          <p className="text-xs font-medium text-foreground">
+                                            {inv.clientNom}
+                                          </p>
+                                          {inv.clientAdresse && (
+                                            <p className="text-xs text-muted-foreground">
+                                              {inv.clientAdresse}
+                                            </p>
+                                          )}
+                                        </div>
+                                      )}
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div className="text-xs">
+                                          <span className="text-muted-foreground">
+                                            Matin :{" "}
+                                          </span>
+                                          <span className="text-foreground">
+                                            {formatHeure(
+                                              inv.heureMatinDebutH,
+                                              inv.heureMatinDebutMin,
+                                            )}{" "}
+                                            →{" "}
+                                            {formatHeure(
+                                              inv.heureMatinFinH,
+                                              inv.heureMatinFinMin,
+                                            )}
+                                          </span>
+                                        </div>
+                                        <div className="text-xs">
+                                          <span className="text-muted-foreground">
+                                            Après-midi :{" "}
+                                          </span>
+                                          <span className="text-foreground">
+                                            {formatHeure(
+                                              inv.heureApremDebutH,
+                                              inv.heureApremDebutMin,
+                                            )}{" "}
+                                            →{" "}
+                                            {formatHeure(
+                                              inv.heureApremFinH,
+                                              inv.heureApremFinMin,
+                                            )}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      {inv.description && (
+                                        <p className="text-xs text-muted-foreground italic border-l-2 border-border pl-2">
+                                          {inv.description}
+                                        </p>
+                                      )}
+                                      {inv.pieces && inv.pieces.length > 0 && (
+                                        <div className="overflow-x-auto">
+                                          <table className="w-full text-xs border border-border rounded">
+                                            <thead>
+                                              <tr className="bg-muted/50">
+                                                <th className="text-left px-2 py-1 font-medium text-muted-foreground">
+                                                  Référence
+                                                </th>
+                                                <th className="text-left px-2 py-1 font-medium text-muted-foreground">
+                                                  Article
+                                                </th>
+                                                <th className="text-right px-2 py-1 font-medium text-muted-foreground">
+                                                  Qté
+                                                </th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {inv.pieces.map(
+                                                (piece: any, _pIdx: number) => (
+                                                  <tr
+                                                    key={`${piece.reference}-${piece.article}`}
+                                                    className="border-t border-border"
+                                                  >
+                                                    <td className="px-2 py-1 text-foreground">
+                                                      {piece.reference}
+                                                    </td>
+                                                    <td className="px-2 py-1 text-foreground">
+                                                      {piece.article}
+                                                    </td>
+                                                    <td className="px-2 py-1 text-right text-foreground">
+                                                      {String(piece.quantite)}
+                                                    </td>
+                                                  </tr>
+                                                ),
+                                              )}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      )}
+                                      <div className="flex gap-4">
+                                        <span
+                                          className={`text-xs ${inv.signatureClient ? "text-emerald-600" : "text-muted-foreground"}`}
+                                        >
+                                          Signature client :{" "}
+                                          {inv.signatureClient ? "✓" : "✗"}
+                                        </span>
+                                        <span
+                                          className={`text-xs ${inv.signatureIntervenant ? "text-emerald-600" : "text-muted-foreground"}`}
+                                        >
+                                          Signature intervenant :{" "}
+                                          {inv.signatureIntervenant ? "✓" : "✗"}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ),
+                                )}
+                              </div>
+                            )}
+                            {!hasDescription &&
+                              !hasAstreinte &&
+                              entryInterventions.length === 0 && (
                                 <p className="text-xs text-muted-foreground">
-                                  Aucune intervention
+                                  Aucune note pour cette journée
                                 </p>
-                              ) : (
-                                <div className="grid gap-2">
-                                  {dateInterventions.map((i, idx) => (
-                                    <InterventionCard
-                                      key={i.id}
-                                      intervention={i}
-                                      index={idx + 1}
-                                    />
-                                  ))}
-                                </div>
                               )}
-                            </div>
                           </td>
                         </tr>
                       )}
@@ -790,50 +841,6 @@ export default function Reports() {
           </div>
         </div>
       )}
-
-      {/* Fiches Interventions section */}
-      <div className="space-y-3" data-ocid="reports.interventions.section">
-        <div className="flex items-center gap-2">
-          <ClipboardList className="w-5 h-5 text-orange-500" />
-          <h2 className="text-base font-semibold text-foreground">
-            Fiches Interventions
-          </h2>
-          <Badge
-            variant="secondary"
-            className="text-xs"
-            data-ocid="reports.interventions.panel"
-          >
-            {isLoadingInterventions ? "…" : filteredInterventions.length}
-          </Badge>
-        </div>
-
-        {isLoadingInterventions ? (
-          <div
-            className="flex items-center justify-center py-8"
-            data-ocid="reports.interventions.loading_state"
-          >
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : filteredInterventions.length === 0 ? (
-          <div
-            className="text-center py-8 text-muted-foreground text-sm bg-card border border-border rounded-xl"
-            data-ocid="reports.interventions.empty_state"
-          >
-            <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-30" />
-            Aucune intervention pour cette période
-          </div>
-        ) : (
-          <div className="grid gap-3" data-ocid="reports.interventions.list">
-            {filteredInterventions.map((intervention, index) => (
-              <InterventionCard
-                key={intervention.id}
-                intervention={intervention}
-                index={index + 1}
-              />
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

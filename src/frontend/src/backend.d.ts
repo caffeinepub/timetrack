@@ -207,6 +207,9 @@ export interface backendInterface {
     obtenirInterventionsPourJour(date: Time): Promise<Array<InterventionAvecPieces>>;
     obtenirJournaux(): Promise<Array<JournalEntry>>;
     obtenirJournees(): Promise<Array<TimeEntry>>;
+    obtenirInterventionsPubliques(user: Principal): Promise<Array<InterventionAvecPieces>>;
+    obtenirJourneesPubliques(user: Principal): Promise<Array<TimeEntry>>;
+    obtenirTousLesProfils(): Promise<Array<[Principal, UserProfile]>>;
     obtenirMediasAudioPourJour(date: Time): Promise<Array<ExternalBlob>>;
     obtenirMediasPourJour(date: Time): Promise<Array<DailyMediaEntry>>;
     obtenirPhotosPourJour(date: Time): Promise<Array<ExternalBlob>>;

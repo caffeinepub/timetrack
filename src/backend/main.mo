@@ -106,6 +106,24 @@ actor {
     };
   };
 
+  // MemoEntry: public memo section (replaces journal in frontend)
+  public type MemoEntry = {
+    id : Text;
+    authorName : Text;
+    content : Text;
+    photos : [Storage.ExternalBlob];
+    videos : [Storage.ExternalBlob];
+    createdAt : Time.Time;
+    createdBy : Principal;
+  };
+
+  module MemoEntry {
+    public func compareByCreatedAt(entry1 : MemoEntry, entry2 : MemoEntry) : Order.Order {
+      // Descending: newest first
+      Int.compare(entry2.createdAt, entry1.createdAt);
+    };
+  };
+
   public type UserProfile = {
     name : Text;
     email : Text;
@@ -161,7 +179,7 @@ actor {
     quantite : Int;
   };
 
-  // Intervention stored without pieces (for stable variable compatibility)
+  // Intervention stored (photos/videos optional for backward compat)
   public type Intervention = {
     id : Text;
     date : Time.Time;
@@ -202,6 +220,8 @@ actor {
     pieces : [PieceUtilisee];
     user : Principal;
     createdAt : Time.Time;
+    photos : [Storage.ExternalBlob];
+    videos : [Storage.ExternalBlob];
   };
 
   public type InterventionInput = {
@@ -221,6 +241,46 @@ actor {
     signatureClient : Text;
     signatureIntervenant : Text;
     pieces : [PieceUtilisee];
+    photos : [Storage.ExternalBlob];
+    videos : [Storage.ExternalBlob];
+  };
+
+  // Helper to convert Intervention to InterventionAvecPieces
+  func interventionAvecPieces(i : Intervention) : InterventionAvecPieces {
+    let pieces = switch (interventionPieces.get(i.id)) {
+      case (?p) { p };
+      case (null) { [] };
+    };
+    let photos = switch (interventionPhotos.get(i.id)) {
+      case (?p) { p };
+      case (null) { [] };
+    };
+    let videos = switch (interventionVideos.get(i.id)) {
+      case (?v) { v };
+      case (null) { [] };
+    };
+    {
+      id = i.id;
+      date = i.date;
+      clientNom = i.clientNom;
+      clientAdresse = i.clientAdresse;
+      heureMatinDebutH = i.heureMatinDebutH;
+      heureMatinDebutMin = i.heureMatinDebutMin;
+      heureMatinFinH = i.heureMatinFinH;
+      heureMatinFinMin = i.heureMatinFinMin;
+      heureApremDebutH = i.heureApremDebutH;
+      heureApremDebutMin = i.heureApremDebutMin;
+      heureApremFinH = i.heureApremFinH;
+      heureApremFinMin = i.heureApremFinMin;
+      description = i.description;
+      signatureClient = i.signatureClient;
+      signatureIntervenant = i.signatureIntervenant;
+      pieces;
+      user = i.user;
+      createdAt = i.createdAt;
+      photos;
+      videos;
+    };
   };
 
   // Persistent storage
@@ -233,6 +293,9 @@ actor {
   let clients = Map.empty<Text, Client>();
   let interventions = Map.empty<Text, Intervention>();
   let interventionPieces = Map.empty<Text, [PieceUtilisee]>();
+  let interventionPhotos = Map.empty<Text, [Storage.ExternalBlob]>();
+  let interventionVideos = Map.empty<Text, [Storage.ExternalBlob]>();
+  let memoEntries = Map.empty<Text, MemoEntry>();
 
   // Autorisation système
   let accessControlState = AccessControl.initState();
@@ -254,7 +317,47 @@ actor {
     AccessControl.isAdmin(accessControlState, caller);
   };
 
-  // Client management functions
+  // -------- MEMO FUNCTIONS (public section) --------
+
+  public shared ({ caller }) func creerMemo(id : Text, authorName : Text, content : Text, photos : [Storage.ExternalBlob], videos : [Storage.ExternalBlob]) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Non autorisé : seuls les utilisateurs peuvent créer des mémos");
+    };
+    let entry : MemoEntry = {
+      id;
+      authorName;
+      content;
+      photos;
+      videos;
+      createdAt = Time.now();
+      createdBy = caller;
+    };
+    memoEntries.add(id, entry);
+  };
+
+  // Public query - no authentication required
+  public query func obtenirMemos() : async [MemoEntry] {
+    let entries = memoEntries.values().toArray();
+    entries.sort(MemoEntry.compareByCreatedAt);
+  };
+
+  public shared ({ caller }) func supprimerMemo(id : Text) : async () {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Non autorisé : seuls les utilisateurs peuvent supprimer des mémos");
+    };
+    switch (memoEntries.get(id)) {
+      case (null) { Runtime.trap("Mémo non trouvé") };
+      case (?entry) {
+        if (entry.createdBy != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Non autorisé : vous ne pouvez supprimer que vos propres mémos");
+        };
+      };
+    };
+    memoEntries.remove(id);
+  };
+
+  // -------- CLIENT FUNCTIONS --------
+
   public shared ({ caller }) func ajouterClient(client : Client) : async () {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Non autorisé : seuls les utilisateurs peuvent ajouter des clients");
@@ -307,7 +410,8 @@ actor {
     };
   };
 
-  // Intervention management functions
+  // -------- INTERVENTION FUNCTIONS --------
+
   public shared ({ caller }) func ajouterIntervention(input : InterventionInput) : async () {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Non autorisé");
@@ -333,13 +437,14 @@ actor {
     };
     interventions.add(input.id, intervention);
     interventionPieces.add(input.id, input.pieces);
+    interventionPhotos.add(input.id, input.photos);
+    interventionVideos.add(input.id, input.videos);
   };
 
   public shared ({ caller }) func modifierIntervention(id : Text, input : InterventionInput) : async () {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Non autorisé");
     };
-    // Upsert: if not found, create it (avoids "Intervention non trouvée" error)
     switch (interventions.get(id)) {
       case (null) { /* not found: will create */ };
       case (?existing) {
@@ -369,6 +474,8 @@ actor {
     };
     interventions.add(id, intervention);
     interventionPieces.add(id, input.pieces);
+    interventionPhotos.add(id, input.photos);
+    interventionVideos.add(id, input.videos);
   };
 
   public shared ({ caller }) func supprimerIntervention(id : Text) : async () {
@@ -393,34 +500,8 @@ actor {
     let isAdmin = AccessControl.isAdmin(accessControlState, caller);
     interventions.values().filter(func(i : Intervention) : Bool {
       i.date == date and (i.user == caller or isAdmin)
-    }).map(func(i : Intervention) : InterventionAvecPieces {
-      let pieces = switch (interventionPieces.get(i.id)) {
-        case (?p) { p };
-        case (null) { [] };
-      };
-      {
-        id = i.id;
-        date = i.date;
-        clientNom = i.clientNom;
-        clientAdresse = i.clientAdresse;
-        heureMatinDebutH = i.heureMatinDebutH;
-        heureMatinDebutMin = i.heureMatinDebutMin;
-        heureMatinFinH = i.heureMatinFinH;
-        heureMatinFinMin = i.heureMatinFinMin;
-        heureApremDebutH = i.heureApremDebutH;
-        heureApremDebutMin = i.heureApremDebutMin;
-        heureApremFinH = i.heureApremFinH;
-        heureApremFinMin = i.heureApremFinMin;
-        description = i.description;
-        signatureClient = i.signatureClient;
-        signatureIntervenant = i.signatureIntervenant;
-        pieces;
-        user = i.user;
-        createdAt = i.createdAt;
-      };
-    }).toArray();
+    }).map(interventionAvecPieces).toArray();
   };
-
 
   public query ({ caller }) func obtenirToutesInterventions() : async [InterventionAvecPieces] {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
@@ -429,37 +510,14 @@ actor {
     let isAdmin = AccessControl.isAdmin(accessControlState, caller);
     let sorted = interventions.values().filter(func(i : Intervention) : Bool {
       i.user == caller or isAdmin
-    }).map(func(i : Intervention) : InterventionAvecPieces {
-      let pieces = switch (interventionPieces.get(i.id)) {
-        case (?p) { p };
-        case (null) { [] };
-      };
-      {
-        id = i.id;
-        date = i.date;
-        clientNom = i.clientNom;
-        clientAdresse = i.clientAdresse;
-        heureMatinDebutH = i.heureMatinDebutH;
-        heureMatinDebutMin = i.heureMatinDebutMin;
-        heureMatinFinH = i.heureMatinFinH;
-        heureMatinFinMin = i.heureMatinFinMin;
-        heureApremDebutH = i.heureApremDebutH;
-        heureApremDebutMin = i.heureApremDebutMin;
-        heureApremFinH = i.heureApremFinH;
-        heureApremFinMin = i.heureApremFinMin;
-        description = i.description;
-        signatureClient = i.signatureClient;
-        signatureIntervenant = i.signatureIntervenant;
-        pieces;
-        user = i.user;
-        createdAt = i.createdAt;
-      };
-    }).toArray();
+    }).map(interventionAvecPieces).toArray();
     sorted.sort(func(a : InterventionAvecPieces, b : InterventionAvecPieces) : Order.Order {
       Int.compare(a.date, b.date)
     });
   };
-  // Fichier functions
+
+  // -------- FILE FUNCTIONS --------
+
   public shared ({ caller }) func uploadPhotoDansStoic(filename : Text, content : Storage.ExternalBlob, mimeType : Text, taille : Nat, description : Text) : async ?Nat {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Non autorisé : seuls les utilisateurs peuvent upload des medias");
@@ -559,7 +617,8 @@ actor {
     };
   };
 
-  // User profile functions
+  // -------- USER PROFILE FUNCTIONS --------
+
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Non autorisé : seuls les utilisateurs peuvent récupérer les profils");
@@ -584,6 +643,28 @@ actor {
     };
     userProfiles.add(caller, profile);
   };
+
+  // Public functions (no authentication required)
+  public query func obtenirTousLesProfils() : async [(Principal, UserProfile)] {
+    userProfiles.entries().toArray()
+  };
+
+  public query func obtenirJourneesPubliques(user : Principal) : async [TimeEntry] {
+    let entries = timeEntries.values();
+    let filtered = entries.filter(func(entry : TimeEntry) : Bool { entry.user == user }).toArray();
+    filtered.sort(TimeEntry.compareByDate);
+  };
+
+  public query func obtenirInterventionsPubliques(user : Principal) : async [InterventionAvecPieces] {
+    let filtered = interventions.values().filter(func(i : Intervention) : Bool {
+      i.user == user
+    }).map(interventionAvecPieces).toArray();
+    filtered.sort(func(a : InterventionAvecPieces, b : InterventionAvecPieces) : Order.Order {
+      Int.compare(a.date, b.date)
+    });
+  };
+
+  // -------- DAILY ENTRY FUNCTIONS --------
 
   public shared ({ caller }) func enregistrerJournee(input : TimeEntryInput) : async () {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
@@ -678,6 +759,8 @@ actor {
     filteredEntries.sort(TimeEntry.compareByDate);
   };
 
+  // -------- DAILY MEDIA FUNCTIONS --------
+
   public shared ({ caller }) func enregistrerMediaQuotidien(id : Text, mediaType : MediaType, relatedDay : Time.Time) : async () {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Non autorisé: seuls les utilisateurs peuvent enregistrer des médias quotidiens");
@@ -756,6 +839,8 @@ actor {
 
     filteredEntries.map(func(entry) { switch (entry.mediaType) { case (#photo(blob)) { blob }; case (_) { Runtime.trap("Media type is not photo") } } });
   };
+
+  // -------- JOURNAL FUNCTIONS (kept for compatibility) --------
 
   public shared ({ caller }) func enregistrerJournal(id : Text, audioUrl : Text, transcription : Text, notes : Text, photos : [Storage.ExternalBlob], dayType : ?DayType) : async () {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
@@ -839,6 +924,8 @@ actor {
     };
     filteredEntries.sort(JournalEntry.compareByCreatedAt);
   };
+
+  // -------- CALCULATION FUNCTIONS --------
 
   public query ({ caller }) func calculerTotaux() : async Totals {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
@@ -1215,4 +1302,3 @@ actor {
     Runtime.trap("Publish restart workflow triggered. This actor is already running the latest version. If a publish failure occurred, redeploying should automatically resolve it. No further action is needed.");
   };
 };
-

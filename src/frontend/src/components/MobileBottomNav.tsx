@@ -1,8 +1,8 @@
 import {
   BarChart2,
-  BookOpen,
   CalendarDays,
   LayoutDashboard,
+  MessageSquare,
   Users,
 } from "lucide-react";
 import type React from "react";
@@ -18,7 +18,7 @@ interface MobileBottomNavProps {
 const NAV_ITEMS: { page: Page; label: string; Icon: React.ElementType }[] = [
   { page: "dashboard", label: "Bord", Icon: LayoutDashboard },
   { page: "calendar", label: "Calendrier", Icon: CalendarDays },
-  { page: "journal", label: "Journal", Icon: BookOpen },
+  { page: "memo", label: "Mémo", Icon: MessageSquare },
   { page: "reports", label: "Rapports", Icon: BarChart2 },
   { page: "clients", label: "Clients", Icon: Users },
 ];

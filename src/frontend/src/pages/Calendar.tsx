@@ -9,14 +9,24 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, ChevronRight, Clock, Edit2, Plus, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Edit2,
+  Image as ImageIcon,
+  Plus,
+  Video,
+  X,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { DayType, type TimeEntry } from "../backend";
+import { DayType, ExternalBlob, type TimeEntry } from "../backend";
 import {
   DayTypeCheckboxGroup,
   getDayTypeColors,
 } from "../components/DayTypeCheckboxGroup";
+import MediaViewer, { type MediaItem } from "../components/MediaViewer";
 import { SignaturePad } from "../components/SignaturePad";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
@@ -186,6 +196,10 @@ interface InterventionSlotForm {
   signatureClient: string;
   signatureIntervenant: string;
   piecesLignes: PieceLigne[];
+  photos: ExternalBlob[];
+  photoUrls: string[];
+  videos: ExternalBlob[];
+  videoUrls: string[];
 }
 
 interface TimeEntryForm {
@@ -218,6 +232,10 @@ const defaultSlot = (): InterventionSlotForm => ({
   signatureClient: "",
   signatureIntervenant: "",
   piecesLignes: [],
+  photos: [],
+  photoUrls: [],
+  videos: [],
+  videoUrls: [],
 });
 
 const defaultForm = (): TimeEntryForm => ({
@@ -348,6 +366,10 @@ export default function Calendar() {
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [mediaViewer, setMediaViewer] = useState<{
+    items: MediaItem[];
+    index: number;
+  } | null>(null);
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [form, setForm] = useState<TimeEntryForm>(defaultForm());
 
@@ -457,6 +479,14 @@ export default function Calendar() {
                     quantite: String(Number(p.quantite ?? 0)),
                   }))
                 : [],
+              photos: Array.isArray(intv.photos) ? intv.photos : [],
+              photoUrls: Array.isArray(intv.photos)
+                ? intv.photos.map((p: ExternalBlob) => p.getDirectURL())
+                : [],
+              videos: Array.isArray(intv.videos) ? intv.videos : [],
+              videoUrls: Array.isArray(intv.videos)
+                ? intv.videos.map((v: ExternalBlob) => v.getDirectURL())
+                : [],
             };
           }),
         }));
@@ -549,6 +579,8 @@ export default function Calendar() {
             article: l.article,
             quantite: BigInt(Number(l.quantite) || 0),
           })),
+          photos: slot.photos,
+          videos: slot.videos,
         };
         // Always use ajouterIntervention directly on actor (true upsert, no React Query state issues)
         if (!actor) throw new Error("Acteur non disponible");
@@ -577,6 +609,92 @@ export default function Calendar() {
         `Erreur lors de la suppression : ${e instanceof Error ? e.message : String(e)}`,
       );
     }
+  };
+
+  const addSlotPhoto = async (slotIdx: number, files: FileList | null) => {
+    if (!files) return;
+    const newBlobs: ExternalBlob[] = [];
+    const newUrls: string[] = [];
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/")) continue;
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        newBlobs.push(ExternalBlob.fromBytes(new Uint8Array(arrayBuffer)));
+        newUrls.push(URL.createObjectURL(file));
+      } catch {
+        // ignore
+      }
+    }
+    setForm((f) => ({
+      ...f,
+      interventionSlots: f.interventionSlots.map((s, i) =>
+        i === slotIdx
+          ? {
+              ...s,
+              photos: [...s.photos, ...newBlobs],
+              photoUrls: [...s.photoUrls, ...newUrls],
+            }
+          : s,
+      ),
+    }));
+  };
+
+  const addSlotVideo = async (slotIdx: number, files: FileList | null) => {
+    if (!files) return;
+    const newBlobs: ExternalBlob[] = [];
+    const newUrls: string[] = [];
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("video/")) continue;
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        newBlobs.push(ExternalBlob.fromBytes(new Uint8Array(arrayBuffer)));
+        newUrls.push(URL.createObjectURL(file));
+      } catch {
+        // ignore
+      }
+    }
+    setForm((f) => ({
+      ...f,
+      interventionSlots: f.interventionSlots.map((s, i) =>
+        i === slotIdx
+          ? {
+              ...s,
+              videos: [...s.videos, ...newBlobs],
+              videoUrls: [...s.videoUrls, ...newUrls],
+            }
+          : s,
+      ),
+    }));
+  };
+
+  const removeSlotPhoto = (slotIdx: number, photoIdx: number) => {
+    setForm((f) => ({
+      ...f,
+      interventionSlots: f.interventionSlots.map((s, i) =>
+        i === slotIdx
+          ? {
+              ...s,
+              photos: s.photos.filter((_, pi) => pi !== photoIdx),
+              photoUrls: s.photoUrls.filter((_, pi) => pi !== photoIdx),
+            }
+          : s,
+      ),
+    }));
+  };
+
+  const removeSlotVideo = (slotIdx: number, videoIdx: number) => {
+    setForm((f) => ({
+      ...f,
+      interventionSlots: f.interventionSlots.map((s, i) =>
+        i === slotIdx
+          ? {
+              ...s,
+              videos: s.videos.filter((_, vi) => vi !== videoIdx),
+              videoUrls: s.videoUrls.filter((_, vi) => vi !== videoIdx),
+            }
+          : s,
+      ),
+    }));
   };
 
   const addInterventionSlot = () => {
@@ -1358,6 +1476,118 @@ export default function Calendar() {
                       ))}
                     </div>
 
+                    {/* Photos & Vidéos */}
+                    <div>
+                      <Label className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2 block">
+                        Photos &amp; Vidéos
+                      </Label>
+                      {/* Thumbnails */}
+                      {(slot.photoUrls.length > 0 ||
+                        slot.videoUrls.length > 0) && (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          {slot.photoUrls.map((url, pi) => (
+                            <div
+                              key={`photo-slot-${pi}-${url}`}
+                              className="relative w-16 h-16 rounded overflow-hidden border border-border"
+                            >
+                              <button
+                                type="button"
+                                className="w-full h-full"
+                                onClick={() => {
+                                  const items: MediaItem[] = [
+                                    ...slot.photoUrls.map((u) => ({
+                                      type: "photo" as const,
+                                      url: u,
+                                    })),
+                                    ...slot.videoUrls.map((u) => ({
+                                      type: "video" as const,
+                                      url: u,
+                                    })),
+                                  ];
+                                  setMediaViewer({ items, index: pi });
+                                }}
+                              >
+                                <img
+                                  src={url}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeSlotPhoto(idx, pi)}
+                                className="absolute top-0 right-0 p-0.5 bg-black/60 text-white rounded-bl"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                          {slot.videoUrls.map((url, vi) => (
+                            <div
+                              key={`video-slot-${vi}-${url}`}
+                              className="relative w-20 h-16 rounded overflow-hidden border border-border bg-muted flex items-center justify-center"
+                            >
+                              <button
+                                type="button"
+                                className="w-full h-full flex items-center justify-center"
+                                onClick={() => {
+                                  const items: MediaItem[] = [
+                                    ...slot.photoUrls.map((u) => ({
+                                      type: "photo" as const,
+                                      url: u,
+                                    })),
+                                    ...slot.videoUrls.map((u) => ({
+                                      type: "video" as const,
+                                      url: u,
+                                    })),
+                                  ];
+                                  setMediaViewer({
+                                    items,
+                                    index: slot.photoUrls.length + vi,
+                                  });
+                                }}
+                              >
+                                <Video className="w-6 h-6 text-muted-foreground" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeSlotVideo(idx, vi)}
+                                className="absolute top-0 right-0 p-0.5 bg-black/60 text-white rounded-bl"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <label className="cursor-pointer">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => addSlotPhoto(idx, e.target.files)}
+                          />
+                          <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border bg-background hover:bg-muted transition-colors">
+                            <ImageIcon className="w-3 h-3" /> Photo
+                          </span>
+                        </label>
+                        <label className="cursor-pointer">
+                          <input
+                            type="file"
+                            accept="video/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => addSlotVideo(idx, e.target.files)}
+                          />
+                          <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border bg-background hover:bg-muted transition-colors">
+                            <Video className="w-3 h-3" /> Vidéo
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+
                     {/* Signatures */}
                     <SignaturePad
                       label="Signature client"
@@ -1441,6 +1671,13 @@ export default function Calendar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {mediaViewer && (
+        <MediaViewer
+          media={mediaViewer.items}
+          initialIndex={mediaViewer.index}
+          onClose={() => setMediaViewer(null)}
+        />
+      )}
     </div>
   );
 }

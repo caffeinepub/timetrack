@@ -23,11 +23,11 @@ import {
 import Calendar from "./pages/Calendar";
 import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
-import Journal from "./pages/Journal";
+import Memo from "./pages/Memo";
 import Reports from "./pages/Reports";
 import { getBuildInfo } from "./utils/buildInfo";
 
-export type Page = "dashboard" | "calendar" | "journal" | "reports" | "clients";
+export type Page = "dashboard" | "calendar" | "memo" | "reports" | "clients";
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
@@ -83,6 +83,30 @@ function AppContent() {
     );
   }
 
+  // Allow Reports page to be viewed publicly without authentication
+  if (!isAuthenticated && currentPage === "reports") {
+    return (
+      <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
+        <div className="bg-card border-b border-border px-4 py-3 flex items-center justify-between">
+          <h1 className="text-lg font-bold text-primary">
+            Suivi du Temps — Rapports
+          </h1>
+          <button
+            type="button"
+            onClick={() => setCurrentPage("dashboard")}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Connexion
+          </button>
+        </div>
+        <main className="flex-1 w-full mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 max-w-7xl min-w-0">
+          <Reports />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
@@ -112,6 +136,14 @@ function AppContent() {
               <li>🔒 Authentification sécurisée avec Internet Identity</li>
             </ul>
           </div>
+          <button
+            type="button"
+            onClick={() => setCurrentPage("reports")}
+            className="mt-4 text-sm text-primary underline underline-offset-2"
+            data-ocid="reports.public_link"
+          >
+            Consulter les rapports publics
+          </button>
           {buildInfo.mode && (
             <div className="mt-4 text-xs text-muted-foreground break-words">
               MODE={buildInfo.mode}
@@ -141,8 +173,8 @@ function AppContent() {
         <div className={currentPage === "calendar" ? "block" : "hidden"}>
           <Calendar />
         </div>
-        <div className={currentPage === "journal" ? "block" : "hidden"}>
-          <Journal />
+        <div className={currentPage === "memo" ? "block" : "hidden"}>
+          <Memo />
         </div>
         <div className={currentPage === "reports" ? "block" : "hidden"}>
           <Reports />
