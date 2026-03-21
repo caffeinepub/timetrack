@@ -672,8 +672,7 @@ export default function Reports() {
                   const entryDateKey = toDateKey(entry.date);
                   const dateInterventions =
                     interventionsByDate.get(entryDateKey) ?? [];
-                  const hasDetails =
-                    dateInterventions.length > 0 || !!entry.description;
+                  const hasDetails = dateInterventions.length > 0;
 
                   return (
                     <>
@@ -729,11 +728,6 @@ export default function Reports() {
                       {isExpanded && (
                         <tr key={`${entry.id}-detail`} className="bg-muted/20">
                           <td colSpan={8} className="px-4 py-3 space-y-3">
-                            {entry.description && (
-                              <p className="text-sm text-muted-foreground italic">
-                                "{entry.description}"
-                              </p>
-                            )}
                             {entry.startAstreinte != null &&
                               entry.endAstreinte != null && (
                                 <p className="text-xs text-orange-600">
