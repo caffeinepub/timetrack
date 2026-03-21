@@ -21,12 +21,10 @@ import { SignaturePad } from "../components/SignaturePad";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
-  useAddIntervention,
   useDeleteTimeEntry,
   useGetClients,
   useGetTimeEntries,
   useSaveTimeEntry,
-  useUpdateIntervention,
   useUpdateTimeEntry,
 } from "../hooks/useQueries";
 import {
@@ -343,8 +341,6 @@ export default function Calendar() {
     useUpdateTimeEntry();
   const { mutateAsync: deleteEntry, isPending: isDeleting } =
     useDeleteTimeEntry();
-  const { mutateAsync: addIntervention } = useAddIntervention();
-  const { mutateAsync: updateIntervention } = useUpdateIntervention();
   const { data: clients = [] } = useGetClients();
 
   const today = new Date();
@@ -554,14 +550,9 @@ export default function Calendar() {
             quantite: BigInt(Number(l.quantite) || 0),
           })),
         };
-        if (slot.ficheId) {
-          await updateIntervention({
-            id: slot.ficheId,
-            input: interventionInput,
-          });
-        } else {
-          await addIntervention(interventionInput);
-        }
+        // Always use ajouterIntervention directly on actor (true upsert, no React Query state issues)
+        if (!actor) throw new Error("Acteur non disponible");
+        await actor.ajouterIntervention(interventionInput);
       }
 
       toast.success(

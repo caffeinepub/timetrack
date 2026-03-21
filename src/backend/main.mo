@@ -339,8 +339,9 @@ actor {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Non autorisé");
     };
+    // Upsert: if not found, create it (avoids "Intervention non trouvée" error)
     switch (interventions.get(id)) {
-      case (null) { Runtime.trap("Intervention non trouvée") };
+      case (null) { /* not found: will create */ };
       case (?existing) {
         if (existing.user != caller and not AccessControl.isAdmin(accessControlState, caller)) {
           Runtime.trap("Non autorisé");
@@ -420,6 +421,44 @@ actor {
     }).toArray();
   };
 
+
+  public query ({ caller }) func obtenirToutesInterventions() : async [InterventionAvecPieces] {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      Runtime.trap("Non autorise");
+    };
+    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
+    let sorted = interventions.values().filter(func(i : Intervention) : Bool {
+      i.user == caller or isAdmin
+    }).map(func(i : Intervention) : InterventionAvecPieces {
+      let pieces = switch (interventionPieces.get(i.id)) {
+        case (?p) { p };
+        case (null) { [] };
+      };
+      {
+        id = i.id;
+        date = i.date;
+        clientNom = i.clientNom;
+        clientAdresse = i.clientAdresse;
+        heureMatinDebutH = i.heureMatinDebutH;
+        heureMatinDebutMin = i.heureMatinDebutMin;
+        heureMatinFinH = i.heureMatinFinH;
+        heureMatinFinMin = i.heureMatinFinMin;
+        heureApremDebutH = i.heureApremDebutH;
+        heureApremDebutMin = i.heureApremDebutMin;
+        heureApremFinH = i.heureApremFinH;
+        heureApremFinMin = i.heureApremFinMin;
+        description = i.description;
+        signatureClient = i.signatureClient;
+        signatureIntervenant = i.signatureIntervenant;
+        pieces;
+        user = i.user;
+        createdAt = i.createdAt;
+      };
+    }).toArray();
+    sorted.sort(func(a : InterventionAvecPieces, b : InterventionAvecPieces) : Order.Order {
+      Int.compare(a.date, b.date)
+    });
+  };
   // Fichier functions
   public shared ({ caller }) func uploadPhotoDansStoic(filename : Text, content : Storage.ExternalBlob, mimeType : Text, taille : Nat, description : Text) : async ?Nat {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {

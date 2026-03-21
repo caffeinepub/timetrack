@@ -1,19 +1,25 @@
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   ChevronDown,
   ChevronUp,
+  ClipboardList,
   Download,
   FileText,
   Loader2,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import type { InterventionAvecPieces } from "../backend.d";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useGetPdfReportData, useGetTimeEntries } from "../hooks/useQueries";
+import {
+  useGetAllInterventions,
+  useGetPdfReportData,
+  useGetTimeEntries,
+} from "../hooks/useQueries";
 import {
   computeAstreinteHours,
   computeInterventionHours,
   computeNormalHours,
-  formatInterventionRange,
   formatMinutes,
 } from "../utils/timeFormatting";
 import {
@@ -40,9 +46,177 @@ const MONTHS = [
   "Décembre",
 ];
 
+function toDateKey(nanoTs: bigint): string {
+  const d = new Date(Number(nanoTs) / 1_000_000);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function formatHeure(h: bigint, m: bigint): string {
+  const mm = String(Number(m)).padStart(2, "0");
+  return `${Number(h)}h${mm}`;
+}
+
+function InterventionCard({
+  intervention,
+  index,
+}: { intervention: InterventionAvecPieces; index: number }) {
+  const date = new Date(Number(intervention.date) / 1_000_000);
+  const dateStr = date.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const hasSignatureClient = intervention.signatureClient.length > 0;
+  const hasSignatureIntervenant = intervention.signatureIntervenant.length > 0;
+  const hasPieces = intervention.pieces.length > 0;
+  const hasDescription = intervention.description.trim().length > 0;
+
+  const matinDebut = formatHeure(
+    intervention.heureMatinDebutH,
+    intervention.heureMatinDebutMin,
+  );
+  const matinFin = formatHeure(
+    intervention.heureMatinFinH,
+    intervention.heureMatinFinMin,
+  );
+  const apremDebut = formatHeure(
+    intervention.heureApremDebutH,
+    intervention.heureApremDebutMin,
+  );
+  const apremFin = formatHeure(
+    intervention.heureApremFinH,
+    intervention.heureApremFinMin,
+  );
+
+  const hasMatin =
+    Number(intervention.heureMatinDebutH) > 0 ||
+    Number(intervention.heureMatinFinH) > 0;
+  const hasAprem =
+    Number(intervention.heureApremDebutH) > 0 ||
+    Number(intervention.heureApremFinH) > 0;
+
+  return (
+    <div
+      className="bg-card border border-border rounded-xl p-3 space-y-2"
+      data-ocid={`reports.intervention.item.${index}`}
+    >
+      {/* Header: date + signatures */}
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-semibold text-muted-foreground capitalize">
+          {dateStr}
+        </p>
+        <div className="flex gap-1 shrink-0">
+          {hasSignatureClient && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
+              ✓ Client
+            </span>
+          )}
+          {hasSignatureIntervenant && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
+              ✓ Intervenant
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Client */}
+      <div>
+        <p className="text-sm font-bold text-foreground">
+          {intervention.clientNom || "—"}
+        </p>
+        {intervention.clientAdresse && (
+          <p className="text-xs text-muted-foreground">
+            {intervention.clientAdresse}
+          </p>
+        )}
+      </div>
+
+      {/* Hours */}
+      {(hasMatin || hasAprem) && (
+        <div className="flex flex-wrap gap-3">
+          {hasMatin && (
+            <div className="text-xs">
+              <span className="text-muted-foreground">Matin : </span>
+              <span className="font-medium text-foreground">
+                {matinDebut} → {matinFin}
+              </span>
+            </div>
+          )}
+          {hasAprem && (
+            <div className="text-xs">
+              <span className="text-muted-foreground">Après-midi : </span>
+              <span className="font-medium text-foreground">
+                {apremDebut} → {apremFin}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Description */}
+      {hasDescription && (
+        <p className="text-xs text-muted-foreground italic border-l-2 border-border pl-2">
+          {intervention.description}
+        </p>
+      )}
+
+      {/* Pieces */}
+      {hasPieces && (
+        <div>
+          <p className="text-xs font-semibold text-foreground mb-1">
+            Pièces utilisées
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-1 pr-2 text-muted-foreground font-medium">
+                    Réf.
+                  </th>
+                  <th className="text-left py-1 pr-2 text-muted-foreground font-medium">
+                    Article
+                  </th>
+                  <th className="text-right py-1 text-muted-foreground font-medium">
+                    Qté
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {intervention.pieces.map((piece, i) => (
+                  <tr
+                    key={`${piece.reference}-${i}`}
+                    className="border-b border-border/50 last:border-0"
+                  >
+                    <td className="py-1 pr-2 text-foreground">
+                      {piece.reference}
+                    </td>
+                    <td className="py-1 pr-2 text-foreground">
+                      {piece.article}
+                    </td>
+                    <td className="py-1 text-right text-foreground">
+                      {Number(piece.quantite)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Reports() {
   const { identity } = useInternetIdentity();
   const { data: allEntries = [], isLoading } = useGetTimeEntries();
+  const { data: allInterventions = [], isLoading: isLoadingInterventions } =
+    useGetAllInterventions();
   const { mutateAsync: generatePdf, isPending: isPdfLoading } =
     useGetPdfReportData();
 
@@ -100,6 +274,46 @@ export default function Reports() {
     safeWeekIndex,
     weeksForMonth,
   ]);
+
+  const filteredInterventions = useMemo(() => {
+    if (!identity) return [];
+    const principal = identity.getPrincipal().toString();
+    return allInterventions
+      .filter((intervention) => {
+        if (intervention.user.toString() !== principal) return false;
+        const date = new Date(Number(intervention.date) / 1_000_000);
+        const entryYear = date.getFullYear();
+        if (periodType === "monthly") {
+          return (
+            entryYear === selectedYear && date.getMonth() === selectedMonth
+          );
+        }
+        const week: WeekOption | undefined = weeksForMonth[safeWeekIndex];
+        if (!week) return false;
+        return isDateInWeek(intervention.date, week.startDate, week.endDate);
+      })
+      .sort((a, b) => Number(a.date) - Number(b.date));
+  }, [
+    allInterventions,
+    identity,
+    periodType,
+    selectedYear,
+    selectedMonth,
+    safeWeekIndex,
+    weeksForMonth,
+  ]);
+
+  // Build a map dateKey -> interventions[] for fast lookup in expanded rows
+  const interventionsByDate = useMemo(() => {
+    const map = new Map<string, InterventionAvecPieces[]>();
+    for (const intervention of allInterventions) {
+      const key = toDateKey(intervention.date);
+      const existing = map.get(key) ?? [];
+      existing.push(intervention);
+      map.set(key, existing);
+    }
+    return map;
+  }, [allInterventions]);
 
   const totals = useMemo(() => {
     let totalNormal = 0;
@@ -415,8 +629,11 @@ export default function Reports() {
                     entry.interventionSlots,
                   );
                   const isExpanded = expandedRow === entry.id;
+                  const entryDateKey = toDateKey(entry.date);
+                  const dateInterventions =
+                    interventionsByDate.get(entryDateKey) ?? [];
                   const hasDetails =
-                    entry.interventionSlots.length > 0 || !!entry.description;
+                    dateInterventions.length > 0 || !!entry.description;
 
                   return (
                     <>
@@ -471,51 +688,40 @@ export default function Reports() {
                       </tr>
                       {isExpanded && (
                         <tr key={`${entry.id}-detail`} className="bg-muted/20">
-                          <td colSpan={8} className="px-4 py-3">
+                          <td colSpan={8} className="px-4 py-3 space-y-3">
                             {entry.description && (
-                              <p className="text-sm text-muted-foreground mb-2 italic">
+                              <p className="text-sm text-muted-foreground italic">
                                 "{entry.description}"
                               </p>
                             )}
-                            {entry.interventionSlots.length > 0 && (
-                              <div>
-                                <p className="text-xs font-semibold text-foreground mb-1">
-                                  Interventions :
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {entry.interventionSlots.map((slot) => {
-                                    const slotMin =
-                                      Number(slot.endHour) * 60 +
-                                      Number(slot.endMinute) -
-                                      (Number(slot.startHour) * 60 +
-                                        Number(slot.startMinute));
-                                    const slotKey = `${slot.startHour}-${slot.startMinute}-${slot.endHour}-${slot.endMinute}`;
-                                    return (
-                                      <span
-                                        key={slotKey}
-                                        className="text-xs bg-orange-50 border border-orange-200 rounded px-2 py-1 text-orange-700"
-                                      >
-                                        {formatInterventionRange(
-                                          slot.startHour,
-                                          slot.startMinute,
-                                          slot.endHour,
-                                          slot.endMinute,
-                                        )}{" "}
-                                        ({formatMinutes(slotMin)})
-                                      </span>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
                             {entry.startAstreinte != null &&
                               entry.endAstreinte != null && (
-                                <p className="text-xs text-orange-600 mt-1">
+                                <p className="text-xs text-orange-600">
                                   Astreinte :{" "}
                                   {formatMinutes(Number(entry.startAstreinte))}{" "}
                                   → {formatMinutes(Number(entry.endAstreinte))}
                                 </p>
                               )}
+                            <div>
+                              <p className="text-xs font-semibold text-foreground mb-2">
+                                Interventions :
+                              </p>
+                              {dateInterventions.length === 0 ? (
+                                <p className="text-xs text-muted-foreground">
+                                  Aucune intervention
+                                </p>
+                              ) : (
+                                <div className="grid gap-2">
+                                  {dateInterventions.map((i, idx) => (
+                                    <InterventionCard
+                                      key={i.id}
+                                      intervention={i}
+                                      index={idx + 1}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       )}
@@ -550,6 +756,50 @@ export default function Reports() {
           </div>
         </div>
       )}
+
+      {/* Fiches Interventions section */}
+      <div className="space-y-3" data-ocid="reports.interventions.section">
+        <div className="flex items-center gap-2">
+          <ClipboardList className="w-5 h-5 text-orange-500" />
+          <h2 className="text-base font-semibold text-foreground">
+            Fiches Interventions
+          </h2>
+          <Badge
+            variant="secondary"
+            className="text-xs"
+            data-ocid="reports.interventions.panel"
+          >
+            {isLoadingInterventions ? "…" : filteredInterventions.length}
+          </Badge>
+        </div>
+
+        {isLoadingInterventions ? (
+          <div
+            className="flex items-center justify-center py-8"
+            data-ocid="reports.interventions.loading_state"
+          >
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : filteredInterventions.length === 0 ? (
+          <div
+            className="text-center py-8 text-muted-foreground text-sm bg-card border border-border rounded-xl"
+            data-ocid="reports.interventions.empty_state"
+          >
+            <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            Aucune intervention pour cette période
+          </div>
+        ) : (
+          <div className="grid gap-3" data-ocid="reports.interventions.list">
+            {filteredInterventions.map((intervention, index) => (
+              <InterventionCard
+                key={intervention.id}
+                intervention={intervention}
+                index={index + 1}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

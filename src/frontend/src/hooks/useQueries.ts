@@ -506,6 +506,9 @@ export function useAddIntervention() {
       queryClient.invalidateQueries({
         queryKey: ["interventions", variables.date.toString()],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["interventions", "all"],
+      });
     },
   });
 }
@@ -525,6 +528,9 @@ export function useUpdateIntervention() {
       queryClient.invalidateQueries({
         queryKey: ["interventions", variables.input.date.toString()],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["interventions", "all"],
+      });
     },
   });
 }
@@ -541,6 +547,21 @@ export function useDeleteIntervention() {
       queryClient.invalidateQueries({
         queryKey: ["interventions", variables.date.toString()],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["interventions", "all"],
+      });
     },
+  });
+}
+
+export function useGetAllInterventions() {
+  const { actor, isFetching } = useActor();
+  return useQuery<import("../backend.d").InterventionAvecPieces[]>({
+    queryKey: ["interventions", "all"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return (actor as any).obtenirToutesInterventions();
+    },
+    enabled: !!actor && !isFetching,
   });
 }
