@@ -4,23 +4,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Image as ImageIcon,
   Loader2,
   Plus,
   Trash2,
-  User,
   Video,
   X,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { ExternalBlob } from "../backend";
 import MediaViewer, { type MediaItem } from "../components/MediaViewer";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useCreateMemo, useDeleteMemo, useGetMemos } from "../hooks/useQueries";
+import { useDeleteMemo, useGetMemos } from "../hooks/useQueries";
 
 function formatDateFr(ts: bigint): string {
   const date = new Date(Number(ts) / 1_000_000);
@@ -38,15 +37,12 @@ function formatDateFr(ts: bigint): string {
 export default function Memo() {
   const { identity } = useInternetIdentity();
   const isAuthenticated = !!identity;
-  const { actor, isFetching } = useActor();
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
 
   const { data: memos = [], isLoading } = useGetMemos();
-  const createMemo = useCreateMemo();
   const deleteMemo = useDeleteMemo();
 
-  const [selectedProfilePrincipal, setSelectedProfilePrincipal] = useState<
-    string | null
-  >(isAuthenticated && identity ? identity.getPrincipal().toString() : null);
   const [authorName, setAuthorName] = useState("");
   const [content, setContent] = useState("");
   const [photos, setPhotos] = useState<ExternalBlob[]>([]);
@@ -54,6 +50,7 @@ export default function Memo() {
   const [videos, setVideos] = useState<ExternalBlob[]>([]);
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [mediaViewer, setMediaViewer] = useState<{
     items: MediaItem[];
     index: number;
@@ -61,25 +58,6 @@ export default function Memo() {
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
-
-  const { data: allProfiles = [], isLoading: profilesLoading } = useQuery<
-    Array<[any, { name: string; email: string }]>
-  >({
-    queryKey: ["allProfiles"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return (actor as any).obtenirTousLesProfils();
-    },
-    enabled: !!actor && !isFetching,
-  });
-
-  const filteredMemos = useMemo(() => {
-    if (!selectedProfilePrincipal) return memos;
-    return memos.filter((memo: any) => {
-      const createdBy = memo.createdBy?.toString?.() ?? String(memo.createdBy);
-      return createdBy === selectedProfilePrincipal;
-    });
-  }, [memos, selectedProfilePrincipal]);
 
   const handlePhotoSelect = async (files: FileList | null) => {
     if (!files) return;
@@ -139,17 +117,29 @@ export default function Memo() {
       return;
     }
     if (!actor) {
-      toast.error("Connexion requise.");
+      toast.error("Connexion requise. Veuillez vous connecter.");
       return;
     }
+
+    // Check if the method exists on the actor
+    const creerMemoFn = (actor as any).creerMemo;
+    if (typeof creerMemoFn !== "function") {
+      toast.error("Fonction de publication indisponible. Rechargez la page.");
+      return;
+    }
+
+    setIsPublishing(true);
     try {
-      await createMemo.mutateAsync({
-        id: `memo-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        authorName: authorName.trim(),
-        content: content.trim(),
+      const id = `memo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      await creerMemoFn.call(
+        actor,
+        id,
+        authorName.trim(),
+        content.trim(),
         photos,
         videos,
-      });
+      );
+      await queryClient.invalidateQueries({ queryKey: ["memos"] });
       setContent("");
       setPhotos([]);
       setPhotoUrls([]);
@@ -158,6 +148,8 @@ export default function Memo() {
       toast.success("Mémo publié !");
     } catch (e) {
       toast.error(`Erreur : ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -184,38 +176,8 @@ export default function Memo() {
           </p>
         </div>
         <Badge variant="outline" className="text-xs">
-          {filteredMemos.length} note{filteredMemos.length !== 1 ? "s" : ""}
+          {memos.length} note{memos.length !== 1 ? "s" : ""}
         </Badge>
-      </div>
-
-      {/* Profile selector */}
-      <div className="flex items-center gap-2 p-3 bg-card rounded-xl border border-border">
-        <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-        <label
-          htmlFor="memo-profile-select"
-          className="text-xs text-muted-foreground whitespace-nowrap"
-        >
-          Profil :
-        </label>
-        <select
-          id="memo-profile-select"
-          value={selectedProfilePrincipal ?? ""}
-          onChange={(e) => setSelectedProfilePrincipal(e.target.value || null)}
-          className="flex-1 text-xs bg-background border border-input rounded px-2 py-1"
-          data-ocid="memo.profile.select"
-        >
-          <option value="">Tous les profils</option>
-          {profilesLoading && (
-            <option value="" disabled>
-              Chargement...
-            </option>
-          )}
-          {allProfiles.map(([principal, profile]: [any, any]) => (
-            <option key={principal.toString()} value={principal.toString()}>
-              {profile.name || `${principal.toString().slice(0, 12)}...`}
-            </option>
-          ))}
-        </select>
       </div>
 
       {/* Add memo form (authenticated only) */}
@@ -355,11 +317,11 @@ export default function Memo() {
                 type="button"
                 size="sm"
                 onClick={handleSubmit}
-                disabled={createMemo.isPending || isUploading}
+                disabled={isPublishing || isUploading}
                 data-ocid="memo.publish.primary_button"
                 className="ml-auto text-xs"
               >
-                {createMemo.isPending ? (
+                {isPublishing ? (
                   <>
                     <Loader2 className="w-3 h-3 mr-1 animate-spin" />{" "}
                     Publication...
@@ -381,7 +343,7 @@ export default function Memo() {
         >
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
-      ) : filteredMemos.length === 0 ? (
+      ) : memos.length === 0 ? (
         <div
           className="text-center py-12 text-muted-foreground"
           data-ocid="memo.empty_state"
@@ -390,7 +352,7 @@ export default function Memo() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredMemos.map((memo: any, i: number) => {
+          {memos.map((memo: any, i: number) => {
             const allMedia: MediaItem[] = [
               ...(memo.photos ?? []).map((p: ExternalBlob) => ({
                 type: "photo" as const,

@@ -1,30 +1,29 @@
-# Vialtraite Service - Memo Profile Dropdown
+# Vialtraite Service - Version 69
 
 ## Current State
-- Section Mémo shows all memos from all users, no profile filter
-- Backend has `creerMemo`, `obtenirMemos`, `supprimerMemo` functions but they are missing from DID declarations (causing "actor.creerMemo is not a function" error)
-- Backend has `obtenirTousLesProfils`, `obtenirJourneesPubliques`, `obtenirInterventionsPubliques` in backend.d.ts but also missing from DID declarations
-- Reports section has a profile dropdown but may also be broken due to missing DID declarations
+Application de gestion du temps de travail multi-utilisateur. Backend Motoko avec stockage persistant (mémoire stable). Plusieurs bugs actifs :
+1. Enregistrement journée/intervention dans calendrier échoue avec "erreur lors de l'enregistrement, vérifiez votre connexion" — causé par `AccessControl.hasPermission(caller, #user)` qui rejette les utilisateurs non-assignés au rôle #user.
+2. Publication de mémo échoue avec "actor.creerMemo is not a function" — les déclarations candid frontend sont périmées ET la permission #user est requise.
+3. Section Mémo a une barre déroulante de profil à supprimer.
+4. Section Rapports : dropdown profil vide car les utilisateurs n'ont pas explicitement sauvegardé leur profil.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Profile dropdown in Memo section: list all registered Internet Identity profiles via `obtenirTousLesProfils()`
-- Filter displayed memos by selected profile's `createdBy` principal (field already stored in MemoEntry)
-- Auto-select current user's profile when authenticated
-- All missing functions to DID declarations: `creerMemo`, `obtenirMemos`, `supprimerMemo`, `MemoEntry` type, `obtenirTousLesProfils`, `obtenirJourneesPubliques`, `obtenirInterventionsPubliques`
+- Auto-enregistrement du profil utilisateur lors du premier enregistrement de journée (pour qu'il apparaisse dans obtenirTousLesProfils)
 
 ### Modify
-- `backend.did.js`: Add MemoEntry type + all 6 missing functions to both service sections
-- `backend.did.d.ts`: Add MemoEntry type + TypeScript signatures for all 6 missing functions
-- `backend.d.ts`: Add memo function signatures
-- `Memo.tsx`: Add profile selector dropdown + filter memos by selected profile principal
+- Supprimer la restriction `AccessControl.hasPermission(#user)` sur toutes les fonctions — remplacer par une vérification simple : tout principal non-anonyme peut effectuer des opérations (sauf admin functions)
+- `creerMemo` : accessible à tout utilisateur authentifié (non-anonyme)
+- `enregistrerJournee` : auto-sauvegarder le profil utilisateur avec nom générique si pas encore sauvegardé
+- Tous les autres endpoints : vérification principal non-anonyme uniquement
 
 ### Remove
-- Nothing
+- Dans section Mémo (frontend) : supprimer le dropdown de sélection de profil
+- Les vérifications `AccessControl.hasPermission(caller, #user)` qui bloquent les utilisateurs normaux
 
 ## Implementation Plan
-1. Update `backend.did.js` - add MemoEntry type definition + all missing functions in both export section and idlFactory section
-2. Update `backend.did.d.ts` - add TypeScript types for MemoEntry + missing functions
-3. Update `backend.d.ts` - add memo function signatures
-4. Update `Memo.tsx` - add profile dropdown using `obtenirTousLesProfils()`, filter memos by createdBy principal
+1. Régénérer le backend Motoko avec EXACTEMENT les mêmes noms de variables stables et types — permettre à tout utilisateur authentifié d'agir
+2. Supprimer dropdown profil dans Memo.tsx
+3. Corriger l'enregistrement dans Calendar.tsx — utiliser actor directement pour journée ET interventions
+4. S'assurer que Reports.tsx charge les profils via obtenirTousLesProfils (déjà public, no auth required)

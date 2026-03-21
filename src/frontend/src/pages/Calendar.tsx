@@ -9,6 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft,
   ChevronRight,
@@ -353,10 +354,10 @@ function ClientAutocomplete({
 export default function Calendar() {
   const { identity } = useInternetIdentity();
   const { actor } = useActor();
+  const queryClient = useQueryClient();
   const { data: allEntries = [] } = useGetTimeEntries();
-  const { mutateAsync: saveEntry, isPending: isSaving } = useSaveTimeEntry();
-  const { mutateAsync: updateEntry, isPending: isUpdating } =
-    useUpdateTimeEntry();
+  useSaveTimeEntry();
+  useUpdateTimeEntry();
   const { mutateAsync: deleteEntry, isPending: isDeleting } =
     useDeleteTimeEntry();
   const { data: clients = [] } = useGetClients();
@@ -503,6 +504,11 @@ export default function Calendar() {
 
   const handleSave = async () => {
     if (!selectedDate) return;
+    // Check actor availability upfront before attempting any save
+    if (!actor) {
+      toast.error("Connexion requise. Veuillez vous connecter.");
+      return;
+    }
     try {
       const id =
         editingEntry?.id ??
@@ -532,18 +538,8 @@ export default function Calendar() {
         })),
       };
 
-      // Use enregistrerJournee which now performs upsert (create or update)
-      // This avoids failures when modifierJournee is called for entries that no longer exist
-      try {
-        await saveEntry(input);
-      } catch (saveError) {
-        // Fallback: try update if save fails
-        if (editingEntry) {
-          await updateEntry({ id, input });
-        } else {
-          throw saveError;
-        }
-      }
+      // Use actor directly (bypass React Query) for reliable upsert
+      await actor.enregistrerJournee(input);
 
       // Save fiche interventions for each slot
       const dateTs = dateToTimestamp(selectedDate);
@@ -582,10 +578,11 @@ export default function Calendar() {
           photos: slot.photos,
           videos: slot.videos,
         };
-        // Always use ajouterIntervention directly on actor (true upsert, no React Query state issues)
-        if (!actor) throw new Error("Acteur non disponible");
         await actor.ajouterIntervention(interventionInput);
       }
+
+      // Refresh the entries list after saving
+      queryClient.invalidateQueries({ queryKey: ["timeEntries"] });
 
       toast.success(
         editingEntry ? "Journée mise à jour" : "Journée enregistrée",
@@ -593,9 +590,7 @@ export default function Calendar() {
       setDialogOpen(false);
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
-      toast.error(
-        `Erreur lors de l'enregistrement. Vérifiez votre connexion et réessayez. (${errMsg})`,
-      );
+      toast.error(`Erreur lors de l'enregistrement. (${errMsg})`);
     }
   };
 
@@ -779,6 +774,8 @@ export default function Calendar() {
   const getDayKey = (date: Date) =>
     `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 
+  const isSaving = false;
+  const isUpdating = false;
   const isMutating = isSaving || isUpdating || isDeleting;
 
   const morningMin = Math.max(
