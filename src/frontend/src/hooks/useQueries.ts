@@ -227,10 +227,15 @@ export function useGetCallerUserProfile() {
     queryKey: ["currentUserProfile"],
     queryFn: async () => {
       if (!actor) throw new Error("Actor not available");
-      return actor.getCallerUserProfile();
+      try {
+        return await actor.getCallerUserProfile();
+      } catch {
+        return null;
+      }
     },
     enabled: !!actor && !actorFetching,
-    retry: false,
+    retry: 1,
+    staleTime: 5 * 60 * 1000,
   });
   return {
     ...query,
@@ -479,7 +484,7 @@ export function useToggleBlacklist() {
 
 export function useGetInterventionsPourJour(date: bigint) {
   const { actor, isFetching } = useActor();
-  return useQuery<import("../backend.d").Intervention[]>({
+  return useQuery<import("../backend.d").InterventionAvecPieces[]>({
     queryKey: ["interventions", date.toString()],
     queryFn: async () => {
       if (!actor) return [];

@@ -93,6 +93,24 @@ export interface _CaffeineStorageRefillResult {
     success?: boolean;
     topped_up_amount?: bigint;
 }
+export interface InterventionInput {
+    id: string;
+    date: Time;
+    heureApremDebutMin: bigint;
+    heureApremDebutH: bigint;
+    heureApremFinH: bigint;
+    signatureIntervenant: string;
+    heureMatinFinH: bigint;
+    description: string;
+    clientAdresse: string;
+    heureApremFinMin: bigint;
+    pieces: Array<PieceUtilisee>;
+    heureMatinDebutMin: bigint;
+    signatureClient: string;
+    clientNom: string;
+    heureMatinDebutH: bigint;
+    heureMatinFinMin: bigint;
+}
 export type Time = bigint;
 export interface _CaffeineStorageRefillInformation {
     proposed_top_up_amount?: bigint;
@@ -100,6 +118,31 @@ export interface _CaffeineStorageRefillInformation {
 export interface _CaffeineStorageCreateCertificateResult {
     method: string;
     blob_hash: string;
+}
+export interface PieceUtilisee {
+    reference: string;
+    article: string;
+    quantite: bigint;
+}
+export interface InterventionAvecPieces {
+    id: string;
+    date: Time;
+    createdAt: Time;
+    user: Principal;
+    heureApremDebutMin: bigint;
+    heureApremDebutH: bigint;
+    heureApremFinH: bigint;
+    signatureIntervenant: string;
+    heureMatinFinH: bigint;
+    description: string;
+    clientAdresse: string;
+    heureApremFinMin: bigint;
+    pieces: Array<PieceUtilisee>;
+    heureMatinDebutMin: bigint;
+    signatureClient: string;
+    clientNom: string;
+    heureMatinDebutH: bigint;
+    heureMatinFinMin: bigint;
 }
 export interface DailyMediaEntry {
     id: string;
@@ -223,6 +266,7 @@ export interface backendInterface {
     _caffeineStorageRefillCashier(refillInformation: _CaffeineStorageRefillInformation | null): Promise<_CaffeineStorageRefillResult>;
     _caffeineStorageUpdateGatewayPrincipals(): Promise<void>;
     ajouterClient(client: Client): Promise<void>;
+    ajouterIntervention(input: InterventionInput): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     basculerListeNoire(id: string): Promise<void>;
     calculerNombreAstreinte(user: Principal): Promise<bigint>;
@@ -248,9 +292,11 @@ export interface backendInterface {
     isCallerAdmin(): Promise<boolean>;
     listerFichiers(): Promise<Array<Fichier>>;
     modifierClient(id: string, client: Client): Promise<void>;
+    modifierIntervention(id: string, input: InterventionInput): Promise<void>;
     modifierJournal(id: string, audioUrl: string, transcription: string, notes: string, photos: Array<ExternalBlob>, dayType: DayType | null): Promise<void>;
     modifierJournee(id: string, input: TimeEntryInput): Promise<void>;
     obtenirClients(): Promise<Array<Client>>;
+    obtenirInterventionsPourJour(date: Time): Promise<Array<InterventionAvecPieces>>;
     obtenirJournaux(): Promise<Array<JournalEntry>>;
     obtenirJournees(): Promise<Array<TimeEntry>>;
     obtenirMediasAudioPourJour(date: Time): Promise<Array<ExternalBlob>>;
@@ -262,6 +308,7 @@ export interface backendInterface {
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     supprimerClient(id: string): Promise<void>;
     supprimerFichier(_id: bigint): Promise<boolean>;
+    supprimerIntervention(id: string): Promise<void>;
     supprimerJournal(id: string): Promise<void>;
     supprimerJournee(id: string): Promise<void>;
     supprimerMediaQuotidien(id: string): Promise<void>;
@@ -365,6 +412,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.ajouterClient(arg0);
+            return result;
+        }
+    }
+    async ajouterIntervention(arg0: InterventionInput): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.ajouterIntervention(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.ajouterIntervention(arg0);
             return result;
         }
     }
@@ -640,6 +701,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async modifierIntervention(arg0: string, arg1: InterventionInput): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.modifierIntervention(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.modifierIntervention(arg0, arg1);
+            return result;
+        }
+    }
     async modifierJournal(arg0: string, arg1: string, arg2: string, arg3: string, arg4: Array<ExternalBlob>, arg5: DayType | null): Promise<void> {
         if (this.processError) {
             try {
@@ -679,6 +754,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.obtenirClients();
+            return result;
+        }
+    }
+    async obtenirInterventionsPourJour(arg0: Time): Promise<Array<InterventionAvecPieces>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.obtenirInterventionsPourJour(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.obtenirInterventionsPourJour(arg0);
             return result;
         }
     }
@@ -833,6 +922,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.supprimerFichier(arg0);
+            return result;
+        }
+    }
+    async supprimerIntervention(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.supprimerIntervention(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.supprimerIntervention(arg0);
             return result;
         }
     }

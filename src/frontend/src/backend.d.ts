@@ -14,7 +14,50 @@ export class ExternalBlob {
     static fromBytes(blob: Uint8Array<ArrayBuffer>): ExternalBlob;
     withUploadProgress(onProgress: (percentage: number) => void): ExternalBlob;
 }
+export interface InterventionInput {
+    id: string;
+    date: Time;
+    heureApremDebutMin: bigint;
+    heureApremDebutH: bigint;
+    heureApremFinH: bigint;
+    signatureIntervenant: string;
+    heureMatinFinH: bigint;
+    description: string;
+    clientAdresse: string;
+    heureApremFinMin: bigint;
+    pieces: Array<PieceUtilisee>;
+    heureMatinDebutMin: bigint;
+    signatureClient: string;
+    clientNom: string;
+    heureMatinDebutH: bigint;
+    heureMatinFinMin: bigint;
+}
 export type Time = bigint;
+export interface PieceUtilisee {
+    reference: string;
+    article: string;
+    quantite: bigint;
+}
+export interface InterventionAvecPieces {
+    id: string;
+    date: Time;
+    createdAt: Time;
+    user: Principal;
+    heureApremDebutMin: bigint;
+    heureApremDebutH: bigint;
+    heureApremFinH: bigint;
+    signatureIntervenant: string;
+    heureMatinFinH: bigint;
+    description: string;
+    clientAdresse: string;
+    heureApremFinMin: bigint;
+    pieces: Array<PieceUtilisee>;
+    heureMatinDebutMin: bigint;
+    signatureClient: string;
+    clientNom: string;
+    heureMatinDebutH: bigint;
+    heureMatinFinMin: bigint;
+}
 export interface DailyMediaEntry {
     id: string;
     createdAt: Time;
@@ -119,44 +162,6 @@ export interface TimeEntry {
     heuresRepas: bigint;
     startAfternoon: bigint;
 }
-export interface Intervention {
-    id: string;
-    date: Time;
-    clientNom: string;
-    clientAdresse: string;
-    heureMatinDebutH: bigint;
-    heureMatinDebutMin: bigint;
-    heureMatinFinH: bigint;
-    heureMatinFinMin: bigint;
-    heureApremDebutH: bigint;
-    heureApremDebutMin: bigint;
-    heureApremFinH: bigint;
-    heureApremFinMin: bigint;
-    description: string;
-    signatureClient: string;
-    signatureIntervenant: string;
-    pieces: Array<{ reference: string; article: string; quantite: bigint }>;
-    user: Principal;
-    createdAt: Time;
-}
-export interface InterventionInput {
-    id: string;
-    date: Time;
-    clientNom: string;
-    clientAdresse: string;
-    heureMatinDebutH: bigint;
-    heureMatinDebutMin: bigint;
-    heureMatinFinH: bigint;
-    heureMatinFinMin: bigint;
-    heureApremDebutH: bigint;
-    heureApremDebutMin: bigint;
-    heureApremFinH: bigint;
-    heureApremFinMin: bigint;
-    description: string;
-    signatureClient: string;
-    signatureIntervenant: string;
-    pieces: Array<{ reference: string; article: string; quantite: bigint }>;
-}
 export enum DayType {
     conge = "conge",
     work = "work",
@@ -199,7 +204,7 @@ export interface backendInterface {
     modifierJournal(id: string, audioUrl: string, transcription: string, notes: string, photos: Array<ExternalBlob>, dayType: DayType | null): Promise<void>;
     modifierJournee(id: string, input: TimeEntryInput): Promise<void>;
     obtenirClients(): Promise<Array<Client>>;
-    obtenirInterventionsPourJour(date: Time): Promise<Array<Intervention>>;
+    obtenirInterventionsPourJour(date: Time): Promise<Array<InterventionAvecPieces>>;
     obtenirJournaux(): Promise<Array<JournalEntry>>;
     obtenirJournees(): Promise<Array<TimeEntry>>;
     obtenirMediasAudioPourJour(date: Time): Promise<Array<ExternalBlob>>;

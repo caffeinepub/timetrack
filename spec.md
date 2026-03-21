@@ -1,23 +1,25 @@
-# Suivi du Temps - Persistance des pièces d'intervention
+# Suivi du Temps - Correction bugs persistance et enregistrement
 
 ## Current State
-Les interventions sont stockées dans le backend avec leurs champs (client, horaires, description, signatures). La section "Pièces utilisées" (référence, article, quantité) existe uniquement en frontend sans persistance backend.
+Le backend utilise `Map.empty()` sans `stable var`, ce qui entraîne la perte de toutes les données à chaque mise à jour (upgrade) du canister. De plus, `modifierJournee` lance une exception si l'entrée n'est pas trouvée, ce qui provoque une erreur d'enregistrement lorsque les données ont été perdues.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Type `PieceUtilisee` (référence, article, quantité) dans le backend
-- Champ `pieces : [PieceUtilisee]` dans le type `Intervention` et `InterventionInput`
+- Déclarations `stable var` pour toutes les collections (timeEntries, journalEntries, dailyMediaEntries, userProfiles, clients, interventions, interventionPieces)
+- Fonctions `system preupgrade()` et `system postupgrade()` pour sérialiser/désérialiser les Maps dans des tableaux stables
 
 ### Modify
-- Fonctions `ajouterIntervention` et `modifierIntervention` pour accepter et sauvegarder les pièces
-- Frontend : envoyer les pièces lors de la création/modification d'une intervention, les afficher depuis les données persistées
+- `modifierJournee` : utiliser un comportement upsert (créer si non trouvé) plutôt que de lancer une exception
+- `modifierIntervention` : même correction upsert
+- Toutes les Maps initialisées depuis les stable vars au démarrage
 
 ### Remove
 - Rien
 
 ## Implementation Plan
-1. Ajouter le type `PieceUtilisee` dans main.mo
-2. Ajouter `pieces : [PieceUtilisee]` dans `Intervention` et `InterventionInput`
-3. Mettre à jour les fonctions d'ajout/modification pour mapper les pièces
-4. Mettre à jour le frontend pour envoyer et recevoir les pièces depuis le backend
+1. Ajouter des stable vars pour chaque Map (tableaux de tuples)
+2. Initialiser les Maps depuis ces stable vars au démarrage
+3. Implémenter preupgrade/postupgrade pour sauvegarder/restaurer les données
+4. Corriger modifierJournee et modifierIntervention pour upsert
+5. Correction du compteurFichiers en stable var

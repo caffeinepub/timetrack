@@ -41,6 +41,44 @@ export interface Fichier {
   'proprietaire' : Principal,
   'dateAjout' : Time,
 }
+export interface InterventionAvecPieces {
+  'id' : string,
+  'date' : Time,
+  'createdAt' : Time,
+  'user' : Principal,
+  'heureApremDebutMin' : bigint,
+  'heureApremDebutH' : bigint,
+  'heureApremFinH' : bigint,
+  'signatureIntervenant' : string,
+  'heureMatinFinH' : bigint,
+  'description' : string,
+  'clientAdresse' : string,
+  'heureApremFinMin' : bigint,
+  'pieces' : Array<PieceUtilisee>,
+  'heureMatinDebutMin' : bigint,
+  'signatureClient' : string,
+  'clientNom' : string,
+  'heureMatinDebutH' : bigint,
+  'heureMatinFinMin' : bigint,
+}
+export interface InterventionInput {
+  'id' : string,
+  'date' : Time,
+  'heureApremDebutMin' : bigint,
+  'heureApremDebutH' : bigint,
+  'heureApremFinH' : bigint,
+  'signatureIntervenant' : string,
+  'heureMatinFinH' : bigint,
+  'description' : string,
+  'clientAdresse' : string,
+  'heureApremFinMin' : bigint,
+  'pieces' : Array<PieceUtilisee>,
+  'heureMatinDebutMin' : bigint,
+  'signatureClient' : string,
+  'clientNom' : string,
+  'heureMatinDebutH' : bigint,
+  'heureMatinFinMin' : bigint,
+}
 export interface InterventionSlot {
   'endHour' : bigint,
   'endMinute' : bigint,
@@ -71,6 +109,11 @@ export interface PdfReportData {
   },
   'exportTimestamp' : Time,
   'lignesTableau' : Array<Array<string>>,
+}
+export interface PieceUtilisee {
+  'reference' : string,
+  'article' : string,
+  'quantite' : bigint,
 }
 export type Time = bigint;
 export interface TimeEntry {
@@ -142,6 +185,7 @@ export interface _SERVICE {
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   'ajouterClient' : ActorMethod<[Client], undefined>,
+  'ajouterIntervention' : ActorMethod<[InterventionInput], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'basculerListeNoire' : ActorMethod<[string], undefined>,
   'calculerNombreAstreinte' : ActorMethod<[Principal], bigint>,
@@ -177,12 +221,17 @@ export interface _SERVICE {
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'listerFichiers' : ActorMethod<[], Array<Fichier>>,
   'modifierClient' : ActorMethod<[string, Client], undefined>,
+  'modifierIntervention' : ActorMethod<[string, InterventionInput], undefined>,
   'modifierJournal' : ActorMethod<
     [string, string, string, string, Array<ExternalBlob>, [] | [DayType]],
     undefined
   >,
   'modifierJournee' : ActorMethod<[string, TimeEntryInput], undefined>,
   'obtenirClients' : ActorMethod<[], Array<Client>>,
+  'obtenirInterventionsPourJour' : ActorMethod<
+    [Time],
+    Array<InterventionAvecPieces>
+  >,
   'obtenirJournaux' : ActorMethod<[], Array<JournalEntry>>,
   'obtenirJournees' : ActorMethod<[], Array<TimeEntry>>,
   'obtenirMediasAudioPourJour' : ActorMethod<[Time], Array<ExternalBlob>>,
@@ -194,6 +243,7 @@ export interface _SERVICE {
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'supprimerClient' : ActorMethod<[string], undefined>,
   'supprimerFichier' : ActorMethod<[bigint], boolean>,
+  'supprimerIntervention' : ActorMethod<[string], undefined>,
   'supprimerJournal' : ActorMethod<[string], undefined>,
   'supprimerJournee' : ActorMethod<[string], undefined>,
   'supprimerMediaQuotidien' : ActorMethod<[string], undefined>,

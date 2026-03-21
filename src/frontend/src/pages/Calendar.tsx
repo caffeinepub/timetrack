@@ -506,10 +506,17 @@ export default function Calendar() {
         })),
       };
 
-      if (editingEntry) {
-        await updateEntry({ id, input });
-      } else {
+      // Use enregistrerJournee which now performs upsert (create or update)
+      // This avoids failures when modifierJournee is called for entries that no longer exist
+      try {
         await saveEntry(input);
+      } catch (saveError) {
+        // Fallback: try update if save fails
+        if (editingEntry) {
+          await updateEntry({ id, input });
+        } else {
+          throw saveError;
+        }
       }
 
       // Save fiche interventions for each slot
@@ -562,8 +569,9 @@ export default function Calendar() {
       );
       setDialogOpen(false);
     } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
       toast.error(
-        `Erreur lors de l'enregistrement : ${e instanceof Error ? e.message : String(e)}`,
+        `Erreur lors de l'enregistrement. Vérifiez votre connexion et réessayez. (${errMsg})`,
       );
     }
   };

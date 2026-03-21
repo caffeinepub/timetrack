@@ -29,6 +29,29 @@ export const Client = IDL.Record({
   'listeNoire' : IDL.Bool,
   'telephone' : IDL.Text,
 });
+export const PieceUtilisee = IDL.Record({
+  'reference' : IDL.Text,
+  'article' : IDL.Text,
+  'quantite' : IDL.Int,
+});
+export const InterventionInput = IDL.Record({
+  'id' : IDL.Text,
+  'date' : Time,
+  'heureApremDebutMin' : IDL.Int,
+  'heureApremDebutH' : IDL.Int,
+  'heureApremFinH' : IDL.Int,
+  'signatureIntervenant' : IDL.Text,
+  'heureMatinFinH' : IDL.Int,
+  'description' : IDL.Text,
+  'clientAdresse' : IDL.Text,
+  'heureApremFinMin' : IDL.Int,
+  'pieces' : IDL.Vec(PieceUtilisee),
+  'heureMatinDebutMin' : IDL.Int,
+  'signatureClient' : IDL.Text,
+  'clientNom' : IDL.Text,
+  'heureMatinDebutH' : IDL.Int,
+  'heureMatinFinMin' : IDL.Int,
+});
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
@@ -99,6 +122,26 @@ export const Fichier = IDL.Record({
   'proprietaire' : IDL.Principal,
   'dateAjout' : Time,
 });
+export const InterventionAvecPieces = IDL.Record({
+  'id' : IDL.Text,
+  'date' : Time,
+  'createdAt' : Time,
+  'user' : IDL.Principal,
+  'heureApremDebutMin' : IDL.Int,
+  'heureApremDebutH' : IDL.Int,
+  'heureApremFinH' : IDL.Int,
+  'signatureIntervenant' : IDL.Text,
+  'heureMatinFinH' : IDL.Int,
+  'description' : IDL.Text,
+  'clientAdresse' : IDL.Text,
+  'heureApremFinMin' : IDL.Int,
+  'pieces' : IDL.Vec(PieceUtilisee),
+  'heureMatinDebutMin' : IDL.Int,
+  'signatureClient' : IDL.Text,
+  'clientNom' : IDL.Text,
+  'heureMatinDebutH' : IDL.Int,
+  'heureMatinFinMin' : IDL.Int,
+});
 export const JournalEntry = IDL.Record({
   'id' : IDL.Text,
   'createdAt' : Time,
@@ -161,6 +204,7 @@ export const idlService = IDL.Service({
     ),
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   'ajouterClient' : IDL.Func([Client], [], []),
+  'ajouterIntervention' : IDL.Func([InterventionInput], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'basculerListeNoire' : IDL.Func([IDL.Text], [], []),
   'calculerNombreAstreinte' : IDL.Func([IDL.Principal], [IDL.Int], ['query']),
@@ -217,6 +261,7 @@ export const idlService = IDL.Service({
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'listerFichiers' : IDL.Func([], [IDL.Vec(Fichier)], ['query']),
   'modifierClient' : IDL.Func([IDL.Text, Client], [], []),
+  'modifierIntervention' : IDL.Func([IDL.Text, InterventionInput], [], []),
   'modifierJournal' : IDL.Func(
       [
         IDL.Text,
@@ -231,6 +276,11 @@ export const idlService = IDL.Service({
     ),
   'modifierJournee' : IDL.Func([IDL.Text, TimeEntryInput], [], []),
   'obtenirClients' : IDL.Func([], [IDL.Vec(Client)], ['query']),
+  'obtenirInterventionsPourJour' : IDL.Func(
+      [Time],
+      [IDL.Vec(InterventionAvecPieces)],
+      ['query'],
+    ),
   'obtenirJournaux' : IDL.Func([], [IDL.Vec(JournalEntry)], ['query']),
   'obtenirJournees' : IDL.Func([], [IDL.Vec(TimeEntry)], ['query']),
   'obtenirMediasAudioPourJour' : IDL.Func(
@@ -254,6 +304,7 @@ export const idlService = IDL.Service({
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'supprimerClient' : IDL.Func([IDL.Text], [], []),
   'supprimerFichier' : IDL.Func([IDL.Nat], [IDL.Bool], []),
+  'supprimerIntervention' : IDL.Func([IDL.Text], [], []),
   'supprimerJournal' : IDL.Func([IDL.Text], [], []),
   'supprimerJournee' : IDL.Func([IDL.Text], [], []),
   'supprimerMediaQuotidien' : IDL.Func([IDL.Text], [], []),
@@ -287,6 +338,29 @@ export const idlFactory = ({ IDL }) => {
     'adresse' : IDL.Text,
     'listeNoire' : IDL.Bool,
     'telephone' : IDL.Text,
+  });
+  const PieceUtilisee = IDL.Record({
+    'reference' : IDL.Text,
+    'article' : IDL.Text,
+    'quantite' : IDL.Int,
+  });
+  const InterventionInput = IDL.Record({
+    'id' : IDL.Text,
+    'date' : Time,
+    'heureApremDebutMin' : IDL.Int,
+    'heureApremDebutH' : IDL.Int,
+    'heureApremFinH' : IDL.Int,
+    'signatureIntervenant' : IDL.Text,
+    'heureMatinFinH' : IDL.Int,
+    'description' : IDL.Text,
+    'clientAdresse' : IDL.Text,
+    'heureApremFinMin' : IDL.Int,
+    'pieces' : IDL.Vec(PieceUtilisee),
+    'heureMatinDebutMin' : IDL.Int,
+    'signatureClient' : IDL.Text,
+    'clientNom' : IDL.Text,
+    'heureMatinDebutH' : IDL.Int,
+    'heureMatinFinMin' : IDL.Int,
   });
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
@@ -355,6 +429,26 @@ export const idlFactory = ({ IDL }) => {
     'proprietaire' : IDL.Principal,
     'dateAjout' : Time,
   });
+  const InterventionAvecPieces = IDL.Record({
+    'id' : IDL.Text,
+    'date' : Time,
+    'createdAt' : Time,
+    'user' : IDL.Principal,
+    'heureApremDebutMin' : IDL.Int,
+    'heureApremDebutH' : IDL.Int,
+    'heureApremFinH' : IDL.Int,
+    'signatureIntervenant' : IDL.Text,
+    'heureMatinFinH' : IDL.Int,
+    'description' : IDL.Text,
+    'clientAdresse' : IDL.Text,
+    'heureApremFinMin' : IDL.Int,
+    'pieces' : IDL.Vec(PieceUtilisee),
+    'heureMatinDebutMin' : IDL.Int,
+    'signatureClient' : IDL.Text,
+    'clientNom' : IDL.Text,
+    'heureMatinDebutH' : IDL.Int,
+    'heureMatinFinMin' : IDL.Int,
+  });
   const JournalEntry = IDL.Record({
     'id' : IDL.Text,
     'createdAt' : Time,
@@ -417,6 +511,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     'ajouterClient' : IDL.Func([Client], [], []),
+    'ajouterIntervention' : IDL.Func([InterventionInput], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'basculerListeNoire' : IDL.Func([IDL.Text], [], []),
     'calculerNombreAstreinte' : IDL.Func([IDL.Principal], [IDL.Int], ['query']),
@@ -473,6 +568,7 @@ export const idlFactory = ({ IDL }) => {
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'listerFichiers' : IDL.Func([], [IDL.Vec(Fichier)], ['query']),
     'modifierClient' : IDL.Func([IDL.Text, Client], [], []),
+    'modifierIntervention' : IDL.Func([IDL.Text, InterventionInput], [], []),
     'modifierJournal' : IDL.Func(
         [
           IDL.Text,
@@ -487,6 +583,11 @@ export const idlFactory = ({ IDL }) => {
       ),
     'modifierJournee' : IDL.Func([IDL.Text, TimeEntryInput], [], []),
     'obtenirClients' : IDL.Func([], [IDL.Vec(Client)], ['query']),
+    'obtenirInterventionsPourJour' : IDL.Func(
+        [Time],
+        [IDL.Vec(InterventionAvecPieces)],
+        ['query'],
+      ),
     'obtenirJournaux' : IDL.Func([], [IDL.Vec(JournalEntry)], ['query']),
     'obtenirJournees' : IDL.Func([], [IDL.Vec(TimeEntry)], ['query']),
     'obtenirMediasAudioPourJour' : IDL.Func(
@@ -510,6 +611,7 @@ export const idlFactory = ({ IDL }) => {
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'supprimerClient' : IDL.Func([IDL.Text], [], []),
     'supprimerFichier' : IDL.Func([IDL.Nat], [IDL.Bool], []),
+    'supprimerIntervention' : IDL.Func([IDL.Text], [], []),
     'supprimerJournal' : IDL.Func([IDL.Text], [], []),
     'supprimerJournee' : IDL.Func([IDL.Text], [], []),
     'supprimerMediaQuotidien' : IDL.Func([IDL.Text], [], []),

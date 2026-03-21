@@ -11,7 +11,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { Intervention, InterventionInput } from "../backend.d";
+import type {
+  InterventionAvecPieces as Intervention,
+  InterventionInput,
+} from "../backend.d";
 import {
   useAddIntervention,
   useDeleteIntervention,
