@@ -111,6 +111,15 @@ export const UserProfile = IDL.Record({
   'name' : IDL.Text,
   'email' : IDL.Text,
 });
+export const MemoEntry = IDL.Record({
+  'id' : IDL.Text,
+  'authorName' : IDL.Text,
+  'content' : IDL.Text,
+  'photos' : IDL.Vec(ExternalBlob),
+  'videos' : IDL.Vec(ExternalBlob),
+  'createdAt' : IDL.Int,
+  'createdBy' : IDL.Principal,
+});
 export const Fichier = IDL.Record({
   'id' : IDL.Nat,
   'nom' : IDL.Text,
@@ -313,6 +322,12 @@ export const idlService = IDL.Service({
       [IDL.Opt(IDL.Nat)],
       [],
     ),
+  'creerMemo' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Vec(ExternalBlob), IDL.Vec(ExternalBlob)], [], []),
+  'obtenirMemos' : IDL.Func([], [IDL.Vec(MemoEntry)], ['query']),
+  'supprimerMemo' : IDL.Func([IDL.Text], [], []),
+  'obtenirTousLesProfils' : IDL.Func([], [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))], ['query']),
+  'obtenirJourneesPubliques' : IDL.Func([IDL.Principal], [IDL.Vec(TimeEntry)], ['query']),
+  'obtenirInterventionsPubliques' : IDL.Func([IDL.Principal], [IDL.Vec(InterventionAvecPieces)], ['query']),
 });
 
 export const idlInitArgs = [];
@@ -418,6 +433,15 @@ export const idlFactory = ({ IDL }) => {
     'lignesTableau' : IDL.Vec(IDL.Vec(IDL.Text)),
   });
   const UserProfile = IDL.Record({ 'name' : IDL.Text, 'email' : IDL.Text });
+  const MemoEntry = IDL.Record({
+    'id' : IDL.Text,
+    'authorName' : IDL.Text,
+    'content' : IDL.Text,
+    'photos' : IDL.Vec(ExternalBlob),
+    'videos' : IDL.Vec(ExternalBlob),
+    'createdAt' : IDL.Int,
+    'createdBy' : IDL.Principal,
+  });
   const Fichier = IDL.Record({
     'id' : IDL.Nat,
     'nom' : IDL.Text,
@@ -620,6 +644,12 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Opt(IDL.Nat)],
         [],
       ),
+    'creerMemo' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Vec(ExternalBlob), IDL.Vec(ExternalBlob)], [], []),
+    'obtenirMemos' : IDL.Func([], [IDL.Vec(MemoEntry)], ['query']),
+    'supprimerMemo' : IDL.Func([IDL.Text], [], []),
+    'obtenirTousLesProfils' : IDL.Func([], [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))], ['query']),
+    'obtenirJourneesPubliques' : IDL.Func([IDL.Principal], [IDL.Vec(TimeEntry)], ['query']),
+    'obtenirInterventionsPubliques' : IDL.Func([IDL.Principal], [IDL.Vec(InterventionAvecPieces)], ['query']),
   });
 };
 

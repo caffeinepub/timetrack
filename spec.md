@@ -1,37 +1,30 @@
-# Suivi du Temps — Version 67
+# Vialtraite Service - Memo Profile Dropdown
 
 ## Current State
-- App has: Dashboard, Calendar (with intervention fiches), Journal, Reports, Clients
-- Journal: private entries with audio recording, photos, notes, dayType
-- Intervention fiche (in Calendar): client name, address, hours, description, parts (reference/article/qty), signatures
-- Backend uses blob-storage for media files
-- Stable maps for persistence
+- Section Mémo shows all memos from all users, no profile filter
+- Backend has `creerMemo`, `obtenirMemos`, `supprimerMemo` functions but they are missing from DID declarations (causing "actor.creerMemo is not a function" error)
+- Backend has `obtenirTousLesProfils`, `obtenirJourneesPubliques`, `obtenirInterventionsPubliques` in backend.d.ts but also missing from DID declarations
+- Reports section has a profile dropdown but may also be broken due to missing DID declarations
 
 ## Requested Changes (Diff)
 
 ### Add
-- `MemoEntry` backend type: id, authorName (text entered by user), content (text), createdAt (Time), photos ([ExternalBlob]), videos ([ExternalBlob])
-- Backend functions: `creerMemo(id, authorName, content, photos, videos)`, `obtenirMemos()` (public query, no auth needed), `supprimerMemo(id)` (only authenticated users can delete)
-- `photos` and `videos` fields ([ExternalBlob]) added to Intervention type
-- New `Memo` frontend page (replaces Journal): public section, add dated/named note with photo/video upload, each entry deletable, media viewer with zoom/fullscreen
-- Photo/video upload in intervention form (Calendar page)
-- Media lightbox viewer component for viewing photos/videos fullscreen
+- Profile dropdown in Memo section: list all registered Internet Identity profiles via `obtenirTousLesProfils()`
+- Filter displayed memos by selected profile's `createdBy` principal (field already stored in MemoEntry)
+- Auto-select current user's profile when authenticated
+- All missing functions to DID declarations: `creerMemo`, `obtenirMemos`, `supprimerMemo`, `MemoEntry` type, `obtenirTousLesProfils`, `obtenirJourneesPubliques`, `obtenirInterventionsPubliques`
 
 ### Modify
-- Replace `Journal` page with `Memo` page throughout App.tsx
-- Update `MobileBottomNav` label/icon: "Journal" → "Mémo"
-- `Page` type: `"journal"` → `"memo"`
-- Backend Intervention type: add `photos` and `videos` fields
-- `enregistrerIntervention` and `modifierIntervention` accept `photos` and `videos`
-- Calendar intervention form: add photo/video upload section
+- `backend.did.js`: Add MemoEntry type + all 6 missing functions to both service sections
+- `backend.did.d.ts`: Add MemoEntry type + TypeScript signatures for all 6 missing functions
+- `backend.d.ts`: Add memo function signatures
+- `Memo.tsx`: Add profile selector dropdown + filter memos by selected profile principal
 
 ### Remove
-- Journal page (replaced by Memo)
-- Journal-specific backend functions (keep or repurpose - keep for backward compat but no longer used in frontend)
+- Nothing
 
 ## Implementation Plan
-1. Regenerate backend with MemoEntry type + memo CRUD functions + intervention media fields
-2. Update frontend: rename journal→memo in App.tsx and MobileBottomNav
-3. Create new Memo.tsx page with: public note feed, add note form (author+text+media), delete button, media viewer
-4. Update Calendar.tsx intervention form: add photo/video upload using blob-storage pattern
-5. Create MediaViewer component (lightbox with zoom)
+1. Update `backend.did.js` - add MemoEntry type definition + all missing functions in both export section and idlFactory section
+2. Update `backend.did.d.ts` - add TypeScript types for MemoEntry + missing functions
+3. Update `backend.d.ts` - add memo function signatures
+4. Update `Memo.tsx` - add profile dropdown using `obtenirTousLesProfils()`, filter memos by createdBy principal

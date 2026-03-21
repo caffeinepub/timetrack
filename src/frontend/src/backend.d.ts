@@ -146,6 +146,15 @@ export interface UserProfile {
     name: string;
     email: string;
 }
+export interface MemoEntry {
+    id: string;
+    authorName: string;
+    content: string;
+    photos: Array<ExternalBlob>;
+    videos: Array<ExternalBlob>;
+    createdAt: bigint;
+    createdBy: Principal;
+}
 export interface TimeEntry {
     id: string;
     heuresTrajet: bigint;
@@ -209,6 +218,9 @@ export interface backendInterface {
     obtenirJournees(): Promise<Array<TimeEntry>>;
     obtenirInterventionsPubliques(user: Principal): Promise<Array<InterventionAvecPieces>>;
     obtenirJourneesPubliques(user: Principal): Promise<Array<TimeEntry>>;
+    creerMemo(id: string, authorName: string, content: string, photos: ExternalBlob[], videos: ExternalBlob[]): Promise<void>;
+    obtenirMemos(): Promise<MemoEntry[]>;
+    supprimerMemo(id: string): Promise<void>;
     obtenirTousLesProfils(): Promise<Array<[Principal, UserProfile]>>;
     obtenirMediasAudioPourJour(date: Time): Promise<Array<ExternalBlob>>;
     obtenirMediasPourJour(date: Time): Promise<Array<DailyMediaEntry>>;

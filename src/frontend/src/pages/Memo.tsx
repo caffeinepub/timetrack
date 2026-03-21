@@ -4,15 +4,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useQuery } from "@tanstack/react-query";
 import {
   Image as ImageIcon,
   Loader2,
   Plus,
   Trash2,
+  User,
   Video,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ExternalBlob } from "../backend";
 import MediaViewer, { type MediaItem } from "../components/MediaViewer";
@@ -36,12 +38,15 @@ function formatDateFr(ts: bigint): string {
 export default function Memo() {
   const { identity } = useInternetIdentity();
   const isAuthenticated = !!identity;
-  const { actor } = useActor();
+  const { actor, isFetching } = useActor();
 
   const { data: memos = [], isLoading } = useGetMemos();
   const createMemo = useCreateMemo();
   const deleteMemo = useDeleteMemo();
 
+  const [selectedProfilePrincipal, setSelectedProfilePrincipal] = useState<
+    string | null
+  >(isAuthenticated && identity ? identity.getPrincipal().toString() : null);
   const [authorName, setAuthorName] = useState("");
   const [content, setContent] = useState("");
   const [photos, setPhotos] = useState<ExternalBlob[]>([]);
@@ -56,6 +61,25 @@ export default function Memo() {
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: allProfiles = [], isLoading: profilesLoading } = useQuery<
+    Array<[any, { name: string; email: string }]>
+  >({
+    queryKey: ["allProfiles"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return (actor as any).obtenirTousLesProfils();
+    },
+    enabled: !!actor && !isFetching,
+  });
+
+  const filteredMemos = useMemo(() => {
+    if (!selectedProfilePrincipal) return memos;
+    return memos.filter((memo: any) => {
+      const createdBy = memo.createdBy?.toString?.() ?? String(memo.createdBy);
+      return createdBy === selectedProfilePrincipal;
+    });
+  }, [memos, selectedProfilePrincipal]);
 
   const handlePhotoSelect = async (files: FileList | null) => {
     if (!files) return;
@@ -160,8 +184,38 @@ export default function Memo() {
           </p>
         </div>
         <Badge variant="outline" className="text-xs">
-          {memos.length} note{memos.length !== 1 ? "s" : ""}
+          {filteredMemos.length} note{filteredMemos.length !== 1 ? "s" : ""}
         </Badge>
+      </div>
+
+      {/* Profile selector */}
+      <div className="flex items-center gap-2 p-3 bg-card rounded-xl border border-border">
+        <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        <label
+          htmlFor="memo-profile-select"
+          className="text-xs text-muted-foreground whitespace-nowrap"
+        >
+          Profil :
+        </label>
+        <select
+          id="memo-profile-select"
+          value={selectedProfilePrincipal ?? ""}
+          onChange={(e) => setSelectedProfilePrincipal(e.target.value || null)}
+          className="flex-1 text-xs bg-background border border-input rounded px-2 py-1"
+          data-ocid="memo.profile.select"
+        >
+          <option value="">Tous les profils</option>
+          {profilesLoading && (
+            <option value="" disabled>
+              Chargement...
+            </option>
+          )}
+          {allProfiles.map(([principal, profile]: [any, any]) => (
+            <option key={principal.toString()} value={principal.toString()}>
+              {profile.name || `${principal.toString().slice(0, 12)}...`}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Add memo form (authenticated only) */}
@@ -327,7 +381,7 @@ export default function Memo() {
         >
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
-      ) : memos.length === 0 ? (
+      ) : filteredMemos.length === 0 ? (
         <div
           className="text-center py-12 text-muted-foreground"
           data-ocid="memo.empty_state"
@@ -336,7 +390,7 @@ export default function Memo() {
         </div>
       ) : (
         <div className="space-y-3">
-          {memos.map((memo: any, i: number) => {
+          {filteredMemos.map((memo: any, i: number) => {
             const allMedia: MediaItem[] = [
               ...(memo.photos ?? []).map((p: ExternalBlob) => ({
                 type: "photo" as const,

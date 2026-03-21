@@ -154,6 +154,16 @@ export interface Totals {
   'heuresRepas' : bigint,
 }
 export interface UserProfile { 'name' : string, 'email' : string }
+export declare const MemoEntry: IDL.RecordClass;
+export type MemoEntry = {
+  id: string;
+  authorName: string;
+  content: string;
+  photos: ExternalBlob[];
+  videos: ExternalBlob[];
+  createdAt: bigint;
+  createdBy: Principal;
+};
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
@@ -247,6 +257,12 @@ export interface _SERVICE {
   'supprimerJournal' : ActorMethod<[string], undefined>,
   'supprimerJournee' : ActorMethod<[string], undefined>,
   'supprimerMediaQuotidien' : ActorMethod<[string], undefined>,
+  creerMemo: ActorMethod<[string, string, string, ExternalBlob[], ExternalBlob[]], undefined>;
+  obtenirMemos: ActorMethod<[], MemoEntry[]>;
+  supprimerMemo: ActorMethod<[string], undefined>;
+  obtenirTousLesProfils: ActorMethod<[], Array<[Principal, UserProfile]>>;
+  obtenirJourneesPubliques: ActorMethod<[Principal], TimeEntry[]>;
+  obtenirInterventionsPubliques: ActorMethod<[Principal], InterventionAvecPieces[]>;
   'uploadPhotoDansStoic' : ActorMethod<
     [string, ExternalBlob, string, bigint, string],
     [] | [bigint]
