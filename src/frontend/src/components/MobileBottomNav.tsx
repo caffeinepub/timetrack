@@ -1,8 +1,8 @@
 import {
-  BarChart2,
   CalendarDays,
   LayoutDashboard,
   MessageSquare,
+  Receipt,
   Users,
 } from "lucide-react";
 import type React from "react";
@@ -19,7 +19,7 @@ const NAV_ITEMS: { page: Page; label: string; Icon: React.ElementType }[] = [
   { page: "dashboard", label: "Bord", Icon: LayoutDashboard },
   { page: "calendar", label: "Calendrier", Icon: CalendarDays },
   { page: "memo", label: "Mémo", Icon: MessageSquare },
-  { page: "reports", label: "Rapports", Icon: BarChart2 },
+  { page: "facturation", label: "Facturation", Icon: Receipt },
   { page: "clients", label: "Clients", Icon: Users },
 ];
 

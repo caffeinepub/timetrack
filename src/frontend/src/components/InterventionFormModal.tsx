@@ -44,6 +44,7 @@ interface IForm {
   description: string;
   signatureClient: string;
   signatureIntervenant: string;
+  estAstreinte: boolean;
 }
 
 function defaultForm(): IForm {
@@ -61,6 +62,7 @@ function defaultForm(): IForm {
     description: "",
     signatureClient: "",
     signatureIntervenant: "",
+    estAstreinte: false,
   };
 }
 
@@ -153,6 +155,7 @@ export function InterventionFormModal({
         description: editingIntervention.description,
         signatureClient: editingIntervention.signatureClient,
         signatureIntervenant: editingIntervention.signatureIntervenant,
+        estAstreinte: (editingIntervention as any).estAstreinte === true,
       });
       setClientSearch(editingIntervention.clientNom);
     } else {
@@ -195,6 +198,9 @@ export function InterventionFormModal({
     signatureClient: form.signatureClient,
     signatureIntervenant: form.signatureIntervenant,
     pieces: [],
+    photos: [],
+    videos: [],
+    estAstreinte: form.estAstreinte,
   });
 
   const handleSave = async () => {
@@ -231,6 +237,30 @@ export function InterventionFormModal({
         </DialogHeader>
 
         <div className="space-y-4 mt-2">
+          {/* Astreinte toggle */}
+          <div className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+            <input
+              type="checkbox"
+              id="estAstreinte"
+              checked={form.estAstreinte}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, estAstreinte: e.target.checked }))
+              }
+              className="w-4 h-4 accent-orange-500"
+            />
+            <label
+              htmlFor="estAstreinte"
+              className="text-sm font-semibold text-orange-700 cursor-pointer select-none"
+            >
+              Intervention d'astreinte
+            </label>
+            {form.estAstreinte && (
+              <span className="ml-auto text-xs bg-orange-500 text-white px-2 py-0.5 rounded-full font-bold">
+                ASTREINTE
+              </span>
+            )}
+          </div>
+
           {/* Client Nom with autocomplete */}
           <div className="relative">
             <Label className="text-sm font-medium mb-1 block">

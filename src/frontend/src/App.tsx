@@ -23,10 +23,15 @@ import {
 import Calendar from "./pages/Calendar";
 import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
+import Facturation from "./pages/Facturation";
 import Memo from "./pages/Memo";
-import Reports from "./pages/Reports";
 
-export type Page = "dashboard" | "calendar" | "memo" | "reports" | "clients";
+export type Page =
+  | "dashboard"
+  | "calendar"
+  | "memo"
+  | "facturation"
+  | "clients";
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
@@ -171,8 +176,8 @@ function AppContent() {
         <div className={currentPage === "memo" ? "block" : "hidden"}>
           <Memo />
         </div>
-        <div className={currentPage === "reports" ? "block" : "hidden"}>
-          <Reports />
+        <div className={currentPage === "facturation" ? "block" : "hidden"}>
+          <Facturation />
         </div>
         <div className={currentPage === "clients" ? "block" : "hidden"}>
           <Clients />

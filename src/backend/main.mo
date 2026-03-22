@@ -222,6 +222,8 @@ actor {
     createdAt : Time.Time;
     photos : [Storage.ExternalBlob];
     videos : [Storage.ExternalBlob];
+    valide : Bool;
+    estAstreinte : Bool;
   };
 
   public type InterventionInput = {
@@ -243,6 +245,7 @@ actor {
     pieces : [PieceUtilisee];
     photos : [Storage.ExternalBlob];
     videos : [Storage.ExternalBlob];
+    estAstreinte : Bool;
   };
 
   // Helper to convert Intervention to InterventionAvecPieces
@@ -280,6 +283,14 @@ actor {
       createdAt = i.createdAt;
       photos;
       videos;
+      valide = switch (interventionValidees.get(i.id)) {
+        case (?v) { v };
+        case (null) { false };
+      };
+      estAstreinte = switch (interventionEstAstreinte.get(i.id)) {
+        case (?v) { v };
+        case (null) { false };
+      };
     };
   };
 
@@ -295,6 +306,8 @@ actor {
   let interventionPieces = Map.empty<Text, [PieceUtilisee]>();
   let interventionPhotos = Map.empty<Text, [Storage.ExternalBlob]>();
   let interventionVideos = Map.empty<Text, [Storage.ExternalBlob]>();
+  let interventionValidees = Map.empty<Text, Bool>();
+  let interventionEstAstreinte = Map.empty<Text, Bool>();
   let memoEntries = Map.empty<Text, MemoEntry>();
 
   // Autorisation système
@@ -439,6 +452,7 @@ actor {
     interventionPieces.add(input.id, input.pieces);
     interventionPhotos.add(input.id, input.photos);
     interventionVideos.add(input.id, input.videos);
+    interventionEstAstreinte.add(input.id, input.estAstreinte);
   };
 
   public shared ({ caller }) func modifierIntervention(id : Text, input : InterventionInput) : async () {
@@ -476,6 +490,7 @@ actor {
     interventionPieces.add(id, input.pieces);
     interventionPhotos.add(id, input.photos);
     interventionVideos.add(id, input.videos);
+    interventionEstAstreinte.add(id, input.estAstreinte);
   };
 
   public shared ({ caller }) func supprimerIntervention(id : Text) : async () {
@@ -485,12 +500,33 @@ actor {
     switch (interventions.get(id)) {
       case (null) { Runtime.trap("Intervention non trouvée") };
       case (?existing) {
-        if (existing.user != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        let isValidated = switch (interventionValidees.get(id)) {
+          case (?v) { v };
+          case (null) { false };
+        };
+        // Allow deletion if: own intervention, validated intervention (any authenticated user can delete), or admin
+        if (existing.user != caller and not isValidated and not AccessControl.isAdmin(accessControlState, caller)) {
           Runtime.trap("Non autorisé");
         };
       };
     };
     interventions.remove(id);
+    interventionValidees.remove(id);
+    interventionEstAstreinte.remove(id);
+  };
+
+  public shared ({ caller }) func validerIntervention(id : Text) : async () {
+    if (caller.isAnonymous()) {
+      Runtime.trap("Connexion requise");
+    };
+    interventionValidees.add(id, true);
+  };
+
+  public query func estInterventionValidee(id : Text) : async Bool {
+    switch (interventionValidees.get(id)) {
+      case (?v) { v };
+      case (null) { false };
+    };
   };
 
   public query ({ caller }) func obtenirInterventionsPourJour(date : Time.Time) : async [InterventionAvecPieces] {

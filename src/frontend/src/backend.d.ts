@@ -31,6 +31,9 @@ export interface InterventionInput {
     clientNom: string;
     heureMatinDebutH: bigint;
     heureMatinFinMin: bigint;
+    estAstreinte: boolean;
+    photos?: Array<any>;
+    videos?: Array<any>;
 }
 export type Time = bigint;
 export interface PieceUtilisee {
@@ -57,6 +60,10 @@ export interface InterventionAvecPieces {
     clientNom: string;
     heureMatinDebutH: bigint;
     heureMatinFinMin: bigint;
+    valide?: boolean;
+    photos?: Array<any>;
+    videos?: Array<any>;
+    estAstreinte?: boolean;
 }
 export interface DailyMediaEntry {
     id: string;
@@ -232,6 +239,7 @@ export interface backendInterface {
     supprimerClient(id: string): Promise<void>;
     supprimerFichier(_id: bigint): Promise<boolean>;
     supprimerIntervention(id: string): Promise<void>;
+    validerIntervention(id: string): Promise<void>;
     supprimerJournal(id: string): Promise<void>;
     supprimerJournee(id: string): Promise<void>;
     supprimerMediaQuotidien(id: string): Promise<void>;
