@@ -105,6 +105,8 @@ export interface InterventionInput {
     clientAdresse: string;
     heureApremFinMin: bigint;
     pieces: Array<PieceUtilisee>;
+    photos?: Array<ExternalBlob>;
+    videos?: Array<ExternalBlob>;
     heureMatinDebutMin: bigint;
     signatureClient: string;
     clientNom: string;
@@ -138,6 +140,8 @@ export interface InterventionAvecPieces {
     clientAdresse: string;
     heureApremFinMin: bigint;
     pieces: Array<PieceUtilisee>;
+    photos?: Array<ExternalBlob>;
+    videos?: Array<ExternalBlob>;
     heureMatinDebutMin: bigint;
     signatureClient: string;
     clientNom: string;
@@ -232,6 +236,15 @@ export interface UserProfile {
     name: string;
     email: string;
 }
+export interface MemoEntry {
+    id: string;
+    authorName: string;
+    content: string;
+    photos: Array<ExternalBlob>;
+    videos: Array<ExternalBlob>;
+    createdAt: bigint;
+    createdBy: Principal;
+}
 export interface TimeEntry {
     id: string;
     heuresTrajet: bigint;
@@ -313,6 +326,12 @@ export interface backendInterface {
     supprimerJournee(id: string): Promise<void>;
     supprimerMediaQuotidien(id: string): Promise<void>;
     uploadPhotoDansStoic(filename: string, content: ExternalBlob, mimeType: string, taille: bigint, description: string): Promise<bigint | null>;
+    creerMemo(id: string, authorName: string, content: string, photos: Array<ExternalBlob>, videos: Array<ExternalBlob>): Promise<void>;
+    obtenirMemos(): Promise<Array<MemoEntry>>;
+    supprimerMemo(id: string): Promise<void>;
+    obtenirTousLesProfils(): Promise<Array<[Principal, UserProfile]>>;
+    obtenirJourneesPubliques(user: Principal): Promise<Array<TimeEntry>>;
+    obtenirInterventionsPubliques(user: Principal): Promise<Array<InterventionAvecPieces>>;
 }
 import type { DailyMediaEntry as _DailyMediaEntry, DayType as _DayType, ExternalBlob as _ExternalBlob, Fichier as _Fichier, InterventionSlot as _InterventionSlot, JournalEntry as _JournalEntry, MediaType as _MediaType, Time as _Time, TimeEntry as _TimeEntry, TimeEntryInput as _TimeEntryInput, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -416,17 +435,18 @@ export class Backend implements backendInterface {
         }
     }
     async ajouterIntervention(arg0: InterventionInput): Promise<void> {
+        const photos = arg0.photos ? await to_candid_vec_n10(this._uploadFile, this._downloadFile, arg0.photos) : [];
+        const videos = arg0.videos ? await to_candid_vec_n10(this._uploadFile, this._downloadFile, arg0.videos) : [];
+        const rawArg = { ...arg0, photos, videos };
         if (this.processError) {
             try {
-                const result = await this.actor.ajouterIntervention(arg0);
-                return result;
+                await (this.actor as any).ajouterIntervention(rawArg);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.ajouterIntervention(arg0);
-            return result;
+            await (this.actor as any).ajouterIntervention(rawArg);
         }
     }
     async assignCallerUserRole(arg0: Principal, arg1: UserRole): Promise<void> {
@@ -702,17 +722,18 @@ export class Backend implements backendInterface {
         }
     }
     async modifierIntervention(arg0: string, arg1: InterventionInput): Promise<void> {
+        const photos = arg1.photos ? await to_candid_vec_n10(this._uploadFile, this._downloadFile, arg1.photos) : [];
+        const videos = arg1.videos ? await to_candid_vec_n10(this._uploadFile, this._downloadFile, arg1.videos) : [];
+        const rawArg = { ...arg1, photos, videos };
         if (this.processError) {
             try {
-                const result = await this.actor.modifierIntervention(arg0, arg1);
-                return result;
+                await (this.actor as any).modifierIntervention(arg0, rawArg);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.modifierIntervention(arg0, arg1);
-            return result;
+            await (this.actor as any).modifierIntervention(arg0, rawArg);
         }
     }
     async modifierJournal(arg0: string, arg1: string, arg2: string, arg3: string, arg4: Array<ExternalBlob>, arg5: DayType | null): Promise<void> {
@@ -994,6 +1015,50 @@ export class Backend implements backendInterface {
             const result = await this.actor.uploadPhotoDansStoic(arg0, await to_candid_ExternalBlob_n11(this._uploadFile, this._downloadFile, arg1), arg2, arg3, arg4);
             return from_candid_opt_n7(this._uploadFile, this._downloadFile, result);
         }
+    }
+    async creerMemo(id: string, authorName: string, content: string, photos: Array<ExternalBlob>, videos: Array<ExternalBlob>): Promise<void> {
+        const rawPhotos = await to_candid_vec_n10(this._uploadFile, this._downloadFile, photos);
+        const rawVideos = await to_candid_vec_n10(this._uploadFile, this._downloadFile, videos);
+        if (this.processError) {
+            try {
+                await (this.actor as any).creerMemo(id, authorName, content, rawPhotos, rawVideos);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            await (this.actor as any).creerMemo(id, authorName, content, rawPhotos, rawVideos);
+        }
+    }
+    async obtenirMemos(): Promise<Array<MemoEntry>> {
+        const rawResult = await (this.actor as any).obtenirMemos();
+        return Promise.all(rawResult.map(async (memo: any) => ({
+            ...memo,
+            photos: await from_candid_vec_n33(this._uploadFile, this._downloadFile, memo.photos || []),
+            videos: await from_candid_vec_n33(this._uploadFile, this._downloadFile, memo.videos || []),
+        })));
+    }
+    async supprimerMemo(id: string): Promise<void> {
+        if (this.processError) {
+            try {
+                await (this.actor as any).supprimerMemo(id);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            await (this.actor as any).supprimerMemo(id);
+        }
+    }
+    async obtenirTousLesProfils(): Promise<Array<[Principal, UserProfile]>> {
+        return (this.actor as any).obtenirTousLesProfils();
+    }
+    async obtenirJourneesPubliques(user: Principal): Promise<Array<TimeEntry>> {
+        const result = await (this.actor as any).obtenirJourneesPubliques(user);
+        return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
+    }
+    async obtenirInterventionsPubliques(user: Principal): Promise<Array<InterventionAvecPieces>> {
+        return (this.actor as any).obtenirInterventionsPubliques(user);
     }
 }
 async function from_candid_DailyMediaEntry_n39(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _DailyMediaEntry): Promise<DailyMediaEntry> {

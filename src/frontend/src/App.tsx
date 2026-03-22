@@ -25,7 +25,6 @@ import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
 import Memo from "./pages/Memo";
 import Reports from "./pages/Reports";
-import { getBuildInfo } from "./utils/buildInfo";
 
 export type Page = "dashboard" | "calendar" | "memo" | "reports" | "clients";
 
@@ -35,9 +34,8 @@ function AppContent() {
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
 
-  const { identity, isInitializing } = useInternetIdentity();
+  const { identity, isInitializing, login } = useInternetIdentity();
   const isAuthenticated = !!identity;
-  const buildInfo = getBuildInfo();
 
   const {
     data: userProfile,
@@ -83,74 +81,73 @@ function AppContent() {
     );
   }
 
-  // Allow Reports page to be viewed publicly without authentication
-  if (!isAuthenticated && currentPage === "reports") {
+  if (!isAuthenticated) {
+    // If trying to access private sections, redirect to memo
+    if (currentPage === "dashboard" || currentPage === "calendar") {
+      setCurrentPage("memo");
+      return null;
+    }
+
+    // Show public layout for memo, reports, clients
     return (
       <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
-        <div className="bg-card border-b border-border px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-bold text-primary">
-            Suivi du Temps — Rapports
-          </h1>
-          <button
-            type="button"
-            onClick={() => setCurrentPage("dashboard")}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            ← Connexion
-          </button>
-        </div>
-        <main className="flex-1 w-full mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 max-w-7xl min-w-0">
-          <Reports />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-        {/* Welcome dialog shown even on the login screen */}
         <WelcomeDialog
           open={showWelcomeDialog}
           onClose={() => setShowWelcomeDialog(false)}
         />
-        <div className="text-center max-w-md w-full">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-4 text-primary">
+        {/* Header */}
+        <div className="bg-card border-b border-border px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+          <h1 className="text-base font-bold text-primary truncate">
             Suivi du Temps
           </h1>
-          <p className="text-base sm:text-lg text-muted-foreground mb-8">
-            Gérez vos heures de travail, congés et astreintes en toute
-            simplicité
-          </p>
-          <Header />
-          <div className="mt-8 p-4 sm:p-6 bg-card rounded-lg shadow-lg border">
-            <h2 className="text-base sm:text-lg font-semibold mb-3">
-              Fonctionnalités
-            </h2>
-            <ul className="text-left space-y-2 text-sm text-muted-foreground">
-              <li>📊 Tableau de bord avec statistiques détaillées</li>
-              <li>📅 Calendrier interactif pour la gestion des journées</li>
-              <li>📝 Journal de travail avec notes et photos</li>
-              <li>📄 Génération de rapports PDF et CSV</li>
-              <li>🔒 Authentification sécurisée avec Internet Identity</li>
-            </ul>
-          </div>
           <button
             type="button"
-            onClick={() => setCurrentPage("reports")}
-            className="mt-4 text-sm text-primary underline underline-offset-2"
-            data-ocid="reports.public_link"
+            onClick={() => login()}
+            className="text-sm px-3 py-1.5 rounded-lg bg-primary text-primary-foreground font-medium"
+            data-ocid="login.button"
           >
-            Consulter les rapports publics
+            Se connecter
           </button>
-          {buildInfo.mode && (
-            <div className="mt-4 text-xs text-muted-foreground break-words">
-              MODE={buildInfo.mode}
-              {buildInfo.timestamp && ` • ${buildInfo.timestamp}`}
-            </div>
-          )}
         </div>
+        {/* Content */}
+        <main className="flex-1 w-full mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 max-w-7xl min-w-0">
+          <div className={currentPage === "memo" ? "block" : "hidden"}>
+            <Memo />
+          </div>
+          <div className={currentPage === "reports" ? "block" : "hidden"}>
+            <Reports />
+          </div>
+          <div className={currentPage === "clients" ? "block" : "hidden"}>
+            <Clients />
+          </div>
+        </main>
+        {/* Bottom nav - public sections only */}
+        <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-40">
+          <div className="flex justify-around max-w-lg mx-auto">
+            {(
+              [
+                { id: "memo", label: "Mémo", icon: "📝" },
+                { id: "reports", label: "Rapports", icon: "📊" },
+                { id: "clients", label: "Clients", icon: "👥" },
+              ] as { id: Page; label: string; icon: string }[]
+            ).map(({ id, label, icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setCurrentPage(id)}
+                className={`flex flex-col items-center py-2 px-4 text-xs font-medium transition-colors ${
+                  currentPage === id ? "text-primary" : "text-muted-foreground"
+                }`}
+                data-ocid={`nav.${id}.tab`}
+              >
+                <span className="text-lg mb-0.5">{icon}</span>
+                {label}
+              </button>
+            ))}
+          </div>
+        </nav>
+        <div className="h-16" />
+        <Footer />
       </div>
     );
   }

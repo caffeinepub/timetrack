@@ -34,6 +34,7 @@ export const PieceUtilisee = IDL.Record({
   'article' : IDL.Text,
   'quantite' : IDL.Int,
 });
+export const ExternalBlob = IDL.Vec(IDL.Nat8);
 export const InterventionInput = IDL.Record({
   'id' : IDL.Text,
   'date' : Time,
@@ -46,6 +47,8 @@ export const InterventionInput = IDL.Record({
   'clientAdresse' : IDL.Text,
   'heureApremFinMin' : IDL.Int,
   'pieces' : IDL.Vec(PieceUtilisee),
+  'photos' : IDL.Vec(ExternalBlob),
+  'videos' : IDL.Vec(ExternalBlob),
   'heureMatinDebutMin' : IDL.Int,
   'signatureClient' : IDL.Text,
   'clientNom' : IDL.Text,
@@ -63,7 +66,6 @@ export const Totals = IDL.Record({
   'heuresAstreinte' : IDL.Int,
   'heuresRepas' : IDL.Int,
 });
-export const ExternalBlob = IDL.Vec(IDL.Nat8);
 export const DayType = IDL.Variant({
   'conge' : IDL.Null,
   'work' : IDL.Null,
@@ -145,6 +147,8 @@ export const InterventionAvecPieces = IDL.Record({
   'clientAdresse' : IDL.Text,
   'heureApremFinMin' : IDL.Int,
   'pieces' : IDL.Vec(PieceUtilisee),
+  'photos' : IDL.Vec(ExternalBlob),
+  'videos' : IDL.Vec(ExternalBlob),
   'heureMatinDebutMin' : IDL.Int,
   'signatureClient' : IDL.Text,
   'clientNom' : IDL.Text,
@@ -359,6 +363,7 @@ export const idlFactory = ({ IDL }) => {
     'article' : IDL.Text,
     'quantite' : IDL.Int,
   });
+  const ExternalBlob = IDL.Vec(IDL.Nat8);
   const InterventionInput = IDL.Record({
     'id' : IDL.Text,
     'date' : Time,
@@ -371,6 +376,8 @@ export const idlFactory = ({ IDL }) => {
     'clientAdresse' : IDL.Text,
     'heureApremFinMin' : IDL.Int,
     'pieces' : IDL.Vec(PieceUtilisee),
+    'photos' : IDL.Vec(ExternalBlob),
+    'videos' : IDL.Vec(ExternalBlob),
     'heureMatinDebutMin' : IDL.Int,
     'signatureClient' : IDL.Text,
     'clientNom' : IDL.Text,
@@ -388,7 +395,6 @@ export const idlFactory = ({ IDL }) => {
     'heuresAstreinte' : IDL.Int,
     'heuresRepas' : IDL.Int,
   });
-  const ExternalBlob = IDL.Vec(IDL.Nat8);
   const DayType = IDL.Variant({
     'conge' : IDL.Null,
     'work' : IDL.Null,

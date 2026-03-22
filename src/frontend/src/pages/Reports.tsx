@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import type { Principal } from "@icp-sdk/core/principal";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, Download, FileText, User } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, FileText } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
@@ -53,9 +53,7 @@ function isSameDay(ts1: bigint, ts2: bigint): boolean {
 }
 
 export default function Reports() {
-  const { identity } = useInternetIdentity();
   const { actor, isFetching: actorFetching } = useActor();
-  const isAuthenticated = !!identity;
 
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -65,9 +63,6 @@ export default function Reports() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedWeekIndex, setSelectedWeekIndex] = useState(0);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const [selectedProfilePrincipal, setSelectedProfilePrincipal] = useState<
-    string | null
-  >(isAuthenticated && identity ? identity.getPrincipal().toString() : null);
 
   const years = useMemo(() => {
     const y: number[] = [];
@@ -85,61 +80,50 @@ export default function Reports() {
     Math.max(0, weeksForMonth.length - 1),
   );
 
-  // Load all profiles (public)
-  const { data: allProfiles = [], isLoading: profilesLoading } = useQuery<
-    Array<[Principal, { name: string; email: string }]>
-  >({
+  // Load all profiles
+  const { data: allProfiles = [] } = useQuery({
     queryKey: ["allProfiles"],
     queryFn: async () => {
       if (!actor) return [];
-      return (actor as any).obtenirTousLesProfils();
+      return actor.obtenirTousLesProfils();
     },
     enabled: !!actor && !actorFetching,
   });
 
-  // Derive selectedProfilePrincipal from identity on mount (once profiles load)
-  const effectiveProfilePrincipal = useMemo(() => {
-    if (selectedProfilePrincipal) return selectedProfilePrincipal;
-    if (isAuthenticated && identity) return identity.getPrincipal().toString();
-    return null;
-  }, [selectedProfilePrincipal, isAuthenticated, identity]);
-
-  // Load entries for selected profile (public)
+  // Load ALL users' entries combined
   const { data: allEntries = [], isLoading: entriesLoading } = useQuery({
-    queryKey: ["publicEntries", effectiveProfilePrincipal],
+    queryKey: [
+      "allUsersEntries",
+      allProfiles.map(([p]: [Principal, any]) => p.toString()).join(","),
+    ],
     queryFn: async () => {
-      if (!actor || !effectiveProfilePrincipal) return [];
-      // Principal.fromText isn't directly available, so we pass the string through actor's type system
-      // The backend accepts Principal; we use the internal representation from profile list
-      const matchedProfile = allProfiles.find(
-        ([p]) => p.toString() === effectiveProfilePrincipal,
+      if (!actor || allProfiles.length === 0) return [];
+      const results = await Promise.all(
+        allProfiles.map(([principal]: [Principal, any]) =>
+          actor.obtenirJourneesPubliques(principal),
+        ),
       );
-      if (!matchedProfile && isAuthenticated && identity) {
-        return (actor as any).obtenirJourneesPubliques(identity.getPrincipal());
-      }
-      if (!matchedProfile) return [];
-      return (actor as any).obtenirJourneesPubliques(matchedProfile[0]);
+      return results.flat();
     },
-    enabled: !!actor && !actorFetching && !!effectiveProfilePrincipal,
+    enabled: !!actor && !actorFetching && allProfiles.length > 0,
   });
 
-  // Load interventions for selected profile (public)
+  // Load ALL users' interventions combined
   const { data: allInterventions = [] } = useQuery({
-    queryKey: ["publicInterventions", effectiveProfilePrincipal],
+    queryKey: [
+      "allUsersInterventions",
+      allProfiles.map(([p]: [Principal, any]) => p.toString()).join(","),
+    ],
     queryFn: async () => {
-      if (!actor || !effectiveProfilePrincipal) return [];
-      const matchedProfile = allProfiles.find(
-        ([p]) => p.toString() === effectiveProfilePrincipal,
+      if (!actor || allProfiles.length === 0) return [];
+      const results = await Promise.all(
+        allProfiles.map(([principal]: [Principal, any]) =>
+          actor.obtenirInterventionsPubliques(principal),
+        ),
       );
-      if (!matchedProfile && isAuthenticated && identity) {
-        return (actor as any).obtenirInterventionsPubliques(
-          identity.getPrincipal(),
-        );
-      }
-      if (!matchedProfile) return [];
-      return (actor as any).obtenirInterventionsPubliques(matchedProfile[0]);
+      return results.flat();
     },
-    enabled: !!actor && !actorFetching && !!effectiveProfilePrincipal,
+    enabled: !!actor && !actorFetching && allProfiles.length > 0,
   });
 
   const isLoading = entriesLoading || actorFetching;
@@ -217,17 +201,13 @@ export default function Reports() {
   }, [filteredEntries]);
 
   const getPeriodTitle = () => {
-    const profileName =
-      allProfiles.find(([p]) => p.toString() === effectiveProfilePrincipal)?.[1]
-        ?.name ?? "";
-    const nameStr = profileName ? ` — ${profileName}` : "";
     if (periodType === "monthly") {
-      return `Rapport Mensuel - ${MONTHS[selectedMonth]} ${selectedYear}${nameStr}`;
+      return `Rapport Mensuel - ${MONTHS[selectedMonth]} ${selectedYear}`;
     }
     const week = weeksForMonth[safeWeekIndex];
     return week
-      ? `Rapport Hebdomadaire - ${week.label} ${selectedYear}${nameStr}`
-      : `Rapport Hebdomadaire - ${selectedYear}${nameStr}`;
+      ? `Rapport Hebdomadaire - ${week.label} ${selectedYear}`
+      : `Rapport Hebdomadaire - ${selectedYear}`;
   };
 
   const handleExportCsv = () => {
@@ -312,13 +292,7 @@ export default function Reports() {
   };
 
   const handleExportAnnualPdf = () => {
-    if (!effectiveProfilePrincipal) return;
-    exportAnnualPdf(
-      selectedYear,
-      allEntries,
-      allInterventions,
-      effectiveProfilePrincipal,
-    );
+    exportAnnualPdf(selectedYear, allEntries, allInterventions, "");
   };
 
   // Unused but kept for potential future use
@@ -361,38 +335,6 @@ export default function Reports() {
 
   return (
     <div className="space-y-6 pb-6">
-      {/* Profile selector */}
-      <div className="flex items-center gap-2 p-3 bg-card rounded-xl border border-border">
-        <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-        <label
-          htmlFor="profile-select"
-          className="text-sm font-medium text-muted-foreground whitespace-nowrap"
-        >
-          Profil :
-        </label>
-        <select
-          id="profile-select"
-          value={effectiveProfilePrincipal ?? ""}
-          onChange={(e) => setSelectedProfilePrincipal(e.target.value || null)}
-          className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-border bg-background text-foreground min-w-0"
-          data-ocid="reports.profile.select"
-        >
-          {!isAuthenticated && (
-            <option value="">Sélectionner un profil...</option>
-          )}
-          {profilesLoading && (
-            <option value="" disabled>
-              Chargement des profils...
-            </option>
-          )}
-          {allProfiles.map(([principal, profile]) => (
-            <option key={principal.toString()} value={principal.toString()}>
-              {profile.name || `${principal.toString().slice(0, 12)}...`}
-            </option>
-          ))}
-        </select>
-      </div>
-
       {/* Controls */}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="flex rounded-lg overflow-hidden border border-border">
@@ -484,7 +426,6 @@ export default function Reports() {
             variant="outline"
             size="sm"
             onClick={handleExportAnnualPdf}
-            disabled={!effectiveProfilePrincipal}
             data-ocid="reports.export_annual_pdf.button"
           >
             <FileText className="w-4 h-4 mr-1" />
@@ -535,17 +476,7 @@ export default function Reports() {
       </div>
 
       {/* Entries table */}
-      {!effectiveProfilePrincipal ? (
-        <div
-          className="text-center py-12 text-muted-foreground"
-          data-ocid="reports.entries.empty_state"
-        >
-          <User className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">
-            Sélectionnez un profil pour voir les entrées
-          </p>
-        </div>
-      ) : filteredEntries.length === 0 ? (
+      {filteredEntries.length === 0 ? (
         <div
           className="text-center py-12 text-muted-foreground"
           data-ocid="reports.entries.empty_state"
