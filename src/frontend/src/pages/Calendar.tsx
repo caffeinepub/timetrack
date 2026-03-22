@@ -46,6 +46,13 @@ import {
   formatMinutes,
 } from "../utils/timeFormatting";
 
+function getBlobUrl(blob: any): string {
+  if (!blob) return "";
+  if (typeof blob.getDirectURL === "function") return blob.getDirectURL();
+  if (typeof blob.directURL === "string") return blob.directURL;
+  return "";
+}
+
 const DAYS_OF_WEEK = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const MONTHS = [
   "Janvier",
@@ -497,11 +504,11 @@ export default function Calendar() {
                 : [],
               photos: Array.isArray(intv.photos) ? intv.photos : [],
               photoUrls: Array.isArray(intv.photos)
-                ? intv.photos.map((p: ExternalBlob) => p.getDirectURL())
+                ? intv.photos.map((p: any) => getBlobUrl(p))
                 : [],
               videos: Array.isArray(intv.videos) ? intv.videos : [],
               videoUrls: Array.isArray(intv.videos)
-                ? intv.videos.map((v: ExternalBlob) => v.getDirectURL())
+                ? intv.videos.map((v: any) => getBlobUrl(v))
                 : [],
               estAstreinte: (intv as any).estAstreinte === true,
             };

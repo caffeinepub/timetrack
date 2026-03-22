@@ -356,11 +356,17 @@ export default function Memo() {
             const allMedia: MediaItem[] = [
               ...(memo.photos ?? []).map((p: ExternalBlob) => ({
                 type: "photo" as const,
-                url: p.getDirectURL(),
+                url:
+                  typeof p.getDirectURL === "function"
+                    ? p.getDirectURL()
+                    : (p.directURL ?? ""),
               })),
               ...(memo.videos ?? []).map((v: ExternalBlob) => ({
                 type: "video" as const,
-                url: v.getDirectURL(),
+                url:
+                  typeof v.getDirectURL === "function"
+                    ? v.getDirectURL()
+                    : (v.directURL ?? ""),
               })),
             ];
             return (
