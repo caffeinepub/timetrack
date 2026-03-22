@@ -14,7 +14,6 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import Footer from "./components/Footer";
 import Header from "./components/Header";
 import MobileBottomNav from "./components/MobileBottomNav";
-import WelcomeDialog from "./components/WelcomeDialog";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import {
   useGetCallerUserProfile,
@@ -35,7 +34,6 @@ export type Page =
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
-  const [showWelcomeDialog, setShowWelcomeDialog] = useState(true);
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
 
@@ -89,65 +87,66 @@ function AppContent() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
-        <WelcomeDialog
-          open={showWelcomeDialog}
-          onClose={() => setShowWelcomeDialog(false)}
-        />
+      <div
+        className="min-h-screen flex flex-col overflow-x-hidden"
+        style={{
+          background:
+            "linear-gradient(135deg, #1d4ed8 0%, #1d4ed8 35%, #16a34a 60%, #ea580c 100%)",
+        }}
+      >
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-          <div className="w-full max-w-sm text-center space-y-8">
-            {/* Logo / Icon */}
-            <div className="space-y-3">
-              <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto">
-                <span className="text-4xl">⏱️</span>
+          <div className="w-full max-w-sm text-center space-y-6">
+            {/* Logo vache */}
+            <div className="flex flex-col items-center space-y-4">
+              <div className="w-36 h-36 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-2xl border-4 border-white/40">
+                <img
+                  src="/assets/generated/vache-logo-transparent.dim_300x300.png"
+                  alt="Vial Traite Service logo"
+                  className="w-28 h-28 object-contain drop-shadow-lg"
+                />
               </div>
-              <h1 className="text-2xl font-bold text-foreground">
-                Suivi du Temps
-              </h1>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Connectez-vous pour accéder à l'application et gérer vos
-                journées de travail, rapports et interventions.
+              <div className="space-y-1">
+                <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-md">
+                  Vial Traite Service
+                </h1>
+                <div className="flex items-center justify-center gap-2 mt-1">
+                  <div className="h-0.5 w-8 bg-white/50 rounded" />
+                  <span className="text-white/80 text-xs font-medium uppercase tracking-widest">
+                    Gestion du temps
+                  </span>
+                  <div className="h-0.5 w-8 bg-white/50 rounded" />
+                </div>
+              </div>
+            </div>
+
+            {/* Login card */}
+            <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-6 space-y-4 border border-white/30 shadow-xl">
+              <p className="text-white/90 text-sm leading-relaxed">
+                Connectez-vous pour accéder à votre espace de gestion des
+                journées de travail et interventions.
+              </p>
+
+              <Button
+                type="button"
+                onClick={() => login()}
+                disabled={isLoggingIn}
+                className="w-full h-12 text-base font-bold bg-white text-blue-700 hover:bg-white/90 border-0 shadow-lg rounded-xl"
+                data-ocid="login.button"
+              >
+                {isLoggingIn ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-blue-700 border-t-transparent rounded-full animate-spin mr-2" />
+                    Connexion en cours...
+                  </>
+                ) : (
+                  "Se connecter"
+                )}
+              </Button>
+
+              <p className="text-white/60 text-xs">
+                Authentification sécurisée via Internet Identity
               </p>
             </div>
-
-            {/* Features list */}
-            <div className="space-y-2 text-left">
-              {[
-                { icon: "📅", label: "Calendrier & journées de travail" },
-                { icon: "📝", label: "Mémo partagé entre utilisateurs" },
-                { icon: "📊", label: "Rapports communs" },
-                { icon: "👥", label: "Fichier clients partagé" },
-              ].map(({ icon, label }) => (
-                <div
-                  key={label}
-                  className="flex items-center gap-3 text-sm text-muted-foreground"
-                >
-                  <span className="text-base">{icon}</span>
-                  <span>{label}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Login button */}
-            <Button
-              type="button"
-              onClick={() => login()}
-              disabled={isLoggingIn}
-              className="w-full h-12 text-base font-semibold"
-              data-ocid="login.button"
-            >
-              {isLoggingIn ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                  Connexion en cours...
-                </>
-              ) : (
-                "Se connecter"
-              )}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Authentification sécurisée via Internet Identity
-            </p>
           </div>
         </div>
         <Footer />
@@ -157,12 +156,6 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background pb-safe overflow-x-hidden">
-      {/* Welcome dialog shown once per session */}
-      <WelcomeDialog
-        open={showWelcomeDialog}
-        onClose={() => setShowWelcomeDialog(false)}
-      />
-
       <Header userName={userProfile?.name} />
 
       <main className="flex-1 w-full mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8 max-w-7xl min-w-0">
