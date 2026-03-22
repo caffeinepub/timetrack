@@ -1312,9 +1312,11 @@ export default function Calendar() {
                     {/* Slot header */}
                     <div className="flex items-center justify-between p-2 bg-orange-50">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-orange-700 uppercase bg-orange-100 px-1.5 py-0.5 rounded">
-                          ASTREINTE
-                        </span>
+                        {form.typeOfDay !== DayType.work && (
+                          <span className="text-xs font-bold text-orange-700 uppercase bg-orange-100 px-1.5 py-0.5 rounded">
+                            ASTREINTE
+                          </span>
+                        )}
                         <span className="text-xs font-semibold text-orange-700">
                           Intervention N°{idx + 1}
                         </span>
@@ -1335,29 +1337,31 @@ export default function Calendar() {
                         Fiche client
                       </p>
 
-                      {/* Astreinte checkbox */}
-                      <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded px-2 py-1.5">
-                        <input
-                          type="checkbox"
-                          id="estAstreinte-slot"
-                          checked={slot.estAstreinte ?? false}
-                          onChange={(e) =>
-                            updateSlot(idx, "estAstreinte", e.target.checked)
-                          }
-                          className="w-4 h-4 accent-orange-500"
-                        />
-                        <label
-                          htmlFor="estAstreinte-slot"
-                          className="text-xs font-semibold text-orange-700 cursor-pointer select-none"
-                        >
-                          Intervention d'astreinte
-                        </label>
-                        {slot.estAstreinte && (
-                          <span className="ml-auto text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded-full font-bold">
-                            ASTREINTE
-                          </span>
-                        )}
-                      </div>
+                      {/* Astreinte checkbox — only for non-work days */}
+                      {form.typeOfDay !== DayType.work && (
+                        <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded px-2 py-1.5">
+                          <input
+                            type="checkbox"
+                            id="estAstreinte-slot"
+                            checked={slot.estAstreinte ?? false}
+                            onChange={(e) =>
+                              updateSlot(idx, "estAstreinte", e.target.checked)
+                            }
+                            className="w-4 h-4 accent-orange-500"
+                          />
+                          <label
+                            htmlFor="estAstreinte-slot"
+                            className="text-xs font-semibold text-orange-700 cursor-pointer select-none"
+                          >
+                            Intervention d&apos;astreinte
+                          </label>
+                          {slot.estAstreinte && (
+                            <span className="ml-auto text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded-full font-bold">
+                              ASTREINTE
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Client nom autocomplete */}
                       <div>
