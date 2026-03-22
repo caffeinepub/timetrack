@@ -54,6 +54,7 @@ export const InterventionInput = IDL.Record({
   'clientNom' : IDL.Text,
   'heureMatinDebutH' : IDL.Int,
   'heureMatinFinMin' : IDL.Int,
+  'estAstreinte' : IDL.Bool,
 });
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
@@ -154,6 +155,10 @@ export const InterventionAvecPieces = IDL.Record({
   'clientNom' : IDL.Text,
   'heureMatinDebutH' : IDL.Int,
   'heureMatinFinMin' : IDL.Int,
+  'estAstreinte' : IDL.Opt(IDL.Bool),
+  'photos' : IDL.Vec(ExternalBlob),
+  'videos' : IDL.Vec(ExternalBlob),
+  'valide' : IDL.Opt(IDL.Bool),
 });
 export const JournalEntry = IDL.Record({
   'id' : IDL.Text,
@@ -383,6 +388,7 @@ export const idlFactory = ({ IDL }) => {
     'clientNom' : IDL.Text,
     'heureMatinDebutH' : IDL.Int,
     'heureMatinFinMin' : IDL.Int,
+    'estAstreinte' : IDL.Bool,
   });
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
@@ -478,6 +484,10 @@ export const idlFactory = ({ IDL }) => {
     'clientNom' : IDL.Text,
     'heureMatinDebutH' : IDL.Int,
     'heureMatinFinMin' : IDL.Int,
+    'estAstreinte' : IDL.Opt(IDL.Bool),
+    'photos' : IDL.Vec(ExternalBlob),
+    'videos' : IDL.Vec(ExternalBlob),
+    'valide' : IDL.Opt(IDL.Bool),
   });
   const JournalEntry = IDL.Record({
     'id' : IDL.Text,

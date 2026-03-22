@@ -608,7 +608,11 @@ export default function Calendar() {
           videos: slot.videos,
           estAstreinte: slot.estAstreinte ?? false,
         };
-        await actor.ajouterIntervention(interventionInput);
+        if (slot.ficheId) {
+          await actor.modifierIntervention(slot.ficheId, interventionInput);
+        } else {
+          await actor.ajouterIntervention(interventionInput);
+        }
       }
 
       // Refresh the entries list after saving

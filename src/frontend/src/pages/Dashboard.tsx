@@ -135,9 +135,16 @@ export default function Dashboard() {
       totalTrajet += Number(entry.heuresTrajet); // minutes
       totalIntervention += intervention;
 
+      const date = new Date(Number(entry.date) / 1_000_000);
+      const dayOfWeek = date.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+      const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+
       if (entry.typeOfDay === "work") workDays++;
       else if (entry.typeOfDay === "conge") congeDays++;
-      else if (entry.typeOfDay === "astreinte") astreinteDays++;
+      else if (entry.typeOfDay === "astreinte") {
+        astreinteDays++;
+        if (isWeekday) workDays++; // weekday astreinte counts as work too
+      }
     }
 
     return {
