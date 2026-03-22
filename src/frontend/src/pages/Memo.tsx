@@ -170,12 +170,21 @@ export default function Memo() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-foreground">Mémo Public</h2>
+          <h2
+            className="text-xl font-bold"
+            style={{
+              borderLeft: "4px solid oklch(var(--vts-green))",
+              paddingLeft: "0.75rem",
+              color: "oklch(var(--navy))",
+            }}
+          >
+            Mémo Public
+          </h2>
           <p className="text-xs text-muted-foreground">
             Notes publiques avec photos et vidéos
           </p>
         </div>
-        <Badge variant="outline" className="text-xs">
+        <Badge variant="outline" className="text-xs badge-green">
           {memos.length} note{memos.length !== 1 ? "s" : ""}
         </Badge>
       </div>

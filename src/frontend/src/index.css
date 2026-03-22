@@ -2,76 +2,109 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/assets/fonts/PlusJakartaSans.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+}
+
 @layer base {
   :root {
     --radius: 0.625rem;
-    --background: 0.98 0 0;
-    --foreground: 0.145 0 0;
+
+    /* Navy blue / Orange / Green theme */
+    --background: 0.97 0.015 250; /* very light blue-white */
+    --foreground: 0.18 0.06 250; /* dark navy text */
     --card: 1 0 0;
-    --card-foreground: 0.145 0 0;
+    --card-foreground: 0.18 0.06 250;
     --popover: 1 0 0;
-    --popover-foreground: 0.145 0 0;
-    --primary: 0.55 0.22 250;
+    --popover-foreground: 0.18 0.06 250;
+
+    /* Primary = orange for buttons/CTAs */
+    --primary: 0.64 0.2 38;
     --primary-foreground: 0.99 0 0;
-    --secondary: 0.96 0.01 250;
-    --secondary-foreground: 0.2 0 0;
-    --muted: 0.96 0.01 250;
-    --muted-foreground: 0.5 0.01 250;
-    --accent: 0.96 0.01 250;
-    --accent-foreground: 0.2 0 0;
+
+    /* Secondary = light navy */
+    --secondary: 0.93 0.03 250;
+    --secondary-foreground: 0.22 0.08 250;
+
+    --muted: 0.94 0.02 250;
+    --muted-foreground: 0.5 0.05 250;
+
+    /* Accent = navy for structural accents */
+    --accent: 0.28 0.12 250;
+    --accent-foreground: 0.99 0 0;
+
     --destructive: 0.577 0.245 27.325;
     --destructive-foreground: 0.985 0 0;
-    --border: 0.92 0.01 250;
-    --input: 0.92 0.01 250;
-    --ring: 0.55 0.22 250;
-    --chart-1: 0.646 0.222 140;
-    --chart-2: 0.6 0.22 270;
-    --chart-3: 0.7 0.18 30;
+
+    --border: 0.88 0.03 250;
+    --input: 0.88 0.03 250;
+    --ring: 0.64 0.2 38;
+
+    /* Success green */
+    --success: 0.65 0.2 145;
+    --success-foreground: 0.99 0 0;
+
+    /* Chart colors */
+    --chart-1: 0.65 0.2 145; /* green */
+    --chart-2: 0.28 0.12 250; /* navy */
+    --chart-3: 0.64 0.2 38; /* orange */
     --chart-4: 0.55 0.2 320;
     --chart-5: 0.65 0.15 180;
-    --sidebar: 0.985 0 0;
-    --sidebar-foreground: 0.145 0 0;
-    --sidebar-primary: 0.55 0.22 250;
+
+    --sidebar: 0.22 0.1 250;
+    --sidebar-foreground: 0.98 0 0;
+    --sidebar-primary: 0.65 0.2 145;
     --sidebar-primary-foreground: 0.99 0 0;
-    --sidebar-accent: 0.96 0.01 250;
-    --sidebar-accent-foreground: 0.2 0 0;
-    --sidebar-border: 0.92 0.01 250;
-    --sidebar-ring: 0.55 0.22 250;
+    --sidebar-accent: 0.3 0.12 250;
+    --sidebar-accent-foreground: 0.98 0 0;
+    --sidebar-border: 0.32 0.08 250;
+    --sidebar-ring: 0.65 0.2 145;
+
+    /* Custom navy tokens */
+    --navy-dark: 0.2 0.1 250;
+    --navy: 0.28 0.12 250;
+    --navy-light: 0.38 0.1 250;
+    --vts-orange: 0.64 0.2 38;
+    --vts-green: 0.65 0.2 145;
   }
 
   .dark {
-    --background: 0.145 0 0;
-    --foreground: 0.985 0 0;
-    --card: 0.18 0 0;
-    --card-foreground: 0.985 0 0;
-    --popover: 0.2 0 0;
-    --popover-foreground: 0.985 0 0;
-    --primary: 0.65 0.22 250;
+    --background: 0.16 0.06 250;
+    --foreground: 0.95 0.01 250;
+    --card: 0.2 0.08 250;
+    --card-foreground: 0.95 0.01 250;
+    --popover: 0.22 0.08 250;
+    --popover-foreground: 0.95 0.01 250;
+    --primary: 0.68 0.22 38;
     --primary-foreground: 0.1 0 0;
-    --secondary: 0.25 0.01 250;
-    --secondary-foreground: 0.985 0 0;
-    --muted: 0.25 0.01 250;
-    --muted-foreground: 0.65 0.01 250;
-    --accent: 0.3 0.02 250;
-    --accent-foreground: 0.985 0 0;
+    --secondary: 0.28 0.08 250;
+    --secondary-foreground: 0.95 0.01 250;
+    --muted: 0.28 0.06 250;
+    --muted-foreground: 0.65 0.04 250;
+    --accent: 0.38 0.12 250;
+    --accent-foreground: 0.95 0 0;
     --destructive: 0.65 0.25 27;
     --destructive-foreground: 0.1 0 0;
-    --border: 0.3 0.01 250;
-    --input: 0.3 0.01 250;
-    --ring: 0.65 0.22 250;
-    --chart-1: 0.646 0.222 140;
-    --chart-2: 0.6 0.22 270;
-    --chart-3: 0.7 0.18 30;
+    --border: 0.32 0.08 250;
+    --input: 0.32 0.08 250;
+    --ring: 0.68 0.22 38;
+    --chart-1: 0.65 0.2 145;
+    --chart-2: 0.45 0.15 250;
+    --chart-3: 0.68 0.22 38;
     --chart-4: 0.55 0.2 320;
     --chart-5: 0.65 0.15 180;
-    --sidebar: 0.18 0 0;
-    --sidebar-foreground: 0.985 0 0;
-    --sidebar-primary: 0.65 0.22 250;
+    --sidebar: 0.18 0.08 250;
+    --sidebar-foreground: 0.95 0.01 250;
+    --sidebar-primary: 0.65 0.2 145;
     --sidebar-primary-foreground: 0.1 0 0;
-    --sidebar-accent: 0.25 0.01 250;
-    --sidebar-accent-foreground: 0.985 0 0;
-    --sidebar-border: 0.3 0.01 250;
-    --sidebar-ring: 0.65 0.22 250;
+    --sidebar-accent: 0.28 0.1 250;
+    --sidebar-accent-foreground: 0.95 0 0;
+    --sidebar-border: 0.32 0.08 250;
+    --sidebar-ring: 0.65 0.2 145;
+    --vts-green: 0.65 0.2 145;
   }
 
   * {
@@ -84,6 +117,7 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
     overflow-x: hidden;
     min-width: 0;
   }
@@ -104,20 +138,45 @@
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
-  /* Android Chrome tap fix: prevent nested elements from being tap targets */
   .touch-action-manipulation {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Prevent horizontal overflow on mobile */
   .mobile-safe-width {
     max-width: 100vw;
     overflow-x: hidden;
   }
+
+  /* VTS Navy utilities */
+  .bg-navy-dark {
+    background-color: oklch(var(--navy-dark));
+  }
+  .bg-navy {
+    background-color: oklch(var(--navy));
+  }
+  .text-navy {
+    color: oklch(var(--navy));
+  }
+  .text-vts-orange {
+    color: oklch(var(--vts-orange));
+  }
+  .border-navy {
+    border-color: oklch(var(--navy));
+  }
+
+  /* VTS Green utilities */
+  .bg-vts-green {
+    background-color: oklch(var(--vts-green));
+  }
+  .text-vts-green {
+    color: oklch(var(--vts-green));
+  }
+  .border-vts-green {
+    border-color: oklch(var(--vts-green));
+  }
 }
 
-/* Ensure smooth transitions for mobile navigation and prevent DOM removeChild issues */
 @layer components {
   .icon-nav-button {
     @apply transition-all duration-200 ease-in-out touch-action-manipulation;
@@ -131,7 +190,6 @@
     @apply transform scale-95;
   }
 
-  /* Prevent nested icons and text from being separate tap targets */
   button img,
   button svg,
   button span {
@@ -140,12 +198,53 @@
     -webkit-user-select: none;
   }
 
-  /* Ensure images and media can shrink on mobile */
   img,
   video,
   canvas,
   svg {
     max-width: 100%;
     height: auto;
+  }
+
+  /* Page section headers */
+  .page-header {
+    @apply text-lg font-bold;
+    color: oklch(var(--navy));
+    border-left: 4px solid oklch(var(--vts-orange));
+    padding-left: 0.75rem;
+  }
+
+  /* Card accent left border - orange */
+  .card-accent {
+    border-left: 3px solid oklch(var(--vts-orange));
+  }
+
+  /* Card accent left border - green */
+  .card-accent-green {
+    border-left: 3px solid oklch(var(--vts-green));
+  }
+
+  /* Section title with green left accent */
+  .section-title-green {
+    border-left: 4px solid oklch(var(--vts-green));
+    padding-left: 0.75rem;
+    color: oklch(var(--navy));
+    font-weight: 700;
+  }
+
+  /* Green divider */
+  .divider-green {
+    border-color: oklch(var(--vts-green) / 0.3);
+  }
+
+  /* Green badge */
+  .badge-green {
+    background-color: oklch(var(--vts-green) / 0.12);
+    color: oklch(0.4 0.18 145);
+    border: 1px solid oklch(var(--vts-green) / 0.3);
+    border-radius: 9999px;
+    padding: 0.15rem 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 600;
   }
 }

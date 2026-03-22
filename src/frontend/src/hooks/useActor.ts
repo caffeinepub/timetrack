@@ -6,15 +6,15 @@ import { useInternetIdentity } from "./useInternetIdentity";
 
 const ACTOR_QUERY_KEY = "actor";
 export function useActor() {
-  const { identity, isInitializing } = useInternetIdentity();
+  const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
-
   const actorQuery = useQuery<backendInterface>({
-    queryKey: [ACTOR_QUERY_KEY, identity?.getPrincipal().toString() ?? "anon"],
+    queryKey: [ACTOR_QUERY_KEY, identity?.getPrincipal().toString()],
     queryFn: async () => {
       const isAuthenticated = !!identity;
 
       if (!isAuthenticated) {
+        // Return anonymous actor if not authenticated
         return await createActorWithConfig();
       }
 
@@ -28,25 +28,30 @@ export function useActor() {
       await actor.initializeAccessControl();
       return actor;
     },
+    // Only refetch when identity changes
     staleTime: Number.POSITIVE_INFINITY,
-    // Wait for auth initialization before creating actor — prevents anonymous actor race condition
-    enabled: !isInitializing,
+    // This will cause the actor to be recreated when the identity changes
+    enabled: true,
   });
 
-  // When actor changes (after login), invalidate all data queries
+  // When the actor changes, invalidate dependent queries
   useEffect(() => {
-    if (actorQuery.data && !isInitializing) {
+    if (actorQuery.data) {
       queryClient.invalidateQueries({
-        predicate: (query) => !query.queryKey.includes(ACTOR_QUERY_KEY),
+        predicate: (query) => {
+          return !query.queryKey.includes(ACTOR_QUERY_KEY);
+        },
       });
       queryClient.refetchQueries({
-        predicate: (query) => !query.queryKey.includes(ACTOR_QUERY_KEY),
+        predicate: (query) => {
+          return !query.queryKey.includes(ACTOR_QUERY_KEY);
+        },
       });
     }
-  }, [actorQuery.data, queryClient, isInitializing]);
+  }, [actorQuery.data, queryClient]);
 
   return {
     actor: actorQuery.data || null,
-    isFetching: actorQuery.isFetching || isInitializing,
+    isFetching: actorQuery.isFetching,
   };
 }

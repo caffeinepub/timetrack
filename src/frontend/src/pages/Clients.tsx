@@ -547,7 +547,16 @@ export default function Clients() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-bold text-foreground">Clients</h1>
+        <h1
+          className="text-xl font-bold"
+          style={{
+            borderLeft: "4px solid oklch(var(--vts-green))",
+            paddingLeft: "0.75rem",
+            color: "oklch(var(--navy))",
+          }}
+        >
+          Clients
+        </h1>
         <Button
           size="sm"
           onClick={openAdd}
@@ -561,7 +570,10 @@ export default function Clients() {
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Search
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+          style={{ color: "oklch(var(--vts-green))" }}
+        />
         <Input
           className="pl-9 text-base"
           placeholder="Rechercher par nom, téléphone, email…"

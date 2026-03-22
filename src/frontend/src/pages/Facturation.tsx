@@ -288,7 +288,16 @@ export default function Facturation() {
   return (
     <div className="space-y-4 pb-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">Facturation</h2>
+        <h2
+          className="text-lg font-semibold"
+          style={{
+            borderLeft: "4px solid oklch(var(--vts-green))",
+            paddingLeft: "0.75rem",
+            color: "oklch(var(--navy))",
+          }}
+        >
+          Facturation
+        </h2>
         <span className="text-xs text-muted-foreground">
           {filteredInterventions.length} / {(allInterventions as any[]).length}{" "}
           fiche(s)
@@ -296,7 +305,10 @@ export default function Facturation() {
       </div>
 
       {/* Filters */}
-      <div className="bg-muted/30 rounded-xl border border-border p-3 space-y-2">
+      <div
+        className="bg-muted/30 rounded-xl border p-3 space-y-2"
+        style={{ borderColor: "oklch(var(--vts-green) / 0.3)" }}
+      >
         <div className="flex items-center gap-2">
           <Search className="w-4 h-4 text-muted-foreground shrink-0" />
           <span className="text-xs font-medium text-muted-foreground">

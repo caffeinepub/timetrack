@@ -26,7 +26,6 @@ import {
   computeAstreinteHours,
   computeInterventionHours,
   computeNormalHours,
-  formatHours,
   formatMinutes,
 } from "../utils/timeFormatting";
 import {
@@ -57,11 +56,11 @@ export default function Dashboard() {
   const { data: allEntries = [], isLoading } = useGetTimeEntries();
 
   const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth(); // 0-indexed
+  const currentMonth = new Date().getMonth();
 
   const [periodType, setPeriodType] = useState<PeriodType>("weekly");
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth); // 0-indexed
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedWeekIndex, setSelectedWeekIndex] = useState(0);
 
   const years = useMemo(() => {
@@ -70,13 +69,11 @@ export default function Dashboard() {
     return y;
   }, [currentYear]);
 
-  // getWeeksForMonth expects (year, month) where month is 1-indexed
   const weeksForMonth = useMemo(
     () => getWeeksForMonth(selectedYear, selectedMonth + 1),
     [selectedMonth, selectedYear],
   );
 
-  // Clamp selectedWeekIndex when month/year changes
   const safeWeekIndex = Math.min(
     selectedWeekIndex,
     Math.max(0, weeksForMonth.length - 1),
@@ -92,14 +89,9 @@ export default function Dashboard() {
     return userEntries.filter((entry) => {
       const date = new Date(Number(entry.date) / 1_000_000);
       const entryYear = date.getFullYear();
-
-      if (periodType === "yearly") {
-        return entryYear === selectedYear;
-      }
-      if (periodType === "monthly") {
+      if (periodType === "yearly") return entryYear === selectedYear;
+      if (periodType === "monthly")
         return entryYear === selectedYear && date.getMonth() === selectedMonth;
-      }
-      // weekly — use WeekOption.startDate / endDate
       const week: WeekOption | undefined = weeksForMonth[safeWeekIndex];
       if (!week) return false;
       return isDateInWeek(entry.date, week.startDate, week.endDate);
@@ -113,72 +105,58 @@ export default function Dashboard() {
     weeksForMonth,
   ]);
 
-  // Aggregate stats
   const stats = useMemo(() => {
     let totalNormal = 0;
     let totalAstreinte = 0;
     let totalRepas = 0;
     let totalTrajet = 0;
-    let totalIntervention = 0;
     let workDays = 0;
     let congeDays = 0;
     let astreinteDays = 0;
 
     for (const entry of filteredEntries) {
-      const normal = computeNormalHours(entry); // minutes
-      const astreinte = computeAstreinteHours(entry); // minutes
-      const intervention = computeInterventionHours(entry.interventionSlots); // minutes
-
-      totalNormal += normal;
-      totalAstreinte += astreinte;
-      totalRepas += Number(entry.heuresRepas); // minutes
-      totalTrajet += Number(entry.heuresTrajet); // minutes
-      totalIntervention += intervention;
+      totalNormal += computeNormalHours(entry);
+      totalAstreinte += computeAstreinteHours(entry);
+      totalRepas += Number(entry.heuresRepas);
+      totalTrajet += Number(entry.heuresTrajet);
 
       const date = new Date(Number(entry.date) / 1_000_000);
-      const dayOfWeek = date.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+      const dayOfWeek = date.getDay();
       const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
 
       if (entry.typeOfDay === "work") workDays++;
       else if (entry.typeOfDay === "conge") congeDays++;
       else if (entry.typeOfDay === "astreinte") {
         astreinteDays++;
-        if (isWeekday) workDays++; // weekday astreinte counts as work too
+        if (isWeekday) workDays++;
       }
     }
-
     return {
       totalNormal,
       totalAstreinte,
       totalRepas,
       totalTrajet,
-      totalIntervention,
       workDays,
       congeDays,
       astreinteDays,
     };
   }, [filteredEntries]);
 
-  // Chart data for bar chart (per day)
   const barChartData = useMemo(() => {
     return filteredEntries.map((entry) => {
       const date = new Date(Number(entry.date) / 1_000_000);
       const label = `${date.getDate()}/${date.getMonth() + 1}`;
-      const normal = computeNormalHours(entry); // minutes
-      const astreinte = computeAstreinteHours(entry); // minutes
-      const intervention = computeInterventionHours(entry.interventionSlots); // minutes
       return {
         date: label,
-        normal,
-        astreinte,
+        normal: computeNormalHours(entry),
+        astreinte: computeAstreinteHours(entry),
         repas: Number(entry.heuresRepas),
         trajet: Number(entry.heuresTrajet),
-        intervention,
+        intervention: computeInterventionHours(entry.interventionSlots),
       };
     });
   }, [filteredEntries]);
 
-  // Monthly bar chart for yearly view
   const monthlyBarData = useMemo(() => {
     if (periodType !== "yearly") return [];
     return MONTHS.map((month, idx) => {
@@ -186,27 +164,22 @@ export default function Dashboard() {
         const date = new Date(Number(entry.date) / 1_000_000);
         return date.getFullYear() === selectedYear && date.getMonth() === idx;
       });
-      let normal = 0; // minutes
-      let astreinte = 0; // minutes
+      let normal = 0;
+      let astreinte = 0;
       for (const entry of monthEntries) {
         normal += computeNormalHours(entry);
         astreinte += computeAstreinteHours(entry);
       }
-      return {
-        month: month.substring(0, 3),
-        normal,
-        astreinte,
-      };
+      return { month: month.substring(0, 3), normal, astreinte };
     });
   }, [periodType, userEntries, selectedYear]);
 
-  // Pie chart data
   const pieData = useMemo(() => {
     return [
-      { name: "Travail", value: stats.totalNormal, color: "#2563eb" }, // blue-600 — minutes
-      { name: "Astreinte", value: stats.totalAstreinte, color: "#f97316" }, // orange-500 — minutes
-      { name: "Repas", value: stats.totalRepas, color: "#64748b" }, // slate-500 — minutes
-      { name: "Trajet", value: stats.totalTrajet, color: "#94a3b8" }, // slate-400 — minutes
+      { name: "Travail", value: stats.totalNormal, color: "#1e3a8a" },
+      { name: "Astreinte", value: stats.totalAstreinte, color: "#ea580c" },
+      { name: "Repas", value: stats.totalRepas, color: "#64748b" },
+      { name: "Trajet", value: stats.totalTrajet, color: "#94a3b8" },
     ].filter((d) => d.value > 0);
   }, [stats]);
 
@@ -215,29 +188,29 @@ export default function Dashboard() {
       label: "Heures travail",
       value: formatMinutes(stats.totalNormal),
       icon: Clock,
-      colorClass: "text-blue-600",
-      bgClass: "bg-blue-50",
+      colorClass: "text-blue-700",
+      bgClass: "bg-blue-50 border-blue-200",
     },
     {
       label: "Astreinte",
       value: formatMinutes(stats.totalAstreinte),
       icon: AlertCircle,
-      colorClass: "text-orange-500",
-      bgClass: "bg-orange-50",
+      colorClass: "text-orange-600",
+      bgClass: "bg-orange-50 border-orange-200",
     },
     {
       label: "Repas",
       value: formatMinutes(stats.totalRepas),
       icon: Coffee,
       colorClass: "text-slate-500",
-      bgClass: "bg-slate-100",
+      bgClass: "bg-slate-50 border-slate-200",
     },
     {
       label: "Trajet",
       value: formatMinutes(stats.totalTrajet),
       icon: Car,
       colorClass: "text-slate-400",
-      bgClass: "bg-slate-50",
+      bgClass: "bg-slate-50 border-slate-100",
     },
   ];
 
@@ -257,17 +230,42 @@ export default function Dashboard() {
     return null;
   };
 
+  // Get display name for greeting
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <div
+          className="animate-spin rounded-full h-8 w-8 border-b-2"
+          style={{ borderColor: "oklch(var(--vts-orange))" }}
+        />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 pb-6">
-      {/* Period selector */}
+    <div className="space-y-5 pb-6">
+      {/* ── Greeting banner (Dashboard only) ── */}
+      <div
+        className="rounded-xl px-4 py-3 flex items-center gap-3 shadow-sm"
+        style={{
+          background:
+            "linear-gradient(135deg, oklch(var(--navy-dark)) 0%, oklch(var(--navy)) 100%)",
+          borderLeft: "4px solid oklch(var(--vts-green))",
+        }}
+      >
+        <span className="text-2xl">🐄</span>
+        <div>
+          <p className="text-white font-extrabold text-base leading-tight">
+            Vial Traite Service
+          </p>
+          <p className="text-white/60 text-xs mt-0.5">
+            Tableau de bord — Gestion du temps
+          </p>
+        </div>
+      </div>
+
+      {/* ── Period selector ── */}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="flex rounded-lg overflow-hidden border border-border">
           {(["weekly", "monthly", "yearly"] as PeriodType[]).map((p) => (
@@ -275,18 +273,21 @@ export default function Dashboard() {
               key={p}
               type="button"
               onClick={() => setPeriodType(p)}
-              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-                periodType === p
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-card text-muted-foreground hover:bg-muted"
-              }`}
+              className="px-3 py-1.5 text-sm font-semibold transition-colors"
+              style={{
+                backgroundColor:
+                  periodType === p
+                    ? "oklch(var(--vts-orange))"
+                    : "oklch(var(--card))",
+                color:
+                  periodType === p ? "white" : "oklch(var(--muted-foreground))",
+              }}
             >
               {p === "weekly" ? "Semaine" : p === "monthly" ? "Mois" : "Année"}
             </button>
           ))}
         </div>
 
-        {/* Year selector */}
         <select
           value={selectedYear}
           onChange={(e) => setSelectedYear(Number(e.target.value))}
@@ -299,7 +300,6 @@ export default function Dashboard() {
           ))}
         </select>
 
-        {/* Month selector (weekly + monthly) */}
         {(periodType === "monthly" || periodType === "weekly") && (
           <select
             value={selectedMonth}
@@ -317,7 +317,6 @@ export default function Dashboard() {
           </select>
         )}
 
-        {/* Week selector */}
         {periodType === "weekly" && weeksForMonth.length > 0 && (
           <select
             value={safeWeekIndex}
@@ -333,15 +332,15 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Stat cards */}
+      {/* ── Stat cards ── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {statCards.map((card) => (
           <div
             key={card.label}
-            className="bg-card rounded-xl border border-border p-4 flex flex-col gap-2"
+            className={`rounded-xl border p-4 flex flex-col gap-2 bg-card ${card.bgClass}`}
           >
             <div
-              className={`w-8 h-8 rounded-lg ${card.bgClass} flex items-center justify-center`}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center ${card.bgClass}`}
             >
               <card.icon className={`w-4 h-4 ${card.colorClass}`} />
             </div>
@@ -353,15 +352,24 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Day type summary */}
-      <div className="bg-card rounded-xl border border-border p-4">
-        <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-primary" />
+      {/* ── Day type summary ── */}
+      <div
+        className="bg-card rounded-xl border border-border p-4"
+        style={{ borderLeft: "3px solid oklch(var(--vts-green))" }}
+      >
+        <h3
+          className="text-sm font-semibold mb-3 flex items-center gap-2"
+          style={{ color: "oklch(var(--navy))" }}
+        >
+          <Calendar
+            className="w-4 h-4"
+            style={{ color: "oklch(var(--vts-orange))" }}
+          />
           Répartition des journées
         </h3>
         <div className="flex gap-4 flex-wrap">
           <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-blue-600 inline-block" />
+            <span className="w-3 h-3 rounded-full bg-blue-700 inline-block" />
             <span className="text-sm text-foreground">
               {stats.workDays} jour{stats.workDays !== 1 ? "s" : ""} travail
             </span>
@@ -382,11 +390,20 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Bar chart — daily breakdown */}
+      {/* ── Bar chart — daily ── */}
       {periodType !== "yearly" && barChartData.length > 0 && (
-        <div className="bg-card rounded-xl border border-border p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-primary" />
+        <div
+          className="bg-card rounded-xl border border-border p-4"
+          style={{ borderLeft: "3px solid oklch(var(--vts-green))" }}
+        >
+          <h3
+            className="text-sm font-semibold mb-4 flex items-center gap-2"
+            style={{ color: "oklch(var(--navy))" }}
+          >
+            <TrendingUp
+              className="w-4 h-4"
+              style={{ color: "oklch(var(--vts-orange))" }}
+            />
             Heures par jour
           </h3>
           <ResponsiveContainer width="100%" height={220}>
@@ -394,7 +411,10 @@ export default function Dashboard() {
               data={barChartData}
               margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.9 0 0)" />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="oklch(0.92 0.02 250)"
+              />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} />
               <YAxis
                 tick={{ fontSize: 11 }}
@@ -405,13 +425,13 @@ export default function Dashboard() {
               <Bar
                 dataKey="normal"
                 name="Travail"
-                fill="#2563eb"
+                fill="#1e3a8a"
                 radius={[3, 3, 0, 0]}
               />
               <Bar
                 dataKey="astreinte"
                 name="Astreinte"
-                fill="#f97316"
+                fill="#ea580c"
                 radius={[3, 3, 0, 0]}
               />
               <Bar
@@ -431,11 +451,20 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Monthly bar chart for yearly view */}
+      {/* ── Monthly bar chart for yearly view ── */}
       {periodType === "yearly" && (
-        <div className="bg-card rounded-xl border border-border p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-primary" />
+        <div
+          className="bg-card rounded-xl border border-border p-4"
+          style={{ borderLeft: "3px solid oklch(var(--vts-green))" }}
+        >
+          <h3
+            className="text-sm font-semibold mb-4 flex items-center gap-2"
+            style={{ color: "oklch(var(--navy))" }}
+          >
+            <TrendingUp
+              className="w-4 h-4"
+              style={{ color: "oklch(var(--vts-orange))" }}
+            />
             Heures par mois — {selectedYear}
           </h3>
           <ResponsiveContainer width="100%" height={220}>
@@ -443,7 +472,10 @@ export default function Dashboard() {
               data={monthlyBarData}
               margin={{ top: 4, right: 4, left: -20, bottom: 0 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.9 0 0)" />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="oklch(0.92 0.02 250)"
+              />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} />
               <YAxis
                 tick={{ fontSize: 11 }}
@@ -454,13 +486,13 @@ export default function Dashboard() {
               <Bar
                 dataKey="normal"
                 name="Travail"
-                fill="#2563eb"
+                fill="#1e3a8a"
                 radius={[3, 3, 0, 0]}
               />
               <Bar
                 dataKey="astreinte"
                 name="Astreinte"
-                fill="#f97316"
+                fill="#ea580c"
                 radius={[3, 3, 0, 0]}
               />
             </BarChart>
@@ -468,10 +500,13 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Pie chart */}
+      {/* ── Pie chart ── */}
       {pieData.length > 0 && (
         <div className="bg-card rounded-xl border border-border p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-4">
+          <h3
+            className="text-sm font-semibold mb-4"
+            style={{ color: "oklch(var(--navy))" }}
+          >
             Répartition des heures
           </h3>
           <ResponsiveContainer width="100%" height={220}>

@@ -1,30 +1,28 @@
-# Suivi du Temps - Identification obligatoire + sections communes
+# Vial Traite Service
 
 ## Current State
-L'application a deux modes :
-- **Non connecté** : accès public aux sections Mémo, Rapports, Clients sans identification
-- **Connecté** : accès complet à toutes les sections, profil utilisateur requis au premier login
-
-Les sections Mémo, Rapports, Clients partagent déjà les données entre tous les utilisateurs.
+L'application utilise un thème bleu marine, orange et vert. Le vert est présent principalement comme couleur de succès et dans la décoration d'herbe sur la page de connexion. L'orange domine les accents (boutons, indicateurs actifs, bordures de section).
 
 ## Requested Changes (Diff)
 
 ### Add
-- Page d'accueil / écran de connexion obligatoire : toute l'application nécessite une identification Internet Identity
-- Affichage du nom de profil après connexion, obligatoire avant accès
+- Vert herbe visible sur les bordures, séparateurs, badges et accents secondaires dans toutes les pages
+- Bande verte en bas du header (border-bottom verte)
+- Indicateur actif vert dans la barre de navigation mobile
+- Touches de vert herbe dans les sections (Calendrier, Tableau de bord, Mémo, Facturation, Clients)
 
 ### Modify
-- App.tsx : supprimer le mode "public sans connexion" -- si non connecté, afficher uniquement l'écran de connexion
-- Navigation : toutes les sections (Mémo, Rapports, Clients, Dashboard, Calendrier) accessibles uniquement après identification
-- Mémo, Rapports, Clients : rester communes/partagées entre tous les utilisateurs connectés (inchangé au niveau backend)
+- `index.css` : renforcer le token `--vts-green` pour qu'il soit plus présent, ajouter des utilitaires `.bg-vts-green`, `.text-vts-green`, `.border-vts-green`
+- `Header.tsx` : ajouter une bordure verte en bas du header
+- `MobileBottomNav.tsx` : ajouter une ligne verte en bas du nav ou changer les indicateurs actifs en vert
+- `page-header` CSS : utiliser le vert comme couleur de la bordure gauche (alternatif à l'orange)
+- Section headers dans les pages : touches de vert herbe
 
 ### Remove
-- Accès public sans connexion à Mémo, Rapports, Clients
-- Navigation publique sans login
+Rien à supprimer
 
 ## Implementation Plan
-1. Modifier App.tsx : si non authentifié, afficher page de connexion dédiée (pas de navigation publique)
-2. La page de connexion affiche le bouton Internet Identity et un message explicatif
-3. Après connexion, si profil non configuré, afficher le dialog de configuration du nom
-4. Toutes les sections restent montées/accessibles uniquement pour les utilisateurs authentifiés avec un profil
-5. Mémo, Rapports, Clients continuent de partager les données entre tous les utilisateurs connectés (logique backend inchangée)
+1. Mettre à jour `index.css` : renforcer la présence du vert herbe, ajouter utilitaires
+2. Mettre à jour `Header.tsx` : bordure inférieure verte
+3. Mettre à jour `MobileBottomNav.tsx` : indicateur actif en vert herbe
+4. Mettre à jour les pages (Dashboard, Calendar, Memo, Facturation, Clients) : ajouter des touches de vert herbe (badges, bordures, séparateurs)

@@ -860,7 +860,7 @@ export default function Calendar() {
         >
           <ChevronLeft className="w-5 h-5 text-foreground" />
         </button>
-        <h2 className="text-lg font-semibold text-foreground">
+        <h2 className="text-lg font-semibold text-vts-green">
           {MONTHS[viewMonth]} {viewYear}
         </h2>
         <button

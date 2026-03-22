@@ -15,6 +15,9 @@ export default {
             }
         },
         extend: {
+            fontFamily: {
+                sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+            },
             colors: {
                 border: 'oklch(var(--border))',
                 input: 'oklch(var(--input))',
@@ -65,7 +68,17 @@ export default {
                     'accent-foreground': 'oklch(var(--sidebar-accent-foreground))',
                     border: 'oklch(var(--sidebar-border))',
                     ring: 'oklch(var(--sidebar-ring))'
-                }
+                },
+                /* VTS custom tokens */
+                navy: {
+                    dark: 'oklch(var(--navy-dark))',
+                    DEFAULT: 'oklch(var(--navy))',
+                    light: 'oklch(var(--navy-light))',
+                },
+                vts: {
+                    orange: 'oklch(var(--vts-orange))',
+                    green: 'oklch(var(--vts-green))',
+                },
             },
             borderRadius: {
                 lg: 'var(--radius)',

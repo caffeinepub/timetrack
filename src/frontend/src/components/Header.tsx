@@ -1,11 +1,9 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
-import { Clock, LogIn, LogOut } from "lucide-react";
+import { LogIn, LogOut } from "lucide-react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useIsCallerAdmin } from "../hooks/useQueries";
 import { useSafeTap } from "../hooks/useSafeTap";
-import { getBuildInfo } from "../utils/buildInfo";
 import PublishRetryDialog from "./PublishRetryDialog";
 
 interface HeaderProps {
@@ -20,7 +18,6 @@ export default function Header({ userName }: HeaderProps) {
 
   const isAuthenticated = !!identity;
   const disabled = loginStatus === "logging-in";
-  const buildInfo = getBuildInfo();
 
   const handleAuth = safeTap(async () => {
     if (isAuthenticated) {
@@ -40,32 +37,57 @@ export default function Header({ userName }: HeaderProps) {
   });
 
   return (
-    <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50 overflow-x-hidden">
-      <div className="w-full mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+    <header
+      className="sticky top-0 z-50 overflow-x-hidden shadow-md"
+      style={{
+        backgroundColor: "oklch(var(--navy-dark))",
+        borderBottom: "3px solid oklch(var(--vts-green))",
+      }}
+    >
+      <div className="w-full mx-auto px-3 sm:px-4 md:px-6 py-3">
         <div className="flex items-center justify-between gap-2 sm:gap-3 min-w-0">
+          {/* Left: Logo + Branding */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-              <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground pointer-events-none" />
+            {/* VTS Logo badge */}
+            <div
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-extrabold text-sm shadow-inner"
+              style={{
+                backgroundColor: "oklch(var(--vts-orange))",
+                color: "white",
+              }}
+            >
+              🐄
             </div>
+
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-                <h1 className="text-base sm:text-lg md:text-xl font-bold text-foreground truncate">
-                  TimeTrack
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-white truncate leading-tight">
+                  Vial Traite Service
                 </h1>
-                <Badge
-                  variant="outline"
-                  className="text-[10px] sm:text-xs bg-green-50 dark:bg-green-950 border-green-500 text-green-700 dark:text-green-300 whitespace-nowrap flex-shrink-0"
-                >
-                  v7 {buildInfo.mode && `(${buildInfo.mode})`}
-                </Badge>
+                {userName && (
+                  <>
+                    <span className="text-white/40 hidden sm:inline">•</span>
+                    <span
+                      className="text-xs sm:text-sm font-semibold truncate"
+                      style={{ color: "oklch(var(--vts-green))" }}
+                    >
+                      {userName}
+                    </span>
+                  </>
+                )}
               </div>
               {userName && (
-                <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                  Bonjour, {userName}
+                <p
+                  className="text-xs sm:hidden truncate font-semibold"
+                  style={{ color: "oklch(var(--vts-green))" }}
+                >
+                  {userName}
                 </p>
               )}
             </div>
           </div>
+
+          {/* Right: actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {isAuthenticated && !isAdminLoading && isAdmin && (
               <PublishRetryDialog />
@@ -74,9 +96,8 @@ export default function Header({ userName }: HeaderProps) {
               type="button"
               onClick={handleAuth}
               disabled={disabled}
-              variant={isAuthenticated ? "outline" : "default"}
               size="sm"
-              className="gap-1 sm:gap-2 touch-action-manipulation select-none text-xs sm:text-sm"
+              className="gap-1 sm:gap-2 touch-action-manipulation select-none text-xs sm:text-sm font-semibold border border-white/20 bg-white/10 hover:bg-white/20 text-white"
             >
               {disabled ? (
                 <span className="pointer-events-none">Connexion...</span>
