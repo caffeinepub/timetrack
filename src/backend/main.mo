@@ -15,6 +15,7 @@ import Nat "mo:core/Nat";
 
 
 
+
 actor {
   include MixinStorage();
 
@@ -127,6 +128,7 @@ actor {
   public type UserProfile = {
     name : Text;
     email : Text;
+    signatureIntervenant : ?Text;
   };
 
   public type Totals = {
@@ -198,6 +200,7 @@ actor {
     signatureIntervenant : Text;
     user : Principal;
     createdAt : Time.Time;
+    clientAbsent : Bool;
   };
 
   // Intervention with pieces merged in (returned to frontend)
@@ -222,6 +225,7 @@ actor {
     createdAt : Time.Time;
     photos : [Storage.ExternalBlob];
     videos : [Storage.ExternalBlob];
+    clientAbsent : Bool;
     valide : Bool;
     estAstreinte : Bool;
   };
@@ -245,6 +249,7 @@ actor {
     pieces : [PieceUtilisee];
     photos : [Storage.ExternalBlob];
     videos : [Storage.ExternalBlob];
+    clientAbsent : Bool;
     estAstreinte : Bool;
   };
 
@@ -283,6 +288,7 @@ actor {
       createdAt = i.createdAt;
       photos;
       videos;
+      clientAbsent = i.clientAbsent;
       valide = switch (interventionValidees.get(i.id)) {
         case (?v) { v };
         case (null) { false };
@@ -333,8 +339,8 @@ actor {
   // -------- MEMO FUNCTIONS (public section) --------
 
   public shared ({ caller }) func creerMemo(id : Text, authorName : Text, content : Text, photos : [Storage.ExternalBlob], videos : [Storage.ExternalBlob]) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can create memos");
     };
     let entry : MemoEntry = {
       id;
@@ -348,15 +354,15 @@ actor {
     memoEntries.add(id, entry);
   };
 
-  // Public query - no authentication required
+  // Public query - no authentication required (public memo section)
   public query func obtenirMemos() : async [MemoEntry] {
     let entries = memoEntries.values().toArray();
     entries.sort(MemoEntry.compareByCreatedAt);
   };
 
   public shared ({ caller }) func supprimerMemo(id : Text) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete memos");
     };
     switch (memoEntries.get(id)) {
       case (null) { Runtime.trap("Mémo non trouvé") };
@@ -372,36 +378,36 @@ actor {
   // -------- CLIENT FUNCTIONS --------
 
   public shared ({ caller }) func ajouterClient(client : Client) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can add clients");
     };
     clients.add(client.id, client);
   };
 
   public shared ({ caller }) func modifierClient(id : Text, client : Client) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can modify clients");
     };
     clients.add(id, client);
   };
 
   public shared ({ caller }) func supprimerClient(id : Text) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete clients");
     };
     clients.remove(id);
   };
 
   public query ({ caller }) func obtenirClients() : async [Client] {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view clients");
     };
     clients.values().toArray();
   };
 
   public shared ({ caller }) func basculerListeNoire(id : Text) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can toggle blacklist");
     };
     
     switch (clients.get(id)) {
@@ -426,8 +432,8 @@ actor {
   // -------- INTERVENTION FUNCTIONS --------
 
   public shared ({ caller }) func ajouterIntervention(input : InterventionInput) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can add interventions");
     };
     let intervention : Intervention = {
       id = input.id;
@@ -447,6 +453,7 @@ actor {
       signatureIntervenant = input.signatureIntervenant;
       user = caller;
       createdAt = Time.now();
+      clientAbsent = input.clientAbsent;
     };
     interventions.add(input.id, intervention);
     interventionPieces.add(input.id, input.pieces);
@@ -456,8 +463,8 @@ actor {
   };
 
   public shared ({ caller }) func modifierIntervention(id : Text, input : InterventionInput) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can modify interventions");
     };
     switch (interventions.get(id)) {
       case (null) { /* not found: will create */ };
@@ -485,6 +492,7 @@ actor {
       signatureIntervenant = input.signatureIntervenant;
       user = caller;
       createdAt = Time.now();
+      clientAbsent = input.clientAbsent;
     };
     interventions.add(id, intervention);
     interventionPieces.add(id, input.pieces);
@@ -494,8 +502,8 @@ actor {
   };
 
   public shared ({ caller }) func supprimerIntervention(id : Text) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete interventions");
     };
     switch (interventions.get(id)) {
       case (null) { Runtime.trap("Intervention non trouvée") };
@@ -516,8 +524,8 @@ actor {
   };
 
   public shared ({ caller }) func validerIntervention(id : Text) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can validate interventions");
     };
     interventionValidees.add(id, true);
   };
@@ -530,8 +538,8 @@ actor {
   };
 
   public query ({ caller }) func obtenirInterventionsPourJour(date : Time.Time) : async [InterventionAvecPieces] {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view interventions");
     };
     let isAdmin = AccessControl.isAdmin(accessControlState, caller);
     interventions.values().filter(func(i : Intervention) : Bool {
@@ -540,8 +548,8 @@ actor {
   };
 
   public query ({ caller }) func obtenirToutesInterventions() : async [InterventionAvecPieces] {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view interventions");
     };
     let isAdmin = AccessControl.isAdmin(accessControlState, caller);
     let sorted = interventions.values().filter(func(i : Intervention) : Bool {
@@ -555,8 +563,8 @@ actor {
   // -------- FILE FUNCTIONS --------
 
   public shared ({ caller }) func uploadPhotoDansStoic(filename : Text, content : Storage.ExternalBlob, mimeType : Text, taille : Nat, description : Text) : async ?Nat {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can upload files");
     };
 
     let tailleMaxAutorisee = 10_000_000;
@@ -588,8 +596,8 @@ actor {
   };
 
   public query ({ caller }) func listerFichiers() : async [Fichier] {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can list files");
     };
 
     let isAdmin = AccessControl.isAdmin(accessControlState, caller);
@@ -604,8 +612,8 @@ actor {
   };
 
   public query ({ caller }) func recupererFichier(_id : Nat) : async ?Fichier {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can retrieve files");
     };
 
     switch (fichiersStockes.get(_id)) {
@@ -621,8 +629,8 @@ actor {
   };
 
   public query ({ caller }) func rechercherFichiers(_motCle: Text) : async [Fichier] {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can search files");
     };
 
     let isAdmin = AccessControl.isAdmin(accessControlState, caller);
@@ -637,8 +645,8 @@ actor {
   };
 
   public shared ({ caller }) func supprimerFichier(_id : Nat) : async Bool {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete files");
     };
 
     switch (fichiersStockes.get(_id)) {
@@ -656,15 +664,15 @@ actor {
   // -------- USER PROFILE FUNCTIONS --------
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view profiles");
     };
     userProfiles.get(caller);
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view profiles");
     };
 
     if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
@@ -674,24 +682,59 @@ actor {
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can save profiles");
     };
     userProfiles.add(caller, profile);
   };
 
-  // Public functions (no authentication required)
-  public query func obtenirTousLesProfils() : async [(Principal, UserProfile)] {
+  // PUBLIC SIGNATURE (intervenant) MANAGEMENT
+  public shared ({ caller }) func sauvegarderSignatureIntervenant(sig : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can save signatures");
+    };
+    let existing = switch (userProfiles.get(caller)) {
+      case (null) { { name = ""; email = ""; signatureIntervenant = ?sig } };
+      case (?current) {
+        { current with signatureIntervenant = ?sig };
+      };
+    };
+    userProfiles.add(caller, existing);
+  };
+
+  public query ({ caller }) func obtenirSignatureIntervenant() : async ?Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can retrieve signatures");
+    };
+    switch (userProfiles.get(caller)) {
+      case (null) { null };
+      case (?profile) { profile.signatureIntervenant };
+    };
+  };
+
+  // Admin-only function to view all profiles
+  public query ({ caller }) func obtenirTousLesProfils() : async [(Principal, UserProfile)] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can view all profiles");
+    };
     userProfiles.entries().toArray()
   };
 
-  public query func obtenirJourneesPubliques(user : Principal) : async [TimeEntry] {
+  // Admin-only function to view user work entries
+  public query ({ caller }) func obtenirJourneesPubliques(user : Principal) : async [TimeEntry] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can view other users' work entries");
+    };
     let entries = timeEntries.values();
     let filtered = entries.filter(func(entry : TimeEntry) : Bool { entry.user == user }).toArray();
     filtered.sort(TimeEntry.compareByDate);
   };
 
-  public query func obtenirInterventionsPubliques(user : Principal) : async [InterventionAvecPieces] {
+  // Admin-only function to view user interventions
+  public query ({ caller }) func obtenirInterventionsPubliques(user : Principal) : async [InterventionAvecPieces] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can view other users' interventions");
+    };
     let filtered = interventions.values().filter(func(i : Intervention) : Bool {
       i.user == user
     }).map(interventionAvecPieces).toArray();
@@ -703,8 +746,8 @@ actor {
   // -------- DAILY ENTRY FUNCTIONS --------
 
   public shared ({ caller }) func enregistrerJournee(input : TimeEntryInput) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can register work entries");
     };
 
     let timeEntry : TimeEntry = {
@@ -727,15 +770,15 @@ actor {
     // Auto-register user profile so they appear in obtenirTousLesProfils
     switch (userProfiles.get(caller)) {
       case (null) {
-        userProfiles.add(caller, { name = "Utilisateur"; email = "" });
+        userProfiles.add(caller, { name = "Utilisateur"; email = ""; signatureIntervenant = null });
       };
       case (?_) {};
     };
   };
 
   public shared ({ caller }) func modifierJournee(id : Text, input : TimeEntryInput) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can modify work entries");
     };
 
     switch (timeEntries.get(id)) {
@@ -767,8 +810,8 @@ actor {
   };
 
   public shared ({ caller }) func supprimerJournee(id : Text) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete work entries");
     };
 
     switch (timeEntries.get(id)) {
@@ -786,8 +829,8 @@ actor {
   };
 
   public query ({ caller }) func obtenirJournees() : async [TimeEntry] {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view work entries");
     };
 
     let isAdmin = AccessControl.isAdmin(accessControlState, caller);
@@ -803,8 +846,8 @@ actor {
   // -------- DAILY MEDIA FUNCTIONS --------
 
   public shared ({ caller }) func enregistrerMediaQuotidien(id : Text, mediaType : MediaType, relatedDay : Time.Time) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can register daily media");
     };
 
     let entry : DailyMediaEntry = {
@@ -819,8 +862,8 @@ actor {
   };
 
   public shared ({ caller }) func supprimerMediaQuotidien(id : Text) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete daily media");
     };
 
     switch (dailyMediaEntries.get(id)) {
@@ -838,8 +881,8 @@ actor {
   };
 
   public query ({ caller }) func obtenirMediasPourJour(date : Time.Time) : async [DailyMediaEntry] {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view daily media");
     };
 
     let entries = dailyMediaEntries.values();
@@ -852,8 +895,8 @@ actor {
   };
 
   public query ({ caller }) func obtenirMediasAudioPourJour(date : Time.Time) : async [Storage.ExternalBlob] {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view audio media");
     };
 
     let entries = dailyMediaEntries.values();
@@ -867,8 +910,8 @@ actor {
   };
 
   public query ({ caller }) func obtenirPhotosPourJour(date : Time.Time) : async [Storage.ExternalBlob] {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view photos");
     };
 
     let entries = dailyMediaEntries.values();
@@ -884,8 +927,8 @@ actor {
   // -------- JOURNAL FUNCTIONS (kept for compatibility) --------
 
   public shared ({ caller }) func enregistrerJournal(id : Text, audioUrl : Text, transcription : Text, notes : Text, photos : [Storage.ExternalBlob], dayType : ?DayType) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can register journal entries");
     };
 
     let entry : JournalEntry = {
@@ -903,8 +946,8 @@ actor {
   };
 
   public shared ({ caller }) func modifierJournal(id : Text, audioUrl : Text, transcription : Text, notes : Text, photos : [Storage.ExternalBlob], dayType : ?DayType) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can modify journal entries");
     };
 
     switch (journalEntries.get(id)) {
@@ -933,8 +976,8 @@ actor {
   };
 
   public shared ({ caller }) func supprimerJournal(id : Text) : async () {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete journal entries");
     };
 
     switch (journalEntries.get(id)) {
@@ -952,8 +995,8 @@ actor {
   };
 
   public query ({ caller }) func obtenirJournaux() : async [JournalEntry] {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view journal entries");
     };
 
     let isAdmin = AccessControl.isAdmin(accessControlState, caller);
@@ -969,8 +1012,8 @@ actor {
   // -------- CALCULATION FUNCTIONS --------
 
   public query ({ caller }) func calculerTotaux() : async Totals {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can calculate totals");
     };
 
     var totalNormales : Int = 0;
@@ -1020,8 +1063,8 @@ actor {
   };
 
   public query ({ caller }) func calculerTotauxPourUtilisateur(user : Principal) : async Totals {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can calculate totals");
     };
 
     if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
@@ -1068,8 +1111,8 @@ actor {
   };
 
   public query ({ caller }) func calculerTotauxPourMois(user : Principal, mois : Int, annee : Int) : async Totals {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can calculate monthly totals");
     };
 
     if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
@@ -1118,8 +1161,8 @@ actor {
   };
 
   public query ({ caller }) func calculerTotauxPourSemaine(user : Principal, semaine : Int, annee : Int) : async Totals {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can calculate weekly totals");
     };
 
     if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
@@ -1168,8 +1211,8 @@ actor {
   };
 
   public query ({ caller }) func genererDonneesRapportPdf(typePeriode : { #semaine : (Int, Int); #mois : (Int, Int) }, user : Principal) : async PdfReportData {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can generate PDF reports");
     };
 
     if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
@@ -1284,8 +1327,8 @@ actor {
   };
 
   public query ({ caller }) func calculerNombreConge(user : Principal) : async Int {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can calculate leave days");
     };
 
     if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
@@ -1309,8 +1352,8 @@ actor {
   };
 
   public query ({ caller }) func calculerNombreAstreinte(user : Principal) : async Int {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Connexion requise");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can calculate on-call days");
     };
 
     if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
@@ -1343,3 +1386,4 @@ actor {
     Runtime.trap("Publish restart workflow triggered. This actor is already running the latest version. If a publish failure occurred, redeploying should automatically resolve it. No further action is needed.");
   };
 };
+

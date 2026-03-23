@@ -17,6 +17,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { ExternalBlob } from "../backend";
 import MediaViewer, { type MediaItem } from "../components/MediaViewer";
+import { VoiceInput } from "../components/VoiceInput";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useDeleteMemo, useGetMemos } from "../hooks/useQueries";
@@ -216,15 +217,22 @@ export default function Memo() {
               <Label htmlFor="memo-content" className="text-xs mb-1 block">
                 Note *
               </Label>
-              <Textarea
-                id="memo-content"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Écrivez votre note ici..."
-                rows={3}
-                className="text-sm"
-                data-ocid="memo.content.textarea"
-              />
+              <div className="flex items-start gap-1">
+                <Textarea
+                  id="memo-content"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="Écrivez votre note ici..."
+                  rows={3}
+                  className="text-sm flex-1"
+                  data-ocid="memo.content.textarea"
+                />
+                <VoiceInput
+                  value={content}
+                  onChange={(val) => setContent(val)}
+                  className="mt-1"
+                />
+              </div>
             </div>
 
             {/* Preview photos */}

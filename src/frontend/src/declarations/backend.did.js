@@ -37,6 +37,8 @@ export const PieceUtilisee = IDL.Record({
 export const ExternalBlob = IDL.Vec(IDL.Nat8);
 export const InterventionInput = IDL.Record({
   'id' : IDL.Text,
+  'clientAbsent' : IDL.Bool,
+  'estAstreinte' : IDL.Bool,
   'date' : Time,
   'heureApremDebutMin' : IDL.Int,
   'heureApremDebutH' : IDL.Int,
@@ -47,14 +49,13 @@ export const InterventionInput = IDL.Record({
   'clientAdresse' : IDL.Text,
   'heureApremFinMin' : IDL.Int,
   'pieces' : IDL.Vec(PieceUtilisee),
-  'photos' : IDL.Vec(ExternalBlob),
-  'videos' : IDL.Vec(ExternalBlob),
   'heureMatinDebutMin' : IDL.Int,
   'signatureClient' : IDL.Text,
   'clientNom' : IDL.Text,
   'heureMatinDebutH' : IDL.Int,
+  'videos' : IDL.Vec(ExternalBlob),
   'heureMatinFinMin' : IDL.Int,
-  'estAstreinte' : IDL.Bool,
+  'photos' : IDL.Vec(ExternalBlob),
 });
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
@@ -112,16 +113,8 @@ export const PdfReportData = IDL.Record({
 });
 export const UserProfile = IDL.Record({
   'name' : IDL.Text,
+  'signatureIntervenant' : IDL.Opt(IDL.Text),
   'email' : IDL.Text,
-});
-export const MemoEntry = IDL.Record({
-  'id' : IDL.Text,
-  'authorName' : IDL.Text,
-  'content' : IDL.Text,
-  'photos' : IDL.Vec(ExternalBlob),
-  'videos' : IDL.Vec(ExternalBlob),
-  'createdAt' : IDL.Int,
-  'createdBy' : IDL.Principal,
 });
 export const Fichier = IDL.Record({
   'id' : IDL.Nat,
@@ -136,9 +129,12 @@ export const Fichier = IDL.Record({
 });
 export const InterventionAvecPieces = IDL.Record({
   'id' : IDL.Text,
+  'clientAbsent' : IDL.Bool,
+  'estAstreinte' : IDL.Bool,
   'date' : Time,
   'createdAt' : Time,
   'user' : IDL.Principal,
+  'valide' : IDL.Bool,
   'heureApremDebutMin' : IDL.Int,
   'heureApremDebutH' : IDL.Int,
   'heureApremFinH' : IDL.Int,
@@ -148,17 +144,13 @@ export const InterventionAvecPieces = IDL.Record({
   'clientAdresse' : IDL.Text,
   'heureApremFinMin' : IDL.Int,
   'pieces' : IDL.Vec(PieceUtilisee),
-  'photos' : IDL.Vec(ExternalBlob),
-  'videos' : IDL.Vec(ExternalBlob),
   'heureMatinDebutMin' : IDL.Int,
   'signatureClient' : IDL.Text,
   'clientNom' : IDL.Text,
   'heureMatinDebutH' : IDL.Int,
-  'heureMatinFinMin' : IDL.Int,
-  'estAstreinte' : IDL.Opt(IDL.Bool),
-  'photos' : IDL.Vec(ExternalBlob),
   'videos' : IDL.Vec(ExternalBlob),
-  'valide' : IDL.Opt(IDL.Bool),
+  'heureMatinFinMin' : IDL.Int,
+  'photos' : IDL.Vec(ExternalBlob),
 });
 export const JournalEntry = IDL.Record({
   'id' : IDL.Text,
@@ -192,6 +184,15 @@ export const DailyMediaEntry = IDL.Record({
   'user' : IDL.Principal,
   'relatedDay' : Time,
   'mediaType' : MediaType,
+});
+export const MemoEntry = IDL.Record({
+  'id' : IDL.Text,
+  'content' : IDL.Text,
+  'createdAt' : Time,
+  'createdBy' : IDL.Principal,
+  'authorName' : IDL.Text,
+  'videos' : IDL.Vec(ExternalBlob),
+  'photos' : IDL.Vec(ExternalBlob),
 });
 
 export const idlService = IDL.Service({
@@ -243,6 +244,17 @@ export const idlService = IDL.Service({
       [Totals],
       ['query'],
     ),
+  'creerMemo' : IDL.Func(
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Vec(ExternalBlob),
+        IDL.Vec(ExternalBlob),
+      ],
+      [],
+      [],
+    ),
   'enregistrerJournal' : IDL.Func(
       [
         IDL.Text,
@@ -257,6 +269,7 @@ export const idlService = IDL.Service({
     ),
   'enregistrerJournee' : IDL.Func([TimeEntryInput], [], []),
   'enregistrerMediaQuotidien' : IDL.Func([IDL.Text, MediaType, Time], [], []),
+  'estInterventionValidee' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
   'genererDonneesRapportPdf' : IDL.Func(
       [
         IDL.Variant({
@@ -299,8 +312,18 @@ export const idlService = IDL.Service({
       [IDL.Vec(InterventionAvecPieces)],
       ['query'],
     ),
+  'obtenirInterventionsPubliques' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Vec(InterventionAvecPieces)],
+      ['query'],
+    ),
   'obtenirJournaux' : IDL.Func([], [IDL.Vec(JournalEntry)], ['query']),
   'obtenirJournees' : IDL.Func([], [IDL.Vec(TimeEntry)], ['query']),
+  'obtenirJourneesPubliques' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Vec(TimeEntry)],
+      ['query'],
+    ),
   'obtenirMediasAudioPourJour' : IDL.Func(
       [Time],
       [IDL.Vec(ExternalBlob)],
@@ -311,14 +334,27 @@ export const idlService = IDL.Service({
       [IDL.Vec(DailyMediaEntry)],
       ['query'],
     ),
+  'obtenirMemos' : IDL.Func([], [IDL.Vec(MemoEntry)], ['query']),
   'obtenirPhotosPourJour' : IDL.Func(
       [Time],
       [IDL.Vec(ExternalBlob)],
       ['query'],
     ),
+  'obtenirSignatureIntervenant' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+  'obtenirTousLesProfils' : IDL.Func(
+      [],
+      [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
+      ['query'],
+    ),
+  'obtenirToutesInterventions' : IDL.Func(
+      [],
+      [IDL.Vec(InterventionAvecPieces)],
+      ['query'],
+    ),
   'rechercherFichiers' : IDL.Func([IDL.Text], [IDL.Vec(Fichier)], ['query']),
   'recupererFichier' : IDL.Func([IDL.Nat], [IDL.Opt(Fichier)], ['query']),
   'restartPublish' : IDL.Func([], [], []),
+  'sauvegarderSignatureIntervenant' : IDL.Func([IDL.Text], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'supprimerClient' : IDL.Func([IDL.Text], [], []),
   'supprimerFichier' : IDL.Func([IDL.Nat], [IDL.Bool], []),
@@ -326,17 +362,13 @@ export const idlService = IDL.Service({
   'supprimerJournal' : IDL.Func([IDL.Text], [], []),
   'supprimerJournee' : IDL.Func([IDL.Text], [], []),
   'supprimerMediaQuotidien' : IDL.Func([IDL.Text], [], []),
+  'supprimerMemo' : IDL.Func([IDL.Text], [], []),
   'uploadPhotoDansStoic' : IDL.Func(
       [IDL.Text, ExternalBlob, IDL.Text, IDL.Nat, IDL.Text],
       [IDL.Opt(IDL.Nat)],
       [],
     ),
-  'creerMemo' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Vec(ExternalBlob), IDL.Vec(ExternalBlob)], [], []),
-  'obtenirMemos' : IDL.Func([], [IDL.Vec(MemoEntry)], ['query']),
-  'supprimerMemo' : IDL.Func([IDL.Text], [], []),
-  'obtenirTousLesProfils' : IDL.Func([], [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))], ['query']),
-  'obtenirJourneesPubliques' : IDL.Func([IDL.Principal], [IDL.Vec(TimeEntry)], ['query']),
-  'obtenirInterventionsPubliques' : IDL.Func([IDL.Principal], [IDL.Vec(InterventionAvecPieces)], ['query']),
+  'validerIntervention' : IDL.Func([IDL.Text], [], []),
 });
 
 export const idlInitArgs = [];
@@ -371,6 +403,8 @@ export const idlFactory = ({ IDL }) => {
   const ExternalBlob = IDL.Vec(IDL.Nat8);
   const InterventionInput = IDL.Record({
     'id' : IDL.Text,
+    'clientAbsent' : IDL.Bool,
+    'estAstreinte' : IDL.Bool,
     'date' : Time,
     'heureApremDebutMin' : IDL.Int,
     'heureApremDebutH' : IDL.Int,
@@ -381,14 +415,13 @@ export const idlFactory = ({ IDL }) => {
     'clientAdresse' : IDL.Text,
     'heureApremFinMin' : IDL.Int,
     'pieces' : IDL.Vec(PieceUtilisee),
-    'photos' : IDL.Vec(ExternalBlob),
-    'videos' : IDL.Vec(ExternalBlob),
     'heureMatinDebutMin' : IDL.Int,
     'signatureClient' : IDL.Text,
     'clientNom' : IDL.Text,
     'heureMatinDebutH' : IDL.Int,
+    'videos' : IDL.Vec(ExternalBlob),
     'heureMatinFinMin' : IDL.Int,
-    'estAstreinte' : IDL.Bool,
+    'photos' : IDL.Vec(ExternalBlob),
   });
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
@@ -444,15 +477,10 @@ export const idlFactory = ({ IDL }) => {
     'exportTimestamp' : Time,
     'lignesTableau' : IDL.Vec(IDL.Vec(IDL.Text)),
   });
-  const UserProfile = IDL.Record({ 'name' : IDL.Text, 'email' : IDL.Text });
-  const MemoEntry = IDL.Record({
-    'id' : IDL.Text,
-    'authorName' : IDL.Text,
-    'content' : IDL.Text,
-    'photos' : IDL.Vec(ExternalBlob),
-    'videos' : IDL.Vec(ExternalBlob),
-    'createdAt' : IDL.Int,
-    'createdBy' : IDL.Principal,
+  const UserProfile = IDL.Record({
+    'name' : IDL.Text,
+    'signatureIntervenant' : IDL.Opt(IDL.Text),
+    'email' : IDL.Text,
   });
   const Fichier = IDL.Record({
     'id' : IDL.Nat,
@@ -467,9 +495,12 @@ export const idlFactory = ({ IDL }) => {
   });
   const InterventionAvecPieces = IDL.Record({
     'id' : IDL.Text,
+    'clientAbsent' : IDL.Bool,
+    'estAstreinte' : IDL.Bool,
     'date' : Time,
     'createdAt' : Time,
     'user' : IDL.Principal,
+    'valide' : IDL.Bool,
     'heureApremDebutMin' : IDL.Int,
     'heureApremDebutH' : IDL.Int,
     'heureApremFinH' : IDL.Int,
@@ -483,11 +514,9 @@ export const idlFactory = ({ IDL }) => {
     'signatureClient' : IDL.Text,
     'clientNom' : IDL.Text,
     'heureMatinDebutH' : IDL.Int,
-    'heureMatinFinMin' : IDL.Int,
-    'estAstreinte' : IDL.Opt(IDL.Bool),
-    'photos' : IDL.Vec(ExternalBlob),
     'videos' : IDL.Vec(ExternalBlob),
-    'valide' : IDL.Opt(IDL.Bool),
+    'heureMatinFinMin' : IDL.Int,
+    'photos' : IDL.Vec(ExternalBlob),
   });
   const JournalEntry = IDL.Record({
     'id' : IDL.Text,
@@ -521,6 +550,15 @@ export const idlFactory = ({ IDL }) => {
     'user' : IDL.Principal,
     'relatedDay' : Time,
     'mediaType' : MediaType,
+  });
+  const MemoEntry = IDL.Record({
+    'id' : IDL.Text,
+    'content' : IDL.Text,
+    'createdAt' : Time,
+    'createdBy' : IDL.Principal,
+    'authorName' : IDL.Text,
+    'videos' : IDL.Vec(ExternalBlob),
+    'photos' : IDL.Vec(ExternalBlob),
   });
   
   return IDL.Service({
@@ -572,6 +610,17 @@ export const idlFactory = ({ IDL }) => {
         [Totals],
         ['query'],
       ),
+    'creerMemo' : IDL.Func(
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Vec(ExternalBlob),
+          IDL.Vec(ExternalBlob),
+        ],
+        [],
+        [],
+      ),
     'enregistrerJournal' : IDL.Func(
         [
           IDL.Text,
@@ -586,6 +635,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     'enregistrerJournee' : IDL.Func([TimeEntryInput], [], []),
     'enregistrerMediaQuotidien' : IDL.Func([IDL.Text, MediaType, Time], [], []),
+    'estInterventionValidee' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
     'genererDonneesRapportPdf' : IDL.Func(
         [
           IDL.Variant({
@@ -628,8 +678,18 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(InterventionAvecPieces)],
         ['query'],
       ),
+    'obtenirInterventionsPubliques' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Vec(InterventionAvecPieces)],
+        ['query'],
+      ),
     'obtenirJournaux' : IDL.Func([], [IDL.Vec(JournalEntry)], ['query']),
     'obtenirJournees' : IDL.Func([], [IDL.Vec(TimeEntry)], ['query']),
+    'obtenirJourneesPubliques' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Vec(TimeEntry)],
+        ['query'],
+      ),
     'obtenirMediasAudioPourJour' : IDL.Func(
         [Time],
         [IDL.Vec(ExternalBlob)],
@@ -640,14 +700,31 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(DailyMediaEntry)],
         ['query'],
       ),
+    'obtenirMemos' : IDL.Func([], [IDL.Vec(MemoEntry)], ['query']),
     'obtenirPhotosPourJour' : IDL.Func(
         [Time],
         [IDL.Vec(ExternalBlob)],
         ['query'],
       ),
+    'obtenirSignatureIntervenant' : IDL.Func(
+        [],
+        [IDL.Opt(IDL.Text)],
+        ['query'],
+      ),
+    'obtenirTousLesProfils' : IDL.Func(
+        [],
+        [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
+        ['query'],
+      ),
+    'obtenirToutesInterventions' : IDL.Func(
+        [],
+        [IDL.Vec(InterventionAvecPieces)],
+        ['query'],
+      ),
     'rechercherFichiers' : IDL.Func([IDL.Text], [IDL.Vec(Fichier)], ['query']),
     'recupererFichier' : IDL.Func([IDL.Nat], [IDL.Opt(Fichier)], ['query']),
     'restartPublish' : IDL.Func([], [], []),
+    'sauvegarderSignatureIntervenant' : IDL.Func([IDL.Text], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'supprimerClient' : IDL.Func([IDL.Text], [], []),
     'supprimerFichier' : IDL.Func([IDL.Nat], [IDL.Bool], []),
@@ -655,17 +732,13 @@ export const idlFactory = ({ IDL }) => {
     'supprimerJournal' : IDL.Func([IDL.Text], [], []),
     'supprimerJournee' : IDL.Func([IDL.Text], [], []),
     'supprimerMediaQuotidien' : IDL.Func([IDL.Text], [], []),
+    'supprimerMemo' : IDL.Func([IDL.Text], [], []),
     'uploadPhotoDansStoic' : IDL.Func(
         [IDL.Text, ExternalBlob, IDL.Text, IDL.Nat, IDL.Text],
         [IDL.Opt(IDL.Nat)],
         [],
       ),
-    'creerMemo' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Vec(ExternalBlob), IDL.Vec(ExternalBlob)], [], []),
-    'obtenirMemos' : IDL.Func([], [IDL.Vec(MemoEntry)], ['query']),
-    'supprimerMemo' : IDL.Func([IDL.Text], [], []),
-    'obtenirTousLesProfils' : IDL.Func([], [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))], ['query']),
-    'obtenirJourneesPubliques' : IDL.Func([IDL.Principal], [IDL.Vec(TimeEntry)], ['query']),
-    'obtenirInterventionsPubliques' : IDL.Func([IDL.Principal], [IDL.Vec(InterventionAvecPieces)], ['query']),
+    'validerIntervention' : IDL.Func([IDL.Text], [], []),
   });
 };
 

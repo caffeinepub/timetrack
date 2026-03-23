@@ -51,9 +51,11 @@ function exportInterventionPdf(inv: any, profileName: string) {
         </table>`
       : "<p style='color:#888'>Aucune pièce</p>";
 
-  const sigClientHtml = inv.signatureClient
-    ? `<img src="${inv.signatureClient}" style="max-width:200px;border:1px solid #ccc" />`
-    : "<span style='color:#888'>Non signée</span>";
+  const sigClientHtml = (inv as any).clientAbsent
+    ? "<span style='color:#e65100;font-weight:bold'>Client absent</span>"
+    : inv.signatureClient
+      ? `<img src="${inv.signatureClient}" style="max-width:200px;border:1px solid #ccc" />`
+      : "<span style='color:#888'>Non signée</span>";
 
   const sigIntervHtml = inv.signatureIntervenant
     ? `<img src="${inv.signatureIntervenant}" style="max-width:200px;border:1px solid #ccc" />`
@@ -618,12 +620,19 @@ export default function Facturation() {
                 <div className="flex gap-4">
                   <span
                     className={`text-xs ${
-                      inv.signatureClient
-                        ? "text-emerald-600"
-                        : "text-muted-foreground"
+                      (inv as any).clientAbsent
+                        ? "text-orange-500"
+                        : inv.signatureClient
+                          ? "text-emerald-600"
+                          : "text-muted-foreground"
                     }`}
                   >
-                    Signature client : {inv.signatureClient ? "✓" : "✗"}
+                    Signature client :{" "}
+                    {(inv as any).clientAbsent
+                      ? "absent"
+                      : inv.signatureClient
+                        ? "✓"
+                        : "✗"}
                   </span>
                   <span
                     className={`text-xs ${

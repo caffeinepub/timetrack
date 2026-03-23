@@ -9,12 +9,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, UserX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type {
   InterventionAvecPieces as Intervention,
   InterventionInput,
 } from "../backend.d";
+import { useActor } from "../hooks/useActor";
 import {
   useAddIntervention,
   useDeleteIntervention,
@@ -45,6 +46,7 @@ interface IForm {
   signatureClient: string;
   signatureIntervenant: string;
   estAstreinte: boolean;
+  clientAbsent: boolean;
 }
 
 function defaultForm(): IForm {
@@ -63,6 +65,7 @@ function defaultForm(): IForm {
     signatureClient: "",
     signatureIntervenant: "",
     estAstreinte: false,
+    clientAbsent: false,
   };
 }
 
@@ -127,7 +130,9 @@ export function InterventionFormModal({
   const [clientSearch, setClientSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const saveSignatureTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const { actor } = useActor();
   const { data: clients = [] } = useGetClients();
   const addIntervention = useAddIntervention();
   const updateIntervention = useUpdateIntervention();
@@ -138,6 +143,7 @@ export function InterventionFormModal({
     updateIntervention.isPending ||
     deleteIntervention.isPending;
 
+  // Load saved intervenant signature for new interventions
   useEffect(() => {
     if (!open) return;
     if (editingIntervention) {
@@ -156,13 +162,41 @@ export function InterventionFormModal({
         signatureClient: editingIntervention.signatureClient,
         signatureIntervenant: editingIntervention.signatureIntervenant,
         estAstreinte: (editingIntervention as any).estAstreinte === true,
+        clientAbsent: (editingIntervention as any).clientAbsent === true,
       });
       setClientSearch(editingIntervention.clientNom);
     } else {
-      setForm(defaultForm());
+      const base = defaultForm();
+      setForm(base);
       setClientSearch("");
+      // Auto-load saved intervenant signature
+      if (actor) {
+        actor
+          .obtenirSignatureIntervenant()
+          .then((sig) => {
+            if (sig) {
+              setForm((f) => ({ ...f, signatureIntervenant: sig }));
+            }
+          })
+          .catch(() => {
+            /* ignore */
+          });
+      }
     }
-  }, [open, editingIntervention]);
+  }, [open, editingIntervention, actor]);
+
+  // Debounced save of intervenant signature
+  const handleIntervenantSignatureChange = (sig: string) => {
+    setForm((f) => ({ ...f, signatureIntervenant: sig }));
+    if (saveSignatureTimer.current) clearTimeout(saveSignatureTimer.current);
+    saveSignatureTimer.current = setTimeout(() => {
+      if (actor && sig) {
+        actor.sauvegarderSignatureIntervenant(sig).catch(() => {
+          /* ignore */
+        });
+      }
+    }, 1500);
+  };
 
   const filteredClients =
     clientSearch.length >= 1
@@ -179,7 +213,7 @@ export function InterventionFormModal({
     setShowDropdown(false);
   };
 
-  const buildInput = () => ({
+  const buildInput = (): InterventionInput => ({
     id:
       editingIntervention?.id ??
       `intv-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -195,12 +229,13 @@ export function InterventionFormModal({
     heureApremFinH: BigInt(Number.parseInt(form.apremFinH) || 0),
     heureApremFinMin: BigInt(Number.parseInt(form.apremFinMin) || 0),
     description: form.description,
-    signatureClient: form.signatureClient,
+    signatureClient: form.clientAbsent ? "" : form.signatureClient,
     signatureIntervenant: form.signatureIntervenant,
     pieces: [],
     photos: [],
     videos: [],
     estAstreinte: form.estAstreinte,
+    clientAbsent: form.clientAbsent,
   });
 
   const handleSave = async () => {
@@ -324,7 +359,7 @@ export function InterventionFormModal({
             <Label className="text-sm font-semibold text-blue-700 block">
               Matin
             </Label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">
                   Début
@@ -355,11 +390,11 @@ export function InterventionFormModal({
           </div>
 
           {/* Après-midi */}
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-2">
-            <Label className="text-sm font-semibold text-orange-700 block">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+            <Label className="text-sm font-semibold text-blue-700 block">
               Après-midi
             </Label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">
                   Début
@@ -403,16 +438,55 @@ export function InterventionFormModal({
             />
           </div>
 
-          {/* Signatures */}
-          <SignaturePad
-            label="Signature client"
-            value={form.signatureClient}
-            onChange={set("signatureClient")}
-          />
+          {/* Signature client avec case Client absent */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Signature client</Label>
+              <label
+                className="flex items-center gap-2 cursor-pointer select-none"
+                data-ocid="intervention.client_absent.checkbox"
+              >
+                <input
+                  type="checkbox"
+                  checked={form.clientAbsent}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      clientAbsent: e.target.checked,
+                      signatureClient: e.target.checked
+                        ? ""
+                        : f.signatureClient,
+                    }))
+                  }
+                  className="w-4 h-4 accent-orange-500"
+                />
+                <span className="flex items-center gap-1 text-sm text-orange-700 font-medium">
+                  <UserX className="w-4 h-4" />
+                  Client absent
+                </span>
+              </label>
+            </div>
+            {form.clientAbsent ? (
+              <div className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 py-5">
+                <UserX className="w-5 h-5 text-orange-500" />
+                <span className="text-sm font-semibold text-orange-600">
+                  Client absent — pas de signature
+                </span>
+              </div>
+            ) : (
+              <SignaturePad
+                label=""
+                value={form.signatureClient}
+                onChange={set("signatureClient")}
+              />
+            )}
+          </div>
+
+          {/* Signature intervenant (auto-loaded & auto-saved) */}
           <SignaturePad
             label="Signature intervenant"
             value={form.signatureIntervenant}
-            onChange={set("signatureIntervenant")}
+            onChange={handleIntervenantSignatureChange}
           />
         </div>
 

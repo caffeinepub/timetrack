@@ -16,6 +16,8 @@ export class ExternalBlob {
 }
 export interface InterventionInput {
     id: string;
+    clientAbsent: boolean;
+    estAstreinte: boolean;
     date: Time;
     heureApremDebutMin: bigint;
     heureApremDebutH: bigint;
@@ -30,10 +32,9 @@ export interface InterventionInput {
     signatureClient: string;
     clientNom: string;
     heureMatinDebutH: bigint;
+    videos: Array<ExternalBlob>;
     heureMatinFinMin: bigint;
-    estAstreinte: boolean;
-    photos?: Array<any>;
-    videos?: Array<any>;
+    photos: Array<ExternalBlob>;
 }
 export type Time = bigint;
 export interface PieceUtilisee {
@@ -43,9 +44,12 @@ export interface PieceUtilisee {
 }
 export interface InterventionAvecPieces {
     id: string;
+    clientAbsent: boolean;
+    estAstreinte: boolean;
     date: Time;
     createdAt: Time;
     user: Principal;
+    valide: boolean;
     heureApremDebutMin: bigint;
     heureApremDebutH: bigint;
     heureApremFinH: bigint;
@@ -59,11 +63,9 @@ export interface InterventionAvecPieces {
     signatureClient: string;
     clientNom: string;
     heureMatinDebutH: bigint;
+    videos: Array<ExternalBlob>;
     heureMatinFinMin: bigint;
-    valide?: boolean;
-    photos?: Array<any>;
-    videos?: Array<any>;
-    estAstreinte?: boolean;
+    photos: Array<ExternalBlob>;
 }
 export interface DailyMediaEntry {
     id: string;
@@ -93,6 +95,15 @@ export interface Fichier {
     proprietaire: Principal;
     dateAjout: Time;
 }
+export interface MemoEntry {
+    id: string;
+    content: string;
+    createdAt: Time;
+    createdBy: Principal;
+    authorName: string;
+    videos: Array<ExternalBlob>;
+    photos: Array<ExternalBlob>;
+}
 export interface TimeEntryInput {
     id: string;
     heuresTrajet: bigint;
@@ -114,12 +125,6 @@ export interface Totals {
     heuresAstreinte: bigint;
     heuresRepas: bigint;
 }
-export interface InterventionSlot {
-    endHour: bigint;
-    endMinute: bigint;
-    startMinute: bigint;
-    startHour: bigint;
-}
 export interface PdfReportData {
     titre: string;
     enteteTableau: Array<string>;
@@ -132,6 +137,12 @@ export interface PdfReportData {
     };
     exportTimestamp: Time;
     lignesTableau: Array<Array<string>>;
+}
+export interface InterventionSlot {
+    endHour: bigint;
+    endMinute: bigint;
+    startMinute: bigint;
+    startHour: bigint;
 }
 export type MediaType = {
     __kind__: "audio";
@@ -151,16 +162,8 @@ export interface Client {
 }
 export interface UserProfile {
     name: string;
+    signatureIntervenant?: string;
     email: string;
-}
-export interface MemoEntry {
-    id: string;
-    authorName: string;
-    content: string;
-    photos: Array<ExternalBlob>;
-    videos: Array<ExternalBlob>;
-    createdAt: bigint;
-    createdBy: Principal;
 }
 export interface TimeEntry {
     id: string;
@@ -199,9 +202,11 @@ export interface backendInterface {
     calculerTotauxPourMois(user: Principal, mois: bigint, annee: bigint): Promise<Totals>;
     calculerTotauxPourSemaine(user: Principal, semaine: bigint, annee: bigint): Promise<Totals>;
     calculerTotauxPourUtilisateur(user: Principal): Promise<Totals>;
+    creerMemo(id: string, authorName: string, content: string, photos: Array<ExternalBlob>, videos: Array<ExternalBlob>): Promise<void>;
     enregistrerJournal(id: string, audioUrl: string, transcription: string, notes: string, photos: Array<ExternalBlob>, dayType: DayType | null): Promise<void>;
     enregistrerJournee(input: TimeEntryInput): Promise<void>;
     enregistrerMediaQuotidien(id: string, mediaType: MediaType, relatedDay: Time): Promise<void>;
+    estInterventionValidee(id: string): Promise<boolean>;
     genererDonneesRapportPdf(typePeriode: {
         __kind__: "semaine";
         semaine: [bigint, bigint];
@@ -221,27 +226,29 @@ export interface backendInterface {
     modifierJournee(id: string, input: TimeEntryInput): Promise<void>;
     obtenirClients(): Promise<Array<Client>>;
     obtenirInterventionsPourJour(date: Time): Promise<Array<InterventionAvecPieces>>;
+    obtenirInterventionsPubliques(user: Principal): Promise<Array<InterventionAvecPieces>>;
     obtenirJournaux(): Promise<Array<JournalEntry>>;
     obtenirJournees(): Promise<Array<TimeEntry>>;
-    obtenirInterventionsPubliques(user: Principal): Promise<Array<InterventionAvecPieces>>;
     obtenirJourneesPubliques(user: Principal): Promise<Array<TimeEntry>>;
-    creerMemo(id: string, authorName: string, content: string, photos: ExternalBlob[], videos: ExternalBlob[]): Promise<void>;
-    obtenirMemos(): Promise<MemoEntry[]>;
-    supprimerMemo(id: string): Promise<void>;
-    obtenirTousLesProfils(): Promise<Array<[Principal, UserProfile]>>;
     obtenirMediasAudioPourJour(date: Time): Promise<Array<ExternalBlob>>;
     obtenirMediasPourJour(date: Time): Promise<Array<DailyMediaEntry>>;
+    obtenirMemos(): Promise<Array<MemoEntry>>;
     obtenirPhotosPourJour(date: Time): Promise<Array<ExternalBlob>>;
+    obtenirSignatureIntervenant(): Promise<string | null>;
+    obtenirTousLesProfils(): Promise<Array<[Principal, UserProfile]>>;
+    obtenirToutesInterventions(): Promise<Array<InterventionAvecPieces>>;
     rechercherFichiers(_motCle: string): Promise<Array<Fichier>>;
     recupererFichier(_id: bigint): Promise<Fichier | null>;
     restartPublish(): Promise<void>;
+    sauvegarderSignatureIntervenant(sig: string): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     supprimerClient(id: string): Promise<void>;
     supprimerFichier(_id: bigint): Promise<boolean>;
     supprimerIntervention(id: string): Promise<void>;
-    validerIntervention(id: string): Promise<void>;
     supprimerJournal(id: string): Promise<void>;
     supprimerJournee(id: string): Promise<void>;
     supprimerMediaQuotidien(id: string): Promise<void>;
+    supprimerMemo(id: string): Promise<void>;
     uploadPhotoDansStoic(filename: string, content: ExternalBlob, mimeType: string, taille: bigint, description: string): Promise<bigint | null>;
+    validerIntervention(id: string): Promise<void>;
 }

@@ -29,6 +29,7 @@ import {
 } from "../components/DayTypeCheckboxGroup";
 import MediaViewer, { type MediaItem } from "../components/MediaViewer";
 import { SignaturePad } from "../components/SignaturePad";
+import { VoiceInput } from "../components/VoiceInput";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
@@ -209,6 +210,7 @@ interface InterventionSlotForm {
   videos: ExternalBlob[];
   videoUrls: string[];
   estAstreinte: boolean;
+  clientAbsent: boolean;
 }
 
 interface TimeEntryForm {
@@ -245,6 +247,7 @@ const defaultSlot = (): InterventionSlotForm => ({
   videos: [],
   videoUrls: [],
   estAstreinte: false,
+  clientAbsent: false,
 });
 
 const defaultForm = (): TimeEntryForm => ({
@@ -511,6 +514,7 @@ export default function Calendar() {
                 ? intv.videos.map((v: any) => getBlobUrl(v))
                 : [],
               estAstreinte: (intv as any).estAstreinte === true,
+              clientAbsent: (intv as any).clientAbsent === true,
             };
           }),
         }));
@@ -614,6 +618,7 @@ export default function Calendar() {
           photos: slot.photos,
           videos: slot.videos,
           estAstreinte: slot.estAstreinte ?? false,
+          clientAbsent: slot.clientAbsent ?? false,
         };
         if (slot.ficheId) {
           await actor.modifierIntervention(slot.ficheId, interventionInput);
@@ -733,10 +738,20 @@ export default function Calendar() {
     }));
   };
 
-  const addInterventionSlot = () => {
+  const addInterventionSlot = async () => {
+    const slot = defaultSlot();
+    // Auto-load saved intervenant signature
+    if (actor) {
+      try {
+        const sig = await actor.obtenirSignatureIntervenant();
+        if (sig) slot.signatureIntervenant = sig;
+      } catch (_) {
+        /* ignore */
+      }
+    }
     setForm((f) => ({
       ...f,
-      interventionSlots: [...f.interventionSlots, defaultSlot()],
+      interventionSlots: [...f.interventionSlots, slot],
     }));
   };
 
@@ -1542,16 +1557,29 @@ export default function Calendar() {
                         <Label className="text-xs text-muted-foreground mb-1 block">
                           Description
                         </Label>
-                        <Textarea
-                          value={slot.ficheDescription}
-                          onChange={(e) =>
-                            updateSlot(idx, "ficheDescription", e.target.value)
-                          }
-                          placeholder="Description de l'intervention..."
-                          rows={2}
-                          className="text-sm"
-                          data-ocid="calendar.fiche_description.textarea"
-                        />
+                        <div className="flex items-start gap-1">
+                          <Textarea
+                            value={slot.ficheDescription}
+                            onChange={(e) =>
+                              updateSlot(
+                                idx,
+                                "ficheDescription",
+                                e.target.value,
+                              )
+                            }
+                            placeholder="Description de l'intervention..."
+                            rows={2}
+                            className="text-sm flex-1"
+                            data-ocid="calendar.fiche_description.textarea"
+                          />
+                          <VoiceInput
+                            value={slot.ficheDescription}
+                            onChange={(val) =>
+                              updateSlot(idx, "ficheDescription", val)
+                            }
+                            className="mt-1"
+                          />
+                        </div>
                       </div>
 
                       {/* Pièces utilisées */}
@@ -1754,17 +1782,77 @@ export default function Calendar() {
                       </div>
 
                       {/* Signatures */}
-                      <SignaturePad
-                        label="Signature client"
-                        value={slot.signatureClient}
-                        onChange={(v) => updateSlot(idx, "signatureClient", v)}
-                      />
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">
+                            Signature client
+                          </span>
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={slot.clientAbsent ?? false}
+                              onChange={(e) => {
+                                updateSlot(
+                                  idx,
+                                  "clientAbsent",
+                                  e.target.checked,
+                                );
+                                if (e.target.checked)
+                                  updateSlot(idx, "signatureClient", "");
+                              }}
+                              className="w-4 h-4 accent-orange-500"
+                            />
+                            <span className="flex items-center gap-1 text-xs text-orange-700 font-medium">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-label="Client absent"
+                                role="img"
+                              >
+                                <title>Client absent</title>
+                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                                <circle cx="9" cy="7" r="4" />
+                                <line x1="17" y1="8" x2="23" y2="14" />
+                                <line x1="23" y1="8" x2="17" y2="14" />
+                              </svg>
+                              Client absent
+                            </span>
+                          </label>
+                        </div>
+                        {(slot.clientAbsent ?? false) ? (
+                          <div className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 py-4">
+                            <span className="text-xs font-semibold text-orange-600">
+                              Client absent — pas de signature
+                            </span>
+                          </div>
+                        ) : (
+                          <SignaturePad
+                            label=""
+                            value={slot.signatureClient}
+                            onChange={(v) =>
+                              updateSlot(idx, "signatureClient", v)
+                            }
+                          />
+                        )}
+                      </div>
                       <SignaturePad
                         label="Signature intervenant"
                         value={slot.signatureIntervenant}
-                        onChange={(v) =>
-                          updateSlot(idx, "signatureIntervenant", v)
-                        }
+                        onChange={(v) => {
+                          updateSlot(idx, "signatureIntervenant", v);
+                          if (actor && v) {
+                            actor
+                              .sauvegarderSignatureIntervenant(v)
+                              .catch(() => {});
+                          }
+                        }}
                       />
                     </div>
                   </div>
@@ -1777,15 +1865,25 @@ export default function Calendar() {
               <Label className="text-sm font-medium mb-1 block">
                 Description
               </Label>
-              <Textarea
-                value={form.description}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, description: e.target.value }))
-                }
-                placeholder="Notes sur la journée..."
-                rows={2}
-                data-ocid="calendar.description.textarea"
-              />
+              <div className="flex items-start gap-1">
+                <Textarea
+                  value={form.description}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, description: e.target.value }))
+                  }
+                  placeholder="Notes sur la journée..."
+                  rows={2}
+                  className="flex-1"
+                  data-ocid="calendar.description.textarea"
+                />
+                <VoiceInput
+                  value={form.description}
+                  onChange={(val) =>
+                    setForm((f) => ({ ...f, description: val }))
+                  }
+                  className="mt-1"
+                />
+              </div>
             </div>
           </div>
 

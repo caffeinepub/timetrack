@@ -43,9 +43,12 @@ export interface Fichier {
 }
 export interface InterventionAvecPieces {
   'id' : string,
+  'clientAbsent' : boolean,
+  'estAstreinte' : boolean,
   'date' : Time,
   'createdAt' : Time,
   'user' : Principal,
+  'valide' : boolean,
   'heureApremDebutMin' : bigint,
   'heureApremDebutH' : bigint,
   'heureApremFinH' : bigint,
@@ -59,10 +62,14 @@ export interface InterventionAvecPieces {
   'signatureClient' : string,
   'clientNom' : string,
   'heureMatinDebutH' : bigint,
+  'videos' : Array<ExternalBlob>,
   'heureMatinFinMin' : bigint,
+  'photos' : Array<ExternalBlob>,
 }
 export interface InterventionInput {
   'id' : string,
+  'clientAbsent' : boolean,
+  'estAstreinte' : boolean,
   'date' : Time,
   'heureApremDebutMin' : bigint,
   'heureApremDebutH' : bigint,
@@ -77,7 +84,9 @@ export interface InterventionInput {
   'signatureClient' : string,
   'clientNom' : string,
   'heureMatinDebutH' : bigint,
+  'videos' : Array<ExternalBlob>,
   'heureMatinFinMin' : bigint,
+  'photos' : Array<ExternalBlob>,
 }
 export interface InterventionSlot {
   'endHour' : bigint,
@@ -97,6 +106,15 @@ export interface JournalEntry {
 }
 export type MediaType = { 'audio' : ExternalBlob } |
   { 'photo' : ExternalBlob };
+export interface MemoEntry {
+  'id' : string,
+  'content' : string,
+  'createdAt' : Time,
+  'createdBy' : Principal,
+  'authorName' : string,
+  'videos' : Array<ExternalBlob>,
+  'photos' : Array<ExternalBlob>,
+}
 export interface PdfReportData {
   'titre' : string,
   'enteteTableau' : Array<string>,
@@ -153,17 +171,11 @@ export interface Totals {
   'heuresAstreinte' : bigint,
   'heuresRepas' : bigint,
 }
-export interface UserProfile { 'name' : string, 'email' : string }
-export declare const MemoEntry: IDL.RecordClass;
-export type MemoEntry = {
-  id: string;
-  authorName: string;
-  content: string;
-  photos: ExternalBlob[];
-  videos: ExternalBlob[];
-  createdAt: bigint;
-  createdBy: Principal;
-};
+export interface UserProfile {
+  'name' : string,
+  'signatureIntervenant' : [] | [string],
+  'email' : string,
+}
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
@@ -207,6 +219,10 @@ export interface _SERVICE {
     Totals
   >,
   'calculerTotauxPourUtilisateur' : ActorMethod<[Principal], Totals>,
+  'creerMemo' : ActorMethod<
+    [string, string, string, Array<ExternalBlob>, Array<ExternalBlob>],
+    undefined
+  >,
   'enregistrerJournal' : ActorMethod<
     [string, string, string, string, Array<ExternalBlob>, [] | [DayType]],
     undefined
@@ -216,6 +232,7 @@ export interface _SERVICE {
     [string, MediaType, Time],
     undefined
   >,
+  'estInterventionValidee' : ActorMethod<[string], boolean>,
   'genererDonneesRapportPdf' : ActorMethod<
     [
       { 'semaine' : [bigint, bigint] } |
@@ -242,14 +259,24 @@ export interface _SERVICE {
     [Time],
     Array<InterventionAvecPieces>
   >,
+  'obtenirInterventionsPubliques' : ActorMethod<
+    [Principal],
+    Array<InterventionAvecPieces>
+  >,
   'obtenirJournaux' : ActorMethod<[], Array<JournalEntry>>,
   'obtenirJournees' : ActorMethod<[], Array<TimeEntry>>,
+  'obtenirJourneesPubliques' : ActorMethod<[Principal], Array<TimeEntry>>,
   'obtenirMediasAudioPourJour' : ActorMethod<[Time], Array<ExternalBlob>>,
   'obtenirMediasPourJour' : ActorMethod<[Time], Array<DailyMediaEntry>>,
+  'obtenirMemos' : ActorMethod<[], Array<MemoEntry>>,
   'obtenirPhotosPourJour' : ActorMethod<[Time], Array<ExternalBlob>>,
+  'obtenirSignatureIntervenant' : ActorMethod<[], [] | [string]>,
+  'obtenirTousLesProfils' : ActorMethod<[], Array<[Principal, UserProfile]>>,
+  'obtenirToutesInterventions' : ActorMethod<[], Array<InterventionAvecPieces>>,
   'rechercherFichiers' : ActorMethod<[string], Array<Fichier>>,
   'recupererFichier' : ActorMethod<[bigint], [] | [Fichier]>,
   'restartPublish' : ActorMethod<[], undefined>,
+  'sauvegarderSignatureIntervenant' : ActorMethod<[string], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'supprimerClient' : ActorMethod<[string], undefined>,
   'supprimerFichier' : ActorMethod<[bigint], boolean>,
@@ -257,16 +284,12 @@ export interface _SERVICE {
   'supprimerJournal' : ActorMethod<[string], undefined>,
   'supprimerJournee' : ActorMethod<[string], undefined>,
   'supprimerMediaQuotidien' : ActorMethod<[string], undefined>,
-  creerMemo: ActorMethod<[string, string, string, ExternalBlob[], ExternalBlob[]], undefined>;
-  obtenirMemos: ActorMethod<[], MemoEntry[]>;
-  supprimerMemo: ActorMethod<[string], undefined>;
-  obtenirTousLesProfils: ActorMethod<[], Array<[Principal, UserProfile]>>;
-  obtenirJourneesPubliques: ActorMethod<[Principal], TimeEntry[]>;
-  obtenirInterventionsPubliques: ActorMethod<[Principal], InterventionAvecPieces[]>;
+  'supprimerMemo' : ActorMethod<[string], undefined>,
   'uploadPhotoDansStoic' : ActorMethod<
     [string, ExternalBlob, string, bigint, string],
     [] | [bigint]
   >,
+  'validerIntervention' : ActorMethod<[string], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];
