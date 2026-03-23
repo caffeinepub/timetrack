@@ -65,25 +65,14 @@ export default function Header({ userName }: HeaderProps) {
                   Vial Traite Service
                 </h1>
                 {userName && (
-                  <>
-                    <span className="text-white/40 hidden sm:inline">•</span>
-                    <span
-                      className="text-xs sm:text-sm font-semibold truncate"
-                      style={{ color: "oklch(var(--vts-green))" }}
-                    >
-                      {userName}
-                    </span>
-                  </>
+                  <span
+                    className="text-xs sm:text-sm font-semibold truncate"
+                    style={{ color: "oklch(var(--vts-green))" }}
+                  >
+                    Bonjour {userName}
+                  </span>
                 )}
               </div>
-              {userName && (
-                <p
-                  className="text-xs sm:hidden truncate font-semibold"
-                  style={{ color: "oklch(var(--vts-green))" }}
-                >
-                  {userName}
-                </p>
-              )}
             </div>
           </div>
 
