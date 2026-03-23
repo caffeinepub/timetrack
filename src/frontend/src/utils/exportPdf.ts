@@ -80,6 +80,11 @@ function buildInterventionRows(
         }
         ${inv.description ? `<p style="font-size:12px;color:#555;font-style:italic;border-left:3px solid #ddd;padding-left:8px;margin:6px 0">${inv.description}</p>` : ""}
         ${inv.pieces.length > 0 ? `<p style="font-size:11px;font-weight:600;margin:6px 0 2px">Pièces utilisées :</p>${piecesRows}` : ""}
+        <div style="margin-top:16px;padding-top:8px;border-top:1px solid #e5e7eb;text-align:center;font-size:10px;color:#9ca3af">
+          Z.I. du Martinet — 15300 Murat
+          <br/><br/>
+          04 71 20 12 22
+        </div>
       </div>`;
     })
     .join("");

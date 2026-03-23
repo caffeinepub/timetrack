@@ -123,7 +123,10 @@ function exportInterventionPdf(inv: any, profileName: string) {
       .sig-block { text-align:center; }
     </style>
   </head><body>
-    <h1>Fiche Intervention</h1>
+    <div style="background:#0f1e4a;color:#fff;padding:12px 16px;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
+      <img src="/assets/generated/vache-logo-transparent.dim_300x300.png" style="width:56px;height:56px" alt="Logo" />
+      <div><div style="font-size:20px;font-weight:800">Vial Traite Service</div><div style="font-size:12px;color:rgba(255,255,255,0.7)">Fiche d'Intervention</div></div>
+    </div>
     <div class="badge">Créée par : ${profileName}</div><br/>
     ${inv.estAstreinte ? '<div class="badge-astreinte">ASTREINTE</div>' : ""}
     <div class="section"><span class="label">Date :</span> ${date}</div>
@@ -143,6 +146,11 @@ function exportInterventionPdf(inv: any, profileName: string) {
       <div class="sig-block"><div class="label">Signature Client</div>${sigClientHtml}</div>
       <div class="sig-block"><div class="label">Signature Intervenant</div>${sigIntervHtml}</div>
     </div>
+      <div style="margin-top:24px;padding-top:10px;border-top:1px solid #ccc;text-align:center;font-size:11px;color:#888">
+        Z.I. du Martinet — 15300 Murat
+        <br/><br/>
+        04 71 20 12 22
+      </div>
   </body></html>`);
   win.document.close();
   setTimeout(() => win.print(), 500);

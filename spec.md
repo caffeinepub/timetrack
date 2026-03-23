@@ -1,26 +1,27 @@
 # Vial Traite Service
 
 ## Current State
-Calendar.tsx has two bugs causing deleted interventions to reappear after page reload:
-1. `handleDelete` only deletes the `TimeEntry` (journée) but NOT the associated `Intervention` records in the backend (stored separately, linked by date).
-2. `removeInterventionSlot` only removes a slot from local React state but never calls `actor.supprimerIntervention(slot.ficheId)` on the backend.
-
-Result: When user deletes a day or a slot, backend intervention records persist. On next page open for the same date, `obtenirInterventionsPourJour` fetches them back and they reappear.
+L'application gère des fiches intervention dans plusieurs sections : Calendrier, Facturation, et dossier Clients. Chaque fiche affiche un en-tête avec logo et "Vial Traite Service", mais aucun pied de page avec coordonnées.
 
 ## Requested Changes (Diff)
 
 ### Add
-- In `handleDelete`: before deleting the TimeEntry, fetch all interventions for that day via `actor.obtenirInterventionsPourJour(editingEntry.date)` and delete each one via `actor.supprimerIntervention(intv.id)`.
-- In `removeInterventionSlot`: make it async, and if `slot.ficheId` exists, call `actor.supprimerIntervention(slot.ficheId)` before removing from local state.
+- Pied de page sur chaque fiche intervention (calendrier, facturation, dossier client) et dans tous les exports PDF :
+  - "Z.I. du Martinet — 15300 Murat" centré en petits caractères
+  - Séparateur léger (ligne horizontale)
+  - "04 71 20 12 22" centré en petits caractères, légèrement détaché du reste
 
 ### Modify
-- `handleDelete` function in Calendar.tsx
-- `removeInterventionSlot` function in Calendar.tsx
+- `Facturation.tsx` : `buildInterventionHtml()` — ajouter le pied de page avant la fermeture du `<div>` principal (ligne 81)
+- `Clients.tsx` : `exportInterventionPdf()` — ajouter le pied de page avant `</body></html>` (ligne 148)
+- `exportPdf.ts` : `buildInterventionRows()` — ajouter le pied de page dans chaque card d'intervention (ligne 82)
+- `Calendar.tsx` : vue in-app de la fiche intervention — ajouter le pied de page après la SignaturePad intervenant (ligne 1893)
 
 ### Remove
-- Nothing removed
+- Rien
 
 ## Implementation Plan
-1. Fix `handleDelete` to cascade-delete all backend interventions for the day before deleting the TimeEntry.
-2. Fix `removeInterventionSlot` to call `actor.supprimerIntervention` for slots that have a `ficheId`.
-3. Validate and build.
+1. Modifier `buildInterventionHtml()` dans Facturation.tsx pour ajouter le footer HTML
+2. Modifier `exportInterventionPdf()` dans Clients.tsx pour ajouter le footer HTML
+3. Modifier `buildInterventionRows()` dans exportPdf.ts pour ajouter le footer HTML
+4. Modifier le composant inline de la fiche dans Calendar.tsx pour ajouter le footer JSX

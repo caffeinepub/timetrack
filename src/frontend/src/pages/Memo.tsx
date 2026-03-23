@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  FileText,
   Image as ImageIcon,
   Loader2,
   Plus,
@@ -33,6 +34,56 @@ function formatDateFr(ts: bigint): string {
       minute: "2-digit",
     })
     .replace(" à ", " à ");
+}
+
+function exportMemoPdf(memo: any) {
+  const win = window.open("", "_blank", "width=900,height=700");
+  if (!win) {
+    alert("Popup bloqué. Veuillez autoriser les popups.");
+    return;
+  }
+  const date = new Date(Number(memo.createdAt) / 1_000_000).toLocaleDateString(
+    "fr-FR",
+    {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+  );
+  const photosHtml = (memo.photos ?? [])
+    .map((p: any) => {
+      const url =
+        typeof p.getDirectURL === "function"
+          ? p.getDirectURL()
+          : (p.directURL ?? "");
+      return url
+        ? `<img src="${url}" style="max-width:100%;margin:6px 0;border-radius:6px;border:1px solid #e5e7eb" />`
+        : "";
+    })
+    .filter(Boolean)
+    .join("");
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+    <title>Mémo — ${memo.authorName}</title>
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:13px;color:#1a1a1a;background:#fff;padding:24px}
+    .header{background:#0f1e4a;color:#fff;padding:14px 18px;border-radius:8px;margin-bottom:20px;display:flex;align-items:center;gap:14px}
+    .header img{width:48px;height:48px}.header-title{font-size:18px;font-weight:800}.header-sub{font-size:11px;color:rgba(255,255,255,0.7)}
+    .meta{font-size:12px;color:#555;margin-bottom:16px}.content{font-size:14px;line-height:1.7;white-space:pre-wrap;border-left:4px solid #16a34a;padding-left:12px}
+    @media print{body{padding:1cm}}</style>
+  </head><body>
+    <div class="header">
+      <img src="/assets/generated/vache-logo-transparent.dim_300x300.png" alt="Logo" />
+      <div><div class="header-title">Vial Traite Service</div><div class="header-sub">Mémo</div></div>
+    </div>
+    <div class="meta"><strong>${memo.authorName}</strong> — ${date}</div>
+    <div class="content">${memo.content || ""}</div>
+    ${photosHtml ? `<div style="margin-top:16px">${photosHtml}</div>` : ""}
+  </body></html>`;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 500);
 }
 
 export default function Memo() {
@@ -401,19 +452,31 @@ export default function Memo() {
                         {formatDateFr(memo.createdAt)}
                       </span>
                     </div>
-                    {isAuthenticated && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(memo.id)}
-                        disabled={deleteMemo.isPending}
-                        data-ocid={`memo.delete_button.${i + 1}`}
-                        className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10 flex-shrink-0"
+                        onClick={() => exportMemoPdf(memo)}
+                        data-ocid={`memo.pdf_button.${i + 1}`}
+                        className="h-7 w-7 p-0 text-blue-600 hover:bg-blue-50"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <FileText className="w-3.5 h-3.5" />
                       </Button>
-                    )}
+                      {isAuthenticated && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(memo.id)}
+                          disabled={deleteMemo.isPending}
+                          data-ocid={`memo.delete_button.${i + 1}`}
+                          className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <p className="text-sm text-foreground whitespace-pre-wrap mb-3">
                     {memo.content}

@@ -55,7 +55,13 @@ function buildInterventionHtml(inv: any, profileName: string): string {
 
   return `
     <div style="page-break-inside:avoid; margin-bottom:40px; border-bottom:2px solid #ccc; padding-bottom:30px">
-      <h2 style="font-size:18px; margin-bottom:4px;">Fiche Intervention</h2>
+      <div style="background:#0f1e4a;color:#fff;padding:12px 16px;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
+        <img src="/assets/generated/vache-logo-transparent.dim_300x300.png" style="width:56px;height:56px;flex-shrink:0" alt="Logo" />
+        <div>
+          <div style="font-size:20px;font-weight:800;letter-spacing:0.5px">Vial Traite Service</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:2px">Fiche d'Intervention</div>
+        </div>
+      </div>
       <div style="display:inline-block; background:#e0f0ff; color:#1d6fa5; padding:2px 8px; border-radius:4px; font-size:12px; margin-bottom:4px;">Créée par : ${profileName}</div><br/>
       ${inv.estAstreinte ? '<div style="display:inline-block; background:#fff3e0; color:#e65100; padding:2px 8px; border-radius:4px; font-size:12px; margin-bottom:12px; font-weight:bold;">ASTREINTE</div>' : ""}
       <div style="margin-bottom:12px;"><strong>Date :</strong> ${date}</div>
@@ -72,6 +78,11 @@ function buildInterventionHtml(inv: any, profileName: string): string {
       <div style="display:flex; gap:40px; margin-top:20px;">
         <div style="text-align:center;"><div style="font-weight:bold;">Signature Client</div>${sigClientHtml}</div>
         <div style="text-align:center;"><div style="font-weight:bold;">Signature Intervenant</div>${sigIntervHtml}</div>
+      </div>
+      <div style="margin-top:24px;padding-top:10px;border-top:1px solid #ccc;text-align:center;font-size:11px;color:#888">
+        Z.I. du Martinet — 15300 Murat
+        <br/><br/>
+        04 71 20 12 22
       </div>
     </div>`;
 }

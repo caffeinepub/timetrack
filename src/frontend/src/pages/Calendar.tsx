@@ -1891,6 +1891,21 @@ export default function Calendar() {
                           }
                         }}
                       />
+                      <div
+                        style={{
+                          marginTop: "20px",
+                          paddingTop: "10px",
+                          borderTop: "1px solid #e5e7eb",
+                          textAlign: "center",
+                          fontSize: "11px",
+                          color: "#9ca3af",
+                        }}
+                      >
+                        Z.I. du Martinet — 15300 Murat
+                        <br />
+                        <br />
+                        04 71 20 12 22
+                      </div>
                     </div>
                   </div>
                 ))}
