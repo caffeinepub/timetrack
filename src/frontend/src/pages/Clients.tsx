@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Principal } from "@icp-sdk/core/principal";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown,
   ChevronUp,
@@ -32,6 +32,7 @@ import {
 import { useMemo, useState } from "react";
 import type { Client } from "../backend";
 import { useActor } from "../hooks/useActor";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useAddClient,
   useDeleteClient,
@@ -153,13 +154,22 @@ function ClientInterventions({
   clientNom,
   allInterventions,
   profileNameMap,
+  currentUserPrincipal,
+  actor,
+  onInterventionDeleted,
 }: {
   clientNom: string;
   allInterventions: any[];
   profileNameMap: Map<string, string>;
+  currentUserPrincipal: string | null;
+  actor: any;
+  onInterventionDeleted: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [mediaModal, setMediaModal] = useState<MediaModalState>(null);
+  const [deleteConfirmInterv, setDeleteConfirmInterv] = useState<string | null>(
+    null,
+  );
 
   const interventions = useMemo(
     () =>
@@ -267,16 +277,32 @@ function ClientInterventions({
                         </span>
                       )}
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs shrink-0"
-                      onClick={() => exportInterventionPdf(inv, profileName)}
-                      data-ocid={`clients.intervention.secondary_button.${i + 1}`}
-                    >
-                      <FileText className="w-3 h-3 mr-1" />
-                      PDF
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs shrink-0"
+                        onClick={() => exportInterventionPdf(inv, profileName)}
+                        data-ocid={`clients.intervention.secondary_button.${i + 1}`}
+                      >
+                        <FileText className="w-3 h-3 mr-1" />
+                        PDF
+                      </Button>
+                      {currentUserPrincipal &&
+                        inv.user?.toString?.() === currentUserPrincipal && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs shrink-0 text-destructive hover:bg-destructive/10"
+                            onClick={() =>
+                              setDeleteConfirmInterv(inv.id ?? String(i))
+                            }
+                            data-ocid={`clients.intervention.delete_button.${i + 1}`}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        )}
+                    </div>
                   </div>
 
                   {/* Horaires */}
@@ -427,6 +453,47 @@ function ClientInterventions({
               );
             })
           )}
+
+          {/* Delete intervention confirmation */}
+          <Dialog
+            open={!!deleteConfirmInterv}
+            onOpenChange={() => setDeleteConfirmInterv(null)}
+          >
+            <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Supprimer cette intervention ?</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                Cette action est irréversible. L'intervention sera supprimée
+                définitivement.
+              </p>
+              <DialogFooter className="gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteConfirmInterv(null)}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    if (!deleteConfirmInterv || !actor) return;
+                    try {
+                      await (actor as any).supprimerIntervention(
+                        deleteConfirmInterv,
+                      );
+                      onInterventionDeleted();
+                      setDeleteConfirmInterv(null);
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }}
+                >
+                  Supprimer
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       )}
     </div>
@@ -435,6 +502,11 @@ function ClientInterventions({
 
 export default function Clients() {
   const { actor, isFetching: actorFetching } = useActor();
+  const { identity } = useInternetIdentity();
+  const queryClient = useQueryClient();
+  const currentUserPrincipal = identity
+    ? identity.getPrincipal().toString()
+    : null;
   const { data: clients = [], isLoading } = useGetClients();
   const addClient = useAddClient();
   const updateClient = useUpdateClient();
@@ -484,9 +556,10 @@ export default function Clients() {
 
   const filtered = clients.filter((c) => {
     const q = search.toLowerCase();
+    const phones = (c.telephone || "").split("|");
     return (
       c.nom.toLowerCase().includes(q) ||
-      c.telephone.toLowerCase().includes(q) ||
+      phones.some((p) => p.toLowerCase().includes(q)) ||
       c.email.toLowerCase().includes(q)
     );
   });
@@ -755,6 +828,13 @@ export default function Clients() {
                 clientNom={client.nom}
                 allInterventions={allInterventions as any[]}
                 profileNameMap={profileNameMap}
+                currentUserPrincipal={currentUserPrincipal}
+                actor={actor}
+                onInterventionDeleted={() =>
+                  queryClient.invalidateQueries({
+                    queryKey: ["clientsInterventions"],
+                  })
+                }
               />
             </CardContent>
           </Card>

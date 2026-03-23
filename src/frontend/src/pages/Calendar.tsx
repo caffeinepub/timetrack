@@ -477,13 +477,12 @@ export default function Calendar() {
         const interventions = await (actor as any).obtenirInterventionsPourJour(
           entry.date,
         );
-        setForm((f) => ({
-          ...f,
-          interventionSlots: f.interventionSlots.map((slot, idx) => {
-            const intv = interventions[idx];
-            if (!intv) return slot;
-            return {
-              ...slot,
+        // Build slots directly from backend records (do NOT map by index — backend order is not guaranteed)
+        if (interventions.length > 0) {
+          setForm((f) => ({
+            ...f,
+            interventionSlots: interventions.map((intv: any) => ({
+              ...defaultSlot(),
               ficheId: intv.id,
               clientNom: intv.clientNom,
               clientAdresse: intv.clientAdresse,
@@ -515,9 +514,9 @@ export default function Calendar() {
                 : [],
               estAstreinte: (intv as any).estAstreinte === true,
               clientAbsent: (intv as any).clientAbsent === true,
-            };
-          }),
-        }));
+            })),
+          }));
+        }
       } catch (_e) {
         // ignore — interventions may not exist yet
       }
@@ -583,7 +582,13 @@ export default function Calendar() {
 
       // Save fiche interventions for each slot
       const dateTs = dateToTimestamp(selectedDate);
-      for (const slot of form.interventionSlots) {
+      const updatedSlots = [...form.interventionSlots];
+      for (
+        let slotIdx = 0;
+        slotIdx < form.interventionSlots.length;
+        slotIdx++
+      ) {
+        const slot = form.interventionSlots[slotIdx];
         const hasContent =
           slot.clientNom ||
           slot.ficheDescription ||
@@ -592,10 +597,12 @@ export default function Calendar() {
           slot.ficheId ||
           slot.piecesLignes.length > 0;
         if (!hasContent) continue;
+        // Generate a stable ID for new interventions so they can be updated later
+        const newId =
+          slot.ficheId ||
+          `intv-${Date.now()}-${slotIdx}-${Math.random().toString(36).slice(2)}`;
         const interventionInput = {
-          id:
-            slot.ficheId ||
-            `intv-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          id: newId,
           date: dateTs,
           clientNom: slot.clientNom,
           clientAdresse: slot.clientAdresse,
@@ -624,8 +631,12 @@ export default function Calendar() {
           await actor.modifierIntervention(slot.ficheId, interventionInput);
         } else {
           await actor.ajouterIntervention(interventionInput);
+          // Persist the new ID so subsequent saves use modifierIntervention instead of creating duplicates
+          updatedSlots[slotIdx] = { ...updatedSlots[slotIdx], ficheId: newId };
         }
       }
+      // Update form state with the new ficheIds so re-saves are idempotent
+      setForm((f) => ({ ...f, interventionSlots: updatedSlots }));
 
       // Refresh the entries list after saving
       queryClient.invalidateQueries({ queryKey: ["timeEntries"] });
