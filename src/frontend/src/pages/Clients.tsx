@@ -40,10 +40,13 @@ import {
   useUpdateClient,
 } from "../hooks/useQueries";
 
-const emptyForm = (): Omit<Client, "id" | "createdAt" | "listeNoire"> => ({
+const emptyForm = (): Omit<Client, "id" | "createdAt" | "listeNoire"> & {
+  telephone2: string;
+} => ({
   nom: "",
   adresse: "",
   telephone: "",
+  telephone2: "",
   email: "",
 });
 
@@ -500,10 +503,12 @@ export default function Clients() {
 
   const openEdit = (client: Client) => {
     setEditingId(client.id);
+    const [_tel1, _tel2] = (client.telephone || "").split("|");
     setForm({
       nom: client.nom,
       adresse: client.adresse,
-      telephone: client.telephone,
+      telephone: _tel1 || "",
+      telephone2: _tel2 || "",
       email: client.email,
     });
     setDialogOpen(true);
@@ -512,6 +517,17 @@ export default function Clients() {
   const handleSubmit = async () => {
     if (!form.nom.trim()) return;
     const now = BigInt(Date.now()) * 1_000_000n;
+    // Duplicate detection by name + address
+    const duplicate = clients.find(
+      (c) =>
+        c.id !== editingId &&
+        c.nom.trim().toLowerCase() === form.nom.trim().toLowerCase() &&
+        c.adresse.trim().toLowerCase() === form.adresse.trim().toLowerCase(),
+    );
+    if (duplicate) {
+      alert(`Ce client existe déjà : ${duplicate.nom} — ${duplicate.adresse}`);
+      return;
+    }
     if (editingId) {
       const existing = clients.find((c) => c.id === editingId);
       await updateClient.mutateAsync({
@@ -520,7 +536,9 @@ export default function Clients() {
           id: editingId,
           nom: form.nom.trim(),
           adresse: form.adresse.trim(),
-          telephone: form.telephone.trim(),
+          telephone: [form.telephone.trim(), (form.telephone2 ?? "").trim()]
+            .filter(Boolean)
+            .join("|"),
           email: form.email.trim(),
           listeNoire: existing?.listeNoire ?? false,
           createdAt: existing?.createdAt ?? now,
@@ -532,7 +550,9 @@ export default function Clients() {
         id,
         nom: form.nom.trim(),
         adresse: form.adresse.trim(),
-        telephone: form.telephone.trim(),
+        telephone: [form.telephone.trim(), (form.telephone2 ?? "").trim()]
+          .filter(Boolean)
+          .join("|"),
         email: form.email.trim(),
         listeNoire: false,
         createdAt: now,
@@ -648,17 +668,35 @@ export default function Clients() {
                     <span className="break-all">{client.adresse}</span>
                   </div>
                 )}
-                {client.telephone && (
-                  <div className="flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 shrink-0" />
-                    <a
-                      href={`tel:${client.telephone}`}
-                      className="hover:text-foreground"
-                    >
-                      {client.telephone}
-                    </a>
-                  </div>
-                )}
+                {(() => {
+                  const [tel1, tel2] = (client.telephone || "").split("|");
+                  return (
+                    <>
+                      {tel1 && (
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 shrink-0" />
+                          <a
+                            href={`tel:${tel1}`}
+                            className="hover:text-foreground"
+                          >
+                            {tel1}
+                          </a>
+                        </div>
+                      )}
+                      {tel2 && (
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 shrink-0" />
+                          <a
+                            href={`tel:${tel2}`}
+                            className="hover:text-foreground"
+                          >
+                            {tel2}
+                          </a>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
                 {client.email && (
                   <div className="flex items-center gap-1.5">
                     <Mail className="w-3.5 h-3.5 shrink-0" />
@@ -767,7 +805,7 @@ export default function Clients() {
             </div>
             <div className="space-y-1">
               <Label htmlFor="client-telephone" className="text-sm">
-                Téléphone
+                Téléphone 1
               </Label>
               <Input
                 id="client-telephone"
@@ -777,6 +815,21 @@ export default function Clients() {
                   setForm((f) => ({ ...f, telephone: e.target.value }))
                 }
                 placeholder="+33 6 12 34 56 78"
+                className="text-base"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="client-telephone2" className="text-sm">
+                Téléphone 2
+              </Label>
+              <Input
+                id="client-telephone2"
+                type="tel"
+                value={form.telephone2 ?? ""}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, telephone2: e.target.value }))
+                }
+                placeholder="+33 6 98 76 54 32"
                 className="text-base"
               />
             </div>
