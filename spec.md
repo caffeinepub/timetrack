@@ -1,28 +1,26 @@
 # Vial Traite Service
 
 ## Current State
-L'application utilise un thème bleu marine, orange et vert. Le vert est présent principalement comme couleur de succès et dans la décoration d'herbe sur la page de connexion. L'orange domine les accents (boutons, indicateurs actifs, bordures de section).
+Calendar.tsx has two bugs causing deleted interventions to reappear after page reload:
+1. `handleDelete` only deletes the `TimeEntry` (journée) but NOT the associated `Intervention` records in the backend (stored separately, linked by date).
+2. `removeInterventionSlot` only removes a slot from local React state but never calls `actor.supprimerIntervention(slot.ficheId)` on the backend.
+
+Result: When user deletes a day or a slot, backend intervention records persist. On next page open for the same date, `obtenirInterventionsPourJour` fetches them back and they reappear.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Vert herbe visible sur les bordures, séparateurs, badges et accents secondaires dans toutes les pages
-- Bande verte en bas du header (border-bottom verte)
-- Indicateur actif vert dans la barre de navigation mobile
-- Touches de vert herbe dans les sections (Calendrier, Tableau de bord, Mémo, Facturation, Clients)
+- In `handleDelete`: before deleting the TimeEntry, fetch all interventions for that day via `actor.obtenirInterventionsPourJour(editingEntry.date)` and delete each one via `actor.supprimerIntervention(intv.id)`.
+- In `removeInterventionSlot`: make it async, and if `slot.ficheId` exists, call `actor.supprimerIntervention(slot.ficheId)` before removing from local state.
 
 ### Modify
-- `index.css` : renforcer le token `--vts-green` pour qu'il soit plus présent, ajouter des utilitaires `.bg-vts-green`, `.text-vts-green`, `.border-vts-green`
-- `Header.tsx` : ajouter une bordure verte en bas du header
-- `MobileBottomNav.tsx` : ajouter une ligne verte en bas du nav ou changer les indicateurs actifs en vert
-- `page-header` CSS : utiliser le vert comme couleur de la bordure gauche (alternatif à l'orange)
-- Section headers dans les pages : touches de vert herbe
+- `handleDelete` function in Calendar.tsx
+- `removeInterventionSlot` function in Calendar.tsx
 
 ### Remove
-Rien à supprimer
+- Nothing removed
 
 ## Implementation Plan
-1. Mettre à jour `index.css` : renforcer la présence du vert herbe, ajouter utilitaires
-2. Mettre à jour `Header.tsx` : bordure inférieure verte
-3. Mettre à jour `MobileBottomNav.tsx` : indicateur actif en vert herbe
-4. Mettre à jour les pages (Dashboard, Calendar, Memo, Facturation, Clients) : ajouter des touches de vert herbe (badges, bordures, séparateurs)
+1. Fix `handleDelete` to cascade-delete all backend interventions for the day before deleting the TimeEntry.
+2. Fix `removeInterventionSlot` to call `actor.supprimerIntervention` for slots that have a `ficheId`.
+3. Validate and build.

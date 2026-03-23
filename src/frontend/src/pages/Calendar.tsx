@@ -653,6 +653,23 @@ export default function Calendar() {
 
   const handleDelete = async (id: string) => {
     try {
+      // Delete all associated interventions first (they are stored separately by date)
+      if (actor && editingEntry) {
+        try {
+          const interventions = await (
+            actor as any
+          ).obtenirInterventionsPourJour(editingEntry.date);
+          for (const intv of interventions) {
+            try {
+              await (actor as any).supprimerIntervention(intv.id);
+            } catch (_e) {
+              // ignore individual intervention deletion errors
+            }
+          }
+        } catch (_e) {
+          // ignore if fetch fails
+        }
+      }
       await deleteEntry(id);
       toast.success("Journée supprimée");
       setDialogOpen(false);
@@ -766,7 +783,16 @@ export default function Calendar() {
     }));
   };
 
-  const removeInterventionSlot = (idx: number) => {
+  const removeInterventionSlot = async (idx: number) => {
+    const slot = form.interventionSlots[idx];
+    // Delete from backend if the slot has been saved
+    if (slot?.ficheId && actor) {
+      try {
+        await (actor as any).supprimerIntervention(slot.ficheId);
+      } catch (_e) {
+        // ignore backend deletion errors
+      }
+    }
     setForm((f) => ({
       ...f,
       interventionSlots: f.interventionSlots.filter((_, i) => i !== idx),
