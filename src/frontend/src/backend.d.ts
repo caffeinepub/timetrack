@@ -14,6 +14,20 @@ export class ExternalBlob {
     static fromBytes(blob: Uint8Array<ArrayBuffer>): ExternalBlob;
     withUploadProgress(onProgress: (percentage: number) => void): ExternalBlob;
 }
+export type MediaType = {
+    __kind__: "audio";
+    audio: ExternalBlob;
+} | {
+    __kind__: "photo";
+    photo: ExternalBlob;
+};
+export interface InterventionSlot {
+    endHour: bigint;
+    endMinute: bigint;
+    startMinute: bigint;
+    startHour: bigint;
+}
+export type Time = bigint;
 export interface InterventionInput {
     id: string;
     clientAbsent: boolean;
@@ -36,7 +50,15 @@ export interface InterventionInput {
     heureMatinFinMin: bigint;
     photos: Array<ExternalBlob>;
 }
-export type Time = bigint;
+export interface Client {
+    id: string;
+    nom: string;
+    createdAt: Time;
+    email: string;
+    adresse: string;
+    listeNoire: boolean;
+    telephone: string;
+}
 export interface PieceUtilisee {
     reference: string;
     article: string;
@@ -104,6 +126,39 @@ export interface MemoEntry {
     videos: Array<ExternalBlob>;
     photos: Array<ExternalBlob>;
 }
+export interface PdfReportData {
+    titre: string;
+    enteteTableau: Array<string>;
+    periode: string;
+    totaux: {
+        heuresTrajet: string;
+        heuresTravailNormales: string;
+        heuresAstreinte: string;
+        heuresRepas: string;
+    };
+    exportTimestamp: Time;
+    lignesTableau: Array<Array<string>>;
+}
+export interface Totals {
+    heuresTrajet: bigint;
+    heuresTravailNormales: bigint;
+    heuresAstreinte: bigint;
+    heuresRepas: bigint;
+}
+export interface TicketEssence {
+    id: string;
+    userId: Principal;
+    date: Time;
+    createdAt: Time;
+    adBluePrixLitre?: number;
+    immatriculation: string;
+    kmTotal: bigint;
+    nomUtilisateur: string;
+    montant: number;
+    prixLitre: number;
+    adBlueMontant?: number;
+    typeVehicule: string;
+}
 export interface TimeEntryInput {
     id: string;
     heuresTrajet: bigint;
@@ -119,46 +174,21 @@ export interface TimeEntryInput {
     heuresRepas: bigint;
     startAfternoon: bigint;
 }
-export interface Totals {
-    heuresTrajet: bigint;
-    heuresTravailNormales: bigint;
-    heuresAstreinte: bigint;
-    heuresRepas: bigint;
+export interface VehiculeDefaut {
+    lastAdBlueMontant?: number;
+    immatriculation: string;
+    typeVehicule: string;
+    lastAdBluePrixLitre?: number;
 }
-export interface PdfReportData {
-    titre: string;
-    enteteTableau: Array<string>;
-    periode: string;
-    totaux: {
-        heuresTrajet: string;
-        heuresTravailNormales: string;
-        heuresAstreinte: string;
-        heuresRepas: string;
-    };
-    exportTimestamp: Time;
-    lignesTableau: Array<Array<string>>;
-}
-export interface InterventionSlot {
-    endHour: bigint;
-    endMinute: bigint;
-    startMinute: bigint;
-    startHour: bigint;
-}
-export type MediaType = {
-    __kind__: "audio";
-    audio: ExternalBlob;
-} | {
-    __kind__: "photo";
-    photo: ExternalBlob;
-};
-export interface Client {
+export interface TicketResto {
     id: string;
-    nom: string;
+    userId: Principal;
+    date: Time;
     createdAt: Time;
-    email: string;
-    adresse: string;
-    listeNoire: boolean;
-    telephone: string;
+    semaineKey: string;
+    jourSemaine: string;
+    nomUtilisateur: string;
+    montant: number;
 }
 export interface UserProfile {
     name: string;
@@ -194,6 +224,8 @@ export enum UserRole {
 export interface backendInterface {
     ajouterClient(client: Client): Promise<void>;
     ajouterIntervention(input: InterventionInput): Promise<void>;
+    ajouterTicketEssence(ticket: TicketEssence): Promise<void>;
+    ajouterTicketResto(ticket: TicketResto): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     basculerListeNoire(id: string): Promise<void>;
     calculerNombreAstreinte(user: Principal): Promise<bigint>;
@@ -235,21 +267,27 @@ export interface backendInterface {
     obtenirMemos(): Promise<Array<MemoEntry>>;
     obtenirPhotosPourJour(date: Time): Promise<Array<ExternalBlob>>;
     obtenirSignatureIntervenant(): Promise<string | null>;
+    obtenirTicketsEssence(): Promise<Array<TicketEssence>>;
+    obtenirTicketsResto(): Promise<Array<TicketResto>>;
     obtenirTousLesProfils(): Promise<Array<[Principal, UserProfile]>>;
     obtenirToutesInterventions(): Promise<Array<InterventionAvecPieces>>;
+    obtenirVehiculeDefaut(): Promise<VehiculeDefaut | null>;
     rechercherFichiers(_motCle: string): Promise<Array<Fichier>>;
     recupererFichier(_id: bigint): Promise<Fichier | null>;
     restartPublish(): Promise<void>;
     sauvegarderSignatureIntervenant(sig: string): Promise<void>;
+    sauverVehiculeDefaut(vehicule: VehiculeDefaut): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     supprimerClient(id: string): Promise<void>;
-    supprimerFichier(_id: bigint): Promise<boolean>;
     supprimerDeFacturation(id: string): Promise<void>;
+    supprimerFichier(_id: bigint): Promise<boolean>;
     supprimerIntervention(id: string): Promise<void>;
     supprimerJournal(id: string): Promise<void>;
     supprimerJournee(id: string): Promise<void>;
     supprimerMediaQuotidien(id: string): Promise<void>;
     supprimerMemo(id: string): Promise<void>;
+    supprimerTicketEssence(id: string): Promise<boolean>;
+    supprimerTicketResto(id: string): Promise<boolean>;
     uploadPhotoDansStoic(filename: string, content: ExternalBlob, mimeType: string, taille: bigint, description: string): Promise<bigint | null>;
     validerIntervention(id: string): Promise<void>;
 }

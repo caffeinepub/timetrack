@@ -1,9 +1,11 @@
 import {
   CalendarDays,
+  Car,
   LayoutDashboard,
   MessageSquare,
   Receipt,
   Users,
+  UtensilsCrossed,
 } from "lucide-react";
 import type React from "react";
 import { useCallback } from "react";
@@ -21,6 +23,8 @@ const NAV_ITEMS: { page: Page; label: string; Icon: React.ElementType }[] = [
   { page: "memo", label: "Mémo", Icon: MessageSquare },
   { page: "facturation", label: "Facturation", Icon: Receipt },
   { page: "clients", label: "Clients", Icon: Users },
+  { page: "ticket-resto", label: "T.Resto", Icon: UtensilsCrossed },
+  { page: "ticket-essence", label: "T.Essence", Icon: Car },
 ];
 
 export default function MobileBottomNav({
@@ -43,7 +47,10 @@ export default function MobileBottomNav({
         borderTop: "2px solid oklch(var(--vts-green) / 0.5)",
       }}
     >
-      <div className="flex items-stretch h-14">
+      <div
+        className="flex items-stretch h-14 overflow-x-auto"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
         {NAV_ITEMS.map(({ page, label, Icon }) => {
           const isActive = currentPage === page;
           return (
@@ -53,8 +60,9 @@ export default function MobileBottomNav({
               aria-label={label}
               aria-current={isActive ? "page" : undefined}
               onClick={() => handleNavigate(page)}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5 text-[9px] font-semibold transition-colors select-none relative"
+              className="flex-shrink-0 flex flex-col items-center justify-center gap-0.5 text-[9px] font-semibold transition-colors select-none relative"
               style={{
+                minWidth: "52px",
                 color: isActive
                   ? "oklch(var(--vts-green))"
                   : "rgba(255,255,255,0.55)",

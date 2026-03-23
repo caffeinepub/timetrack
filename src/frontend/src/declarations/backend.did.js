@@ -57,6 +57,30 @@ export const InterventionInput = IDL.Record({
   'heureMatinFinMin' : IDL.Int,
   'photos' : IDL.Vec(ExternalBlob),
 });
+export const TicketEssence = IDL.Record({
+  'id' : IDL.Text,
+  'userId' : IDL.Principal,
+  'date' : Time,
+  'createdAt' : Time,
+  'adBluePrixLitre' : IDL.Opt(IDL.Float64),
+  'immatriculation' : IDL.Text,
+  'kmTotal' : IDL.Int,
+  'nomUtilisateur' : IDL.Text,
+  'montant' : IDL.Float64,
+  'prixLitre' : IDL.Float64,
+  'adBlueMontant' : IDL.Opt(IDL.Float64),
+  'typeVehicule' : IDL.Text,
+});
+export const TicketResto = IDL.Record({
+  'id' : IDL.Text,
+  'userId' : IDL.Principal,
+  'date' : Time,
+  'createdAt' : Time,
+  'semaineKey' : IDL.Text,
+  'jourSemaine' : IDL.Text,
+  'nomUtilisateur' : IDL.Text,
+  'montant' : IDL.Float64,
+});
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
@@ -194,6 +218,12 @@ export const MemoEntry = IDL.Record({
   'videos' : IDL.Vec(ExternalBlob),
   'photos' : IDL.Vec(ExternalBlob),
 });
+export const VehiculeDefaut = IDL.Record({
+  'lastAdBlueMontant' : IDL.Opt(IDL.Float64),
+  'immatriculation' : IDL.Text,
+  'typeVehicule' : IDL.Text,
+  'lastAdBluePrixLitre' : IDL.Opt(IDL.Float64),
+});
 
 export const idlService = IDL.Service({
   '_caffeineStorageBlobIsLive' : IDL.Func(
@@ -224,6 +254,8 @@ export const idlService = IDL.Service({
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   'ajouterClient' : IDL.Func([Client], [], []),
   'ajouterIntervention' : IDL.Func([InterventionInput], [], []),
+  'ajouterTicketEssence' : IDL.Func([TicketEssence], [], []),
+  'ajouterTicketResto' : IDL.Func([TicketResto], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'basculerListeNoire' : IDL.Func([IDL.Text], [], []),
   'calculerNombreAstreinte' : IDL.Func([IDL.Principal], [IDL.Int], ['query']),
@@ -341,6 +373,8 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'obtenirSignatureIntervenant' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
+  'obtenirTicketsEssence' : IDL.Func([], [IDL.Vec(TicketEssence)], ['query']),
+  'obtenirTicketsResto' : IDL.Func([], [IDL.Vec(TicketResto)], ['query']),
   'obtenirTousLesProfils' : IDL.Func(
       [],
       [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
@@ -351,10 +385,12 @@ export const idlService = IDL.Service({
       [IDL.Vec(InterventionAvecPieces)],
       ['query'],
     ),
+  'obtenirVehiculeDefaut' : IDL.Func([], [IDL.Opt(VehiculeDefaut)], ['query']),
   'rechercherFichiers' : IDL.Func([IDL.Text], [IDL.Vec(Fichier)], ['query']),
   'recupererFichier' : IDL.Func([IDL.Nat], [IDL.Opt(Fichier)], ['query']),
   'restartPublish' : IDL.Func([], [], []),
   'sauvegarderSignatureIntervenant' : IDL.Func([IDL.Text], [], []),
+  'sauverVehiculeDefaut' : IDL.Func([VehiculeDefaut], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'supprimerClient' : IDL.Func([IDL.Text], [], []),
   'supprimerDeFacturation' : IDL.Func([IDL.Text], [], []),
@@ -364,6 +400,8 @@ export const idlService = IDL.Service({
   'supprimerJournee' : IDL.Func([IDL.Text], [], []),
   'supprimerMediaQuotidien' : IDL.Func([IDL.Text], [], []),
   'supprimerMemo' : IDL.Func([IDL.Text], [], []),
+  'supprimerTicketEssence' : IDL.Func([IDL.Text], [IDL.Bool], []),
+  'supprimerTicketResto' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'uploadPhotoDansStoic' : IDL.Func(
       [IDL.Text, ExternalBlob, IDL.Text, IDL.Nat, IDL.Text],
       [IDL.Opt(IDL.Nat)],
@@ -423,6 +461,30 @@ export const idlFactory = ({ IDL }) => {
     'videos' : IDL.Vec(ExternalBlob),
     'heureMatinFinMin' : IDL.Int,
     'photos' : IDL.Vec(ExternalBlob),
+  });
+  const TicketEssence = IDL.Record({
+    'id' : IDL.Text,
+    'userId' : IDL.Principal,
+    'date' : Time,
+    'createdAt' : Time,
+    'adBluePrixLitre' : IDL.Opt(IDL.Float64),
+    'immatriculation' : IDL.Text,
+    'kmTotal' : IDL.Int,
+    'nomUtilisateur' : IDL.Text,
+    'montant' : IDL.Float64,
+    'prixLitre' : IDL.Float64,
+    'adBlueMontant' : IDL.Opt(IDL.Float64),
+    'typeVehicule' : IDL.Text,
+  });
+  const TicketResto = IDL.Record({
+    'id' : IDL.Text,
+    'userId' : IDL.Principal,
+    'date' : Time,
+    'createdAt' : Time,
+    'semaineKey' : IDL.Text,
+    'jourSemaine' : IDL.Text,
+    'nomUtilisateur' : IDL.Text,
+    'montant' : IDL.Float64,
   });
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
@@ -561,6 +623,12 @@ export const idlFactory = ({ IDL }) => {
     'videos' : IDL.Vec(ExternalBlob),
     'photos' : IDL.Vec(ExternalBlob),
   });
+  const VehiculeDefaut = IDL.Record({
+    'lastAdBlueMontant' : IDL.Opt(IDL.Float64),
+    'immatriculation' : IDL.Text,
+    'typeVehicule' : IDL.Text,
+    'lastAdBluePrixLitre' : IDL.Opt(IDL.Float64),
+  });
   
   return IDL.Service({
     '_caffeineStorageBlobIsLive' : IDL.Func(
@@ -591,6 +659,8 @@ export const idlFactory = ({ IDL }) => {
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     'ajouterClient' : IDL.Func([Client], [], []),
     'ajouterIntervention' : IDL.Func([InterventionInput], [], []),
+    'ajouterTicketEssence' : IDL.Func([TicketEssence], [], []),
+    'ajouterTicketResto' : IDL.Func([TicketResto], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'basculerListeNoire' : IDL.Func([IDL.Text], [], []),
     'calculerNombreAstreinte' : IDL.Func([IDL.Principal], [IDL.Int], ['query']),
@@ -712,6 +782,8 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Opt(IDL.Text)],
         ['query'],
       ),
+    'obtenirTicketsEssence' : IDL.Func([], [IDL.Vec(TicketEssence)], ['query']),
+    'obtenirTicketsResto' : IDL.Func([], [IDL.Vec(TicketResto)], ['query']),
     'obtenirTousLesProfils' : IDL.Func(
         [],
         [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
@@ -722,19 +794,27 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(InterventionAvecPieces)],
         ['query'],
       ),
+    'obtenirVehiculeDefaut' : IDL.Func(
+        [],
+        [IDL.Opt(VehiculeDefaut)],
+        ['query'],
+      ),
     'rechercherFichiers' : IDL.Func([IDL.Text], [IDL.Vec(Fichier)], ['query']),
     'recupererFichier' : IDL.Func([IDL.Nat], [IDL.Opt(Fichier)], ['query']),
     'restartPublish' : IDL.Func([], [], []),
     'sauvegarderSignatureIntervenant' : IDL.Func([IDL.Text], [], []),
+    'sauverVehiculeDefaut' : IDL.Func([VehiculeDefaut], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'supprimerClient' : IDL.Func([IDL.Text], [], []),
-  'supprimerDeFacturation' : IDL.Func([IDL.Text], [], []),
+    'supprimerDeFacturation' : IDL.Func([IDL.Text], [], []),
     'supprimerFichier' : IDL.Func([IDL.Nat], [IDL.Bool], []),
     'supprimerIntervention' : IDL.Func([IDL.Text], [], []),
     'supprimerJournal' : IDL.Func([IDL.Text], [], []),
     'supprimerJournee' : IDL.Func([IDL.Text], [], []),
     'supprimerMediaQuotidien' : IDL.Func([IDL.Text], [], []),
     'supprimerMemo' : IDL.Func([IDL.Text], [], []),
+    'supprimerTicketEssence' : IDL.Func([IDL.Text], [IDL.Bool], []),
+    'supprimerTicketResto' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'uploadPhotoDansStoic' : IDL.Func(
         [IDL.Text, ExternalBlob, IDL.Text, IDL.Nat, IDL.Text],
         [IDL.Opt(IDL.Nat)],

@@ -24,13 +24,17 @@ import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
 import Facturation from "./pages/Facturation";
 import Memo from "./pages/Memo";
+import TicketEssencePage from "./pages/TicketEssence";
+import TicketRestoPage from "./pages/TicketResto";
 
 export type Page =
   | "dashboard"
   | "calendar"
   | "memo"
   | "facturation"
-  | "clients";
+  | "clients"
+  | "ticket-resto"
+  | "ticket-essence";
 
 function GrassDecoration() {
   return (
@@ -119,10 +123,8 @@ function AppContent() {
         className="min-h-screen flex flex-col overflow-x-hidden relative"
         style={{ backgroundColor: "#0f1e4a" }}
       >
-        {/* Main content */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 pb-32">
           <div className="w-full max-w-sm text-center space-y-6">
-            {/* Logo vache */}
             <div className="flex flex-col items-center space-y-4">
               <div className="w-36 h-36 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center shadow-2xl border-4 border-white/20">
                 <img
@@ -145,7 +147,6 @@ function AppContent() {
               </div>
             </div>
 
-            {/* Login card */}
             <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 space-y-4 border border-white/20 shadow-xl">
               <p className="text-white/90 text-sm leading-relaxed">
                 Connectez-vous pour accéder à votre espace de gestion des
@@ -187,7 +188,6 @@ function AppContent() {
       <Header userName={userProfile?.name} />
 
       <main className="flex-1 w-full mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8 max-w-7xl min-w-0">
-        {/* Keep all tabs mounted to avoid aggressive unmount/remount */}
         <div className={currentPage === "dashboard" ? "block" : "hidden"}>
           <Dashboard />
         </div>
@@ -203,13 +203,18 @@ function AppContent() {
         <div className={currentPage === "clients" ? "block" : "hidden"}>
           <Clients />
         </div>
+        <div className={currentPage === "ticket-resto" ? "block" : "hidden"}>
+          <TicketRestoPage />
+        </div>
+        <div className={currentPage === "ticket-essence" ? "block" : "hidden"}>
+          <TicketEssencePage />
+        </div>
       </main>
 
       <Footer />
 
       <MobileBottomNav currentPage={currentPage} onNavigate={handleTabChange} />
 
-      {/* Profile setup dialog */}
       <Dialog open={showProfileSetup} onOpenChange={() => {}}>
         <DialogContent
           className="max-w-[calc(100vw-2rem)] sm:max-w-md max-h-[85vh] overflow-y-auto"

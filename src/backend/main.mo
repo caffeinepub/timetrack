@@ -10,11 +10,8 @@ import Time "mo:core/Time";
 import Array "mo:core/Array";
 import Iter "mo:core/Iter";
 import MixinStorage "blob-storage/Mixin";
-
+import Float "mo:core/Float";
 import Nat "mo:core/Nat";
-
-
-
 
 actor {
   include MixinStorage();
@@ -316,6 +313,141 @@ actor {
   let interventionEstAstreinte = Map.empty<Text, Bool>();
   let interventionSupprimeeFacturation = Map.empty<Text, Bool>();
   let memoEntries = Map.empty<Text, MemoEntry>();
+
+  // -------- NEW TICKET RESTO & ESSENCE MODULES --------
+
+  // Ticket Resto (restaurant vouchers/meals)
+  public type TicketResto = {
+    id : Text;
+    date : Time.Time;
+    jourSemaine : Text;
+    userId : Principal;
+    nomUtilisateur : Text;
+    montant : Float;
+    semaineKey : Text;
+    createdAt : Time.Time;
+  };
+
+  let ticketsResto = Map.empty<Text, TicketResto>();
+
+  module TicketResto {
+    public func compareByDate(a : TicketResto, b : TicketResto) : Order.Order {
+      Int.compare(a.date, b.date);
+    };
+  };
+
+  // Ticket Essence (fuel)
+  public type TicketEssence = {
+    id : Text;
+    date : Time.Time;
+    userId : Principal;
+    nomUtilisateur : Text;
+    kmTotal : Int;
+    montant : Float;
+    prixLitre : Float;
+    immatriculation : Text;
+    typeVehicule : Text;
+    adBlueMontant : ?Float;
+    adBluePrixLitre : ?Float;
+    createdAt : Time.Time;
+  };
+
+  let ticketsEssence = Map.empty<Text, TicketEssence>();
+
+  module TicketEssence {
+    public func compareByDate(a : TicketEssence, b : TicketEssence) : Order.Order {
+      Int.compare(a.date, b.date);
+    };
+  };
+
+  // Vehicule defaults per user
+  public type VehiculeDefaut = {
+    immatriculation : Text;
+    typeVehicule : Text;
+    lastAdBlueMontant : ?Float;
+    lastAdBluePrixLitre : ?Float;
+  };
+
+  let vehiculesDefaut = Map.empty<Principal, VehiculeDefaut>();
+
+  // Ticket Resto functions
+  public shared ({ caller }) func ajouterTicketResto(ticket : TicketResto) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can add meal tickets");
+    };
+    ticketsResto.add(ticket.id, ticket);
+  };
+
+  public shared ({ caller }) func supprimerTicketResto(id : Text) : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete meal tickets");
+    };
+    switch (ticketsResto.get(id)) {
+      case (null) { false };
+      case (?ticket) {
+        if (caller != ticket.userId and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Non autorisé à supprimer ce ticket resto");
+        };
+        ticketsResto.remove(id);
+        true;
+      };
+    };
+  };
+
+  public query ({ caller }) func obtenirTicketsResto() : async [TicketResto] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view meal tickets");
+    };
+    let all = ticketsResto.values().toArray();
+    all.sort(TicketResto.compareByDate);
+  };
+
+  // Ticket Essence functions
+  public shared ({ caller }) func ajouterTicketEssence(ticket : TicketEssence) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can add fuel tickets");
+    };
+    ticketsEssence.add(ticket.id, ticket);
+  };
+
+  public shared ({ caller }) func supprimerTicketEssence(id : Text) : async Bool {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete fuel tickets");
+    };
+    switch (ticketsEssence.get(id)) {
+      case (null) { false };
+      case (?ticket) {
+        if (caller != ticket.userId and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Non autorisé à supprimer ce ticket essence");
+        };
+        ticketsEssence.remove(id);
+        true;
+      };
+    };
+  };
+
+  public query ({ caller }) func obtenirTicketsEssence() : async [TicketEssence] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view fuel tickets");
+    };
+    let all = ticketsEssence.values().toArray();
+    all.sort(TicketEssence.compareByDate);
+  };
+
+  // Vehicule defaults functions
+  public shared ({ caller }) func sauverVehiculeDefaut(vehicule : VehiculeDefaut) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can save vehicle defaults");
+    };
+    vehiculesDefaut.add(caller, vehicule);
+  };
+
+  public query ({ caller }) func obtenirVehiculeDefaut() : async ?VehiculeDefaut {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view vehicle defaults");
+    };
+    vehiculesDefaut.get(caller);
+  };
 
   // Autorisation système
   let accessControlState = AccessControl.initState();

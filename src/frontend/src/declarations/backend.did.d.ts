@@ -133,6 +133,30 @@ export interface PieceUtilisee {
   'article' : string,
   'quantite' : bigint,
 }
+export interface TicketEssence {
+  'id' : string,
+  'userId' : Principal,
+  'date' : Time,
+  'createdAt' : Time,
+  'adBluePrixLitre' : [] | [number],
+  'immatriculation' : string,
+  'kmTotal' : bigint,
+  'nomUtilisateur' : string,
+  'montant' : number,
+  'prixLitre' : number,
+  'adBlueMontant' : [] | [number],
+  'typeVehicule' : string,
+}
+export interface TicketResto {
+  'id' : string,
+  'userId' : Principal,
+  'date' : Time,
+  'createdAt' : Time,
+  'semaineKey' : string,
+  'jourSemaine' : string,
+  'nomUtilisateur' : string,
+  'montant' : number,
+}
 export type Time = bigint;
 export interface TimeEntry {
   'id' : string,
@@ -179,6 +203,12 @@ export interface UserProfile {
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
+export interface VehiculeDefaut {
+  'lastAdBlueMontant' : [] | [number],
+  'immatriculation' : string,
+  'typeVehicule' : string,
+  'lastAdBluePrixLitre' : [] | [number],
+}
 export interface _CaffeineStorageCreateCertificateResult {
   'method' : string,
   'blob_hash' : string,
@@ -208,6 +238,8 @@ export interface _SERVICE {
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   'ajouterClient' : ActorMethod<[Client], undefined>,
   'ajouterIntervention' : ActorMethod<[InterventionInput], undefined>,
+  'ajouterTicketEssence' : ActorMethod<[TicketEssence], undefined>,
+  'ajouterTicketResto' : ActorMethod<[TicketResto], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'basculerListeNoire' : ActorMethod<[string], undefined>,
   'calculerNombreAstreinte' : ActorMethod<[Principal], bigint>,
@@ -271,12 +303,16 @@ export interface _SERVICE {
   'obtenirMemos' : ActorMethod<[], Array<MemoEntry>>,
   'obtenirPhotosPourJour' : ActorMethod<[Time], Array<ExternalBlob>>,
   'obtenirSignatureIntervenant' : ActorMethod<[], [] | [string]>,
+  'obtenirTicketsEssence' : ActorMethod<[], Array<TicketEssence>>,
+  'obtenirTicketsResto' : ActorMethod<[], Array<TicketResto>>,
   'obtenirTousLesProfils' : ActorMethod<[], Array<[Principal, UserProfile]>>,
   'obtenirToutesInterventions' : ActorMethod<[], Array<InterventionAvecPieces>>,
+  'obtenirVehiculeDefaut' : ActorMethod<[], [] | [VehiculeDefaut]>,
   'rechercherFichiers' : ActorMethod<[string], Array<Fichier>>,
   'recupererFichier' : ActorMethod<[bigint], [] | [Fichier]>,
   'restartPublish' : ActorMethod<[], undefined>,
   'sauvegarderSignatureIntervenant' : ActorMethod<[string], undefined>,
+  'sauverVehiculeDefaut' : ActorMethod<[VehiculeDefaut], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'supprimerClient' : ActorMethod<[string], undefined>,
   'supprimerDeFacturation' : ActorMethod<[string], undefined>,
@@ -286,6 +322,8 @@ export interface _SERVICE {
   'supprimerJournee' : ActorMethod<[string], undefined>,
   'supprimerMediaQuotidien' : ActorMethod<[string], undefined>,
   'supprimerMemo' : ActorMethod<[string], undefined>,
+  'supprimerTicketEssence' : ActorMethod<[string], boolean>,
+  'supprimerTicketResto' : ActorMethod<[string], boolean>,
   'uploadPhotoDansStoic' : ActorMethod<
     [string, ExternalBlob, string, bigint, string],
     [] | [bigint]
