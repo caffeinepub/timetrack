@@ -48,15 +48,19 @@ export default function Header({ userName }: HeaderProps) {
         <div className="flex items-center justify-between gap-2 sm:gap-3 min-w-0">
           {/* Left: Logo + Branding */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-            {/* VTS Logo badge */}
+            {/* VTS Logo badge — cow image */}
             <div
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-extrabold text-sm shadow-inner"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-inner overflow-hidden"
               style={{
-                backgroundColor: "oklch(var(--vts-orange))",
-                color: "white",
+                backgroundColor: "#0f1e4a",
+                border: "2px solid rgba(255,255,255,0.3)",
               }}
             >
-              🐄
+              <img
+                src="/assets/generated/vts-pwa-icon.dim_512x512.png"
+                alt="VTS"
+                className="w-full h-full object-cover"
+              />
             </div>
 
             <div className="min-w-0 flex-1">

@@ -1,27 +1,26 @@
-# Vial Traite Service
+# Vial Traite Service — PWA + Logo
 
 ## Current State
-L'application gère des fiches intervention dans plusieurs sections : Calendrier, Facturation, et dossier Clients. Chaque fiche affiche un en-tête avec logo et "Vial Traite Service", mais aucun pied de page avec coordonnées.
+L'application a un logo vache emoji (🐄) dans le header, et un logo image sur la page de connexion. Pas de configuration PWA.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Pied de page sur chaque fiche intervention (calendrier, facturation, dossier client) et dans tous les exports PDF :
-  - "Z.I. du Martinet — 15300 Murat" centré en petits caractères
-  - Séparateur léger (ligne horizontale)
-  - "04 71 20 12 22" centré en petits caractères, légèrement détaché du reste
+- Fichier manifest.json pour PWA (installable sur écran d'accueil Android/iPhone)
+- Icône PWA 512x512 (tête de vache sobre blanche sur fond bleu marine)
+- Meta tags PWA dans index.html
+- "Vial Traite Service" en texte blanc en arc autour du logo sur la page de connexion
 
 ### Modify
-- `Facturation.tsx` : `buildInterventionHtml()` — ajouter le pied de page avant la fermeture du `<div>` principal (ligne 81)
-- `Clients.tsx` : `exportInterventionPdf()` — ajouter le pied de page avant `</body></html>` (ligne 148)
-- `exportPdf.ts` : `buildInterventionRows()` — ajouter le pied de page dans chaque card d'intervention (ligne 82)
-- `Calendar.tsx` : vue in-app de la fiche intervention — ajouter le pied de page après la SignaturePad intervenant (ligne 1893)
+- index.html : ajouter les balises PWA (manifest, theme-color, apple-touch-icon)
+- Login page : affichage de "Vial Traite Service" en blanc en arc autour de l'image du logo
+- Header : remplacer l'emoji 🐄 par l'image du logo vache (visible sur desktop et mobile)
 
 ### Remove
-- Rien
+- Emoji 🐄 dans le badge du header
 
 ## Implementation Plan
-1. Modifier `buildInterventionHtml()` dans Facturation.tsx pour ajouter le footer HTML
-2. Modifier `exportInterventionPdf()` dans Clients.tsx pour ajouter le footer HTML
-3. Modifier `buildInterventionRows()` dans exportPdf.ts pour ajouter le footer HTML
-4. Modifier le composant inline de la fiche dans Calendar.tsx pour ajouter le footer JSX
+1. Créer public/manifest.json avec nom, icônes et couleurs de thème
+2. Mettre à jour index.html avec les balises PWA
+3. Mettre à jour la page de connexion avec SVG arc text autour du logo
+4. Mettre à jour Header.tsx pour utiliser l'image du logo au lieu de l'emoji

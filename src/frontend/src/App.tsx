@@ -125,25 +125,57 @@ function AppContent() {
       >
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 pb-32">
           <div className="w-full max-w-sm text-center space-y-6">
+            {/* Logo with arc text */}
             <div className="flex flex-col items-center space-y-4">
-              <div className="w-36 h-36 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center shadow-2xl border-4 border-white/20">
-                <img
-                  src="/assets/generated/vache-logo-transparent.dim_300x300.png"
-                  alt="Vial Traite Service logo"
-                  className="w-28 h-28 object-contain drop-shadow-lg"
-                />
-              </div>
-              <div className="space-y-1">
-                <h1 className="text-3xl font-extrabold text-white tracking-tight drop-shadow-md">
-                  Vial Traite Service
-                </h1>
-                <div className="flex items-center justify-center gap-2 mt-1">
-                  <div className="h-0.5 w-8 bg-white/40 rounded" />
-                  <span className="text-white/70 text-xs font-medium uppercase tracking-widest">
-                    Gestion du temps
-                  </span>
-                  <div className="h-0.5 w-8 bg-white/40 rounded" />
+              <div className="relative" style={{ width: 180, height: 180 }}>
+                {/* SVG arc text — "VIAL TRAITE SERVICE" curved above the circle */}
+                <svg
+                  viewBox="0 0 180 180"
+                  className="absolute inset-0 w-full h-full"
+                  style={{ zIndex: 2 }}
+                  aria-hidden="true"
+                >
+                  <defs>
+                    <path id="topArc" d="M 20,90 A 70,70 0 1,1 160,90" />
+                  </defs>
+                  <text
+                    fill="white"
+                    fontSize="13"
+                    fontWeight="800"
+                    letterSpacing="2"
+                    fontFamily="sans-serif"
+                  >
+                    <textPath
+                      href="#topArc"
+                      startOffset="50%"
+                      textAnchor="middle"
+                    >
+                      VIAL TRAITE SERVICE
+                    </textPath>
+                  </text>
+                </svg>
+                {/* Circle with logo image */}
+                <div
+                  className="absolute inset-0 flex items-center justify-center"
+                  style={{ padding: "28px" }}
+                >
+                  <div className="w-full h-full rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center shadow-2xl border-4 border-white/20">
+                    <img
+                      src="/assets/generated/vache-logo-transparent.dim_300x300.png"
+                      alt="Vial Traite Service logo"
+                      className="w-20 h-20 object-contain drop-shadow-lg"
+                    />
+                  </div>
                 </div>
+              </div>
+
+              {/* Subtitle only — title is now in the arc */}
+              <div className="flex items-center justify-center gap-2">
+                <div className="h-0.5 w-8 bg-white/40 rounded" />
+                <span className="text-white/70 text-xs font-medium uppercase tracking-widest">
+                  Gestion du temps
+                </span>
+                <div className="h-0.5 w-8 bg-white/40 rounded" />
               </div>
             </div>
 
