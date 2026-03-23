@@ -279,6 +279,7 @@ export interface _SERVICE {
   'sauvegarderSignatureIntervenant' : ActorMethod<[string], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'supprimerClient' : ActorMethod<[string], undefined>,
+  'supprimerDeFacturation' : ActorMethod<[string], undefined>,
   'supprimerFichier' : ActorMethod<[bigint], boolean>,
   'supprimerIntervention' : ActorMethod<[string], undefined>,
   'supprimerJournal' : ActorMethod<[string], undefined>,

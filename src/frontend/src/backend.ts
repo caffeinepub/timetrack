@@ -336,6 +336,7 @@ export interface backendInterface {
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     supprimerClient(id: string): Promise<void>;
     supprimerFichier(_id: bigint): Promise<boolean>;
+    supprimerDeFacturation(id: string): Promise<void>;
     supprimerIntervention(id: string): Promise<void>;
     supprimerJournal(id: string): Promise<void>;
     supprimerJournee(id: string): Promise<void>;
@@ -1078,6 +1079,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.supprimerFichier(arg0);
+            return result;
+        }
+    }
+    async supprimerDeFacturation(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await (this.actor as any).supprimerDeFacturation(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await (this.actor as any).supprimerDeFacturation(arg0);
             return result;
         }
     }

@@ -314,6 +314,7 @@ actor {
   let interventionVideos = Map.empty<Text, [Storage.ExternalBlob]>();
   let interventionValidees = Map.empty<Text, Bool>();
   let interventionEstAstreinte = Map.empty<Text, Bool>();
+  let interventionSupprimeeFacturation = Map.empty<Text, Bool>();
   let memoEntries = Map.empty<Text, MemoEntry>();
 
   // Autorisation système
@@ -499,6 +500,7 @@ actor {
     interventionPhotos.add(id, input.photos);
     interventionVideos.add(id, input.videos);
     interventionEstAstreinte.add(id, input.estAstreinte);
+    interventionSupprimeeFacturation.remove(id);
   };
 
   public shared ({ caller }) func supprimerIntervention(id : Text) : async () {
@@ -528,6 +530,14 @@ actor {
       Runtime.trap("Unauthorized: Only users can validate interventions");
     };
     interventionValidees.add(id, true);
+  };
+
+  public shared ({ caller }) func supprimerDeFacturation(id : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can remove interventions from facturation");
+    };
+    // Soft delete: hide from facturation only, keep in calendar and client file
+    interventionSupprimeeFacturation.add(id, true);
   };
 
   public query func estInterventionValidee(id : Text) : async Bool {
@@ -736,7 +746,11 @@ actor {
       Runtime.trap("Unauthorized: Only admins can view other users' interventions");
     };
     let filtered = interventions.values().filter(func(i : Intervention) : Bool {
-      i.user == user
+      let supprimee = switch (interventionSupprimeeFacturation.get(i.id)) {
+        case (?v) { v };
+        case (null) { false };
+      };
+      i.user == user and not supprimee
     }).map(interventionAvecPieces).toArray();
     filtered.sort(func(a : InterventionAvecPieces, b : InterventionAvecPieces) : Order.Order {
       Int.compare(a.date, b.date)

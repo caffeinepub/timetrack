@@ -22,18 +22,10 @@ function formatDate(timestamp: bigint): string {
   });
 }
 
-function exportInterventionPdf(inv: any, profileName: string) {
-  const win = window.open("", "_blank");
-  if (!win) return;
-
+function buildInterventionHtml(inv: any, profileName: string): string {
   const date = new Date(Number(inv.date) / 1_000_000).toLocaleDateString(
     "fr-FR",
-    {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    },
+    { weekday: "long", day: "numeric", month: "long", year: "numeric" },
   );
 
   const piecesHtml =
@@ -61,47 +53,64 @@ function exportInterventionPdf(inv: any, profileName: string) {
     ? `<img src="${inv.signatureIntervenant}" style="max-width:200px;border:1px solid #ccc" />`
     : "<span style='color:#888'>Non signée</span>";
 
+  return `
+    <div style="page-break-inside:avoid; margin-bottom:40px; border-bottom:2px solid #ccc; padding-bottom:30px">
+      <h2 style="font-size:18px; margin-bottom:4px;">Fiche Intervention</h2>
+      <div style="display:inline-block; background:#e0f0ff; color:#1d6fa5; padding:2px 8px; border-radius:4px; font-size:12px; margin-bottom:4px;">Créée par : ${profileName}</div><br/>
+      ${inv.estAstreinte ? '<div style="display:inline-block; background:#fff3e0; color:#e65100; padding:2px 8px; border-radius:4px; font-size:12px; margin-bottom:12px; font-weight:bold;">ASTREINTE</div>' : ""}
+      <div style="margin-bottom:12px;"><strong>Date :</strong> ${date}</div>
+      <div style="margin-bottom:12px;">
+        <strong>Client :</strong> ${inv.clientNom || "—"}<br/>
+        <strong>Adresse :</strong> ${inv.clientAdresse || "—"}
+      </div>
+      <div style="margin-bottom:12px;">
+        <strong>Horaires Matin :</strong> ${formatHeure(inv.heureMatinDebutH, inv.heureMatinDebutMin)} → ${formatHeure(inv.heureMatinFinH, inv.heureMatinFinMin)}<br/>
+        <strong>Horaires Après-midi :</strong> ${formatHeure(inv.heureApremDebutH, inv.heureApremDebutMin)} → ${formatHeure(inv.heureApremFinH, inv.heureApremFinMin)}
+      </div>
+      ${inv.description ? `<div style="margin-bottom:12px;"><strong>Description :</strong><br/><em>${inv.description}</em></div>` : ""}
+      <div style="margin-bottom:12px;"><strong>Pièces utilisées :</strong>${piecesHtml}</div>
+      <div style="display:flex; gap:40px; margin-top:20px;">
+        <div style="text-align:center;"><div style="font-weight:bold;">Signature Client</div>${sigClientHtml}</div>
+        <div style="text-align:center;"><div style="font-weight:bold;">Signature Intervenant</div>${sigIntervHtml}</div>
+      </div>
+    </div>`;
+}
+
+function exportInterventionPdf(inv: any, profileName: string) {
+  const win = window.open("", "_blank");
+  if (!win) return;
   win.document.write(`<!DOCTYPE html><html><head>
     <meta charset="utf-8"/>
     <title>Fiche Intervention</title>
+    <style>body { font-family: Arial, sans-serif; margin: 30px; color: #222; font-size: 13px; }</style>
+  </head><body>${buildInterventionHtml(inv, profileName)}</body></html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 500);
+}
+
+function exportMultiplePdf(
+  interventions: any[],
+  profileNameMap: Map<string, string>,
+) {
+  const win = window.open("", "_blank");
+  if (!win) return;
+  const body = interventions
+    .map((inv) => {
+      const profileName =
+        profileNameMap.get(inv.user?.toString?.() ?? "") ?? "Utilisateur";
+      return buildInterventionHtml(inv, profileName);
+    })
+    .join("");
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="utf-8"/>
+    <title>Fiches Interventions</title>
     <style>
       body { font-family: Arial, sans-serif; margin: 30px; color: #222; font-size: 13px; }
-      h1 { font-size: 18px; margin-bottom: 4px; }
-      .badge { display:inline-block; background:#e0f0ff; color:#1d6fa5; padding:2px 8px; border-radius:4px; font-size:12px; margin-bottom:4px; }
-      .badge-astreinte { display:inline-block; background:#fff3e0; color:#e65100; padding:2px 8px; border-radius:4px; font-size:12px; margin-bottom:12px; font-weight:bold; }
-      .section { margin-bottom: 16px; }
-      .label { font-weight: bold; color: #555; }
-      table { width:100%; border-collapse:collapse; }
-      th, td { border:1px solid #ccc; padding:6px; text-align:left; }
-      .sigs { display:flex; gap:40px; margin-top:20px; }
-      .sig-block { text-align:center; }
+      @media print { div { page-break-inside: avoid; } }
     </style>
   </head><body>
-    <h1>Fiche Intervention</h1>
-    <div class="badge">Créée par : ${profileName}</div><br/>
-    ${inv.estAstreinte ? '<div class="badge-astreinte">ASTREINTE</div>' : ""}
-    <div class="section">
-      <span class="label">Date :</span> ${date}
-    </div>
-    <div class="section">
-      <span class="label">Client :</span> ${inv.clientNom || "—"}<br/>
-      <span class="label">Adresse :</span> ${inv.clientAdresse || "—"}
-    </div>
-    <div class="section">
-      <span class="label">Horaires Matin :</span>
-      ${formatHeure(inv.heureMatinDebutH, inv.heureMatinDebutMin)} → ${formatHeure(inv.heureMatinFinH, inv.heureMatinFinMin)}<br/>
-      <span class="label">Horaires Après-midi :</span>
-      ${formatHeure(inv.heureApremDebutH, inv.heureApremDebutMin)} → ${formatHeure(inv.heureApremFinH, inv.heureApremFinMin)}
-    </div>
-    ${inv.description ? `<div class="section"><span class="label">Description :</span><br/><em>${inv.description}</em></div>` : ""}
-    <div class="section">
-      <span class="label">Pièces utilisées :</span>
-      ${piecesHtml}
-    </div>
-    <div class="sigs">
-      <div class="sig-block"><div class="label">Signature Client</div>${sigClientHtml}</div>
-      <div class="sig-block"><div class="label">Signature Intervenant</div>${sigIntervHtml}</div>
-    </div>
+    <h1 style="font-size:20px; margin-bottom:24px;">Fiches Interventions (${interventions.length})</h1>
+    ${body}
   </body></html>`);
   win.document.close();
   setTimeout(() => win.print(), 500);
@@ -113,12 +122,15 @@ export default function Facturation() {
   const { actor, isFetching: actorFetching } = useActor();
   const queryClient = useQueryClient();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  // Local soft-deleted IDs (for immediate UI feedback)
+  const [localDeleted, setLocalDeleted] = useState<Set<string>>(new Set());
 
   // Multi-select state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkAction, setBulkAction] = useState<"validate" | "delete" | null>(
-    null,
-  );
+  const [bulkAction, setBulkAction] = useState<
+    "validate" | "delete" | "pdf" | null
+  >(null);
 
   // Filters
   const [filterDateFrom, setFilterDateFrom] = useState("");
@@ -163,11 +175,11 @@ export default function Facturation() {
     enabled: !!actor && !actorFetching && (allProfiles as any[]).length > 0,
   });
 
-  // Sort + filter
+  // Sort + filter (exclude locally deleted)
   const filteredInterventions = useMemo(() => {
-    let list = [...(allInterventions as any[])].sort(
-      (a, b) => Number(b.date) - Number(a.date),
-    );
+    let list = [...(allInterventions as any[])]
+      .filter((inv) => !localDeleted.has(inv.id))
+      .sort((a, b) => Number(b.date) - Number(a.date));
 
     if (filterDateFrom) {
       const from = new Date(filterDateFrom).getTime();
@@ -196,6 +208,7 @@ export default function Facturation() {
     return list;
   }, [
     allInterventions,
+    localDeleted,
     filterDateFrom,
     filterDateTo,
     filterName,
@@ -225,12 +238,20 @@ export default function Facturation() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      if (!actor) throw new Error("Non connecté");
-      await actor.supprimerIntervention(id);
+      if (!actor)
+        throw new Error("Non connecté — reconnectez-vous pour supprimer");
+      await actor.supprimerDeFacturation(id);
     },
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       setDeletingId(null);
+      setDeleteError(null);
+      // Immediately hide from UI
+      setLocalDeleted((prev) => new Set([...prev, id]));
+      // Also invalidate in background
       queryClient.invalidateQueries({ queryKey: ["facturationInterventions"] });
+    },
+    onError: (error: any) => {
+      setDeleteError(error?.message ?? "Erreur lors de la suppression");
     },
   });
 
@@ -267,16 +288,32 @@ export default function Facturation() {
 
   const handleBulkDelete = async () => {
     if (!actor) return;
+    const deleted: string[] = [];
     for (const id of selectedIds) {
       try {
-        await actor.supprimerIntervention(id);
+        await actor.supprimerDeFacturation(id);
+        deleted.push(id);
       } catch (_) {
         // continue on error
       }
     }
+    // Immediately hide deleted ones
+    if (deleted.length > 0) {
+      setLocalDeleted((prev) => new Set([...prev, ...deleted]));
+    }
     setSelectedIds(new Set());
     setBulkAction(null);
     queryClient.invalidateQueries({ queryKey: ["facturationInterventions"] });
+  };
+
+  const handleBulkPdf = () => {
+    const selected = filteredInterventions.filter((inv: any) =>
+      selectedIds.has(inv.id),
+    );
+    if (selected.length === 0) return;
+    exportMultiplePdf(selected, profileNameMap);
+    setSelectedIds(new Set());
+    setBulkAction(null);
   };
 
   if (isLoading && !(allInterventions as any[]).length) {
@@ -400,7 +437,7 @@ export default function Facturation() {
               : "Tout sélectionner"}
           </span>
           {selectedIds.size > 0 && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 flex-wrap">
               {bulkAction === "delete" ? (
                 <>
                   <Button
@@ -409,7 +446,7 @@ export default function Facturation() {
                     className="h-7 text-xs"
                     onClick={handleBulkDelete}
                   >
-                    Confirmer suppression
+                    Confirmer
                   </Button>
                   <Button
                     variant="outline"
@@ -428,7 +465,7 @@ export default function Facturation() {
                     className="h-7 text-xs border-emerald-400 text-emerald-700"
                     onClick={handleBulkValidate}
                   >
-                    Confirmer validation
+                    Confirmer
                   </Button>
                   <Button
                     variant="outline"
@@ -441,6 +478,15 @@ export default function Facturation() {
                 </>
               ) : (
                 <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs border-blue-300 text-blue-600"
+                    onClick={handleBulkPdf}
+                  >
+                    <FileText className="w-3 h-3 mr-1" />
+                    PDF
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -466,6 +512,20 @@ export default function Facturation() {
         </div>
       )}
 
+      {/* Global delete error */}
+      {deleteError && (
+        <div className="bg-red-50 border border-red-300 rounded-lg px-3 py-2 text-xs text-red-700 flex items-center justify-between">
+          <span>{deleteError}</span>
+          <button
+            type="button"
+            onClick={() => setDeleteError(null)}
+            className="ml-2"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
       {filteredInterventions.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -483,11 +543,15 @@ export default function Facturation() {
             const isValide = inv.valide === true;
             const isDeleting = deletingId === inv.id;
             const isSelected = selectedIds.has(inv.id);
+            const isPendingDelete =
+              deleteMutation.isPending && deleteMutation.variables === inv.id;
 
             return (
               <div
                 key={inv.id ?? idx}
-                className={`rounded-xl border bg-card p-4 space-y-3 ${
+                className={`rounded-xl border bg-card p-4 space-y-3 transition-opacity ${
+                  isPendingDelete ? "opacity-50" : ""
+                } ${
                   isSelected
                     ? "border-primary ring-1 ring-primary"
                     : isValide
@@ -627,7 +691,7 @@ export default function Facturation() {
                           : "text-muted-foreground"
                     }`}
                   >
-                    Signature client :{" "}
+                    Sig. client :{" "}
                     {(inv as any).clientAbsent
                       ? "absent"
                       : inv.signatureClient
@@ -641,14 +705,13 @@ export default function Facturation() {
                         : "text-muted-foreground"
                     }`}
                   >
-                    Signature intervenant :{" "}
-                    {inv.signatureIntervenant ? "✓" : "✗"}
+                    Sig. intervenant : {inv.signatureIntervenant ? "✓" : "✗"}
                   </span>
                 </div>
 
                 {/* Action buttons */}
                 <div className="flex gap-2 flex-wrap pt-1">
-                  {/* PDF */}
+                  {/* PDF individuel */}
                   <Button
                     variant="outline"
                     size="sm"
@@ -673,9 +736,24 @@ export default function Facturation() {
                     </Button>
                   )}
 
-                  {/* Supprimer - toujours disponible si validée */}
+                  {/* Supprimer - disponible pour toute intervention validée */}
+                  {isValide && !isDeleting && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-8 border-red-300 text-red-600 hover:bg-red-50"
+                      onClick={() => {
+                        setDeletingId(inv.id);
+                        setDeleteError(null);
+                      }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                      Supprimer
+                    </Button>
+                  )}
                   {isValide && isDeleting && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
+                      <span className="text-xs text-red-600">Confirmer ?</span>
                       <Button
                         variant="destructive"
                         size="sm"
@@ -683,28 +761,20 @@ export default function Facturation() {
                         onClick={() => deleteMutation.mutate(inv.id)}
                         disabled={deleteMutation.isPending}
                       >
-                        Confirmer
+                        {deleteMutation.isPending ? "..." : "Oui"}
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         className="text-xs h-8"
-                        onClick={() => setDeletingId(null)}
+                        onClick={() => {
+                          setDeletingId(null);
+                          setDeleteError(null);
+                        }}
                       >
-                        Annuler
+                        Non
                       </Button>
                     </div>
-                  )}
-                  {isValide && !isDeleting && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs h-8 border-red-300 text-red-600 hover:bg-red-50"
-                      onClick={() => setDeletingId(inv.id)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5 mr-1" />
-                      Supprimer
-                    </Button>
                   )}
                 </div>
               </div>
