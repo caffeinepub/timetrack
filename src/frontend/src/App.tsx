@@ -9,15 +9,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Toaster } from "@/components/ui/sonner";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import DesktopSideNav from "./components/DesktopSideNav";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Footer from "./components/Footer";
 import Header from "./components/Header";
 import MobileBottomNav from "./components/MobileBottomNav";
+import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import {
   useGetCallerUserProfile,
+  useIsCallerAdmin,
   useSaveCallerUserProfile,
 } from "./hooks/useQueries";
 import Calendar from "./pages/Calendar";
@@ -80,7 +82,19 @@ function AppContent() {
   const isAuthenticated = !!identity;
 
   const currentPrincipal = identity?.getPrincipal().toString() || "";
-  const isAdmin = currentPrincipal === ADMIN_PRINCIPAL_ID;
+  // Check admin via frontend principal match
+  const isPrincipalAdmin = currentPrincipal === ADMIN_PRINCIPAL_ID;
+  // Check admin via backend query
+  const { data: isCallerAdminFromBackend } = useIsCallerAdmin();
+  const isAdmin = isPrincipalAdmin || isCallerAdminFromBackend === true;
+
+  // Auto-initialize access control when the hardcoded admin principal connects
+  const { actor } = useActor();
+  useEffect(() => {
+    if (isPrincipalAdmin && actor && !isCallerAdminFromBackend) {
+      actor.initializeAccessControl().catch(() => {});
+    }
+  }, [isPrincipalAdmin, actor, isCallerAdminFromBackend]);
 
   const {
     data: userProfile,
