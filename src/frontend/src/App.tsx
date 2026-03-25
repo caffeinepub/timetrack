@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Toaster } from "@/components/ui/sonner";
 import React, { useState } from "react";
+import DesktopSideNav from "./components/DesktopSideNav";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Footer from "./components/Footer";
 import Header from "./components/Header";
@@ -24,8 +25,12 @@ import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
 import Facturation from "./pages/Facturation";
 import Memo from "./pages/Memo";
+import Profil, { getBlockedSections } from "./pages/Profil";
 import TicketEssencePage from "./pages/TicketEssence";
 import TicketRestoPage from "./pages/TicketResto";
+
+const ADMIN_PRINCIPAL_ID =
+  "gilph-edmid-nr3ic-svhal-6eq2x-ef6kc-ll54b-f6ow2-wc6zo-yf3cx-sae";
 
 export type Page =
   | "dashboard"
@@ -34,7 +39,8 @@ export type Page =
   | "facturation"
   | "clients"
   | "ticket-resto"
-  | "ticket-essence";
+  | "ticket-essence"
+  | "profil";
 
 function GrassDecoration() {
   return (
@@ -73,6 +79,9 @@ function AppContent() {
     useInternetIdentity();
   const isAuthenticated = !!identity;
 
+  const currentPrincipal = identity?.getPrincipal().toString() || "";
+  const isAdmin = currentPrincipal === ADMIN_PRINCIPAL_ID;
+
   const {
     data: userProfile,
     isLoading: profileLoading,
@@ -106,6 +115,13 @@ function AppContent() {
     });
   };
 
+  // If a blocked page is somehow selected, redirect to dashboard
+  const blockedForUser = isAdmin ? [] : getBlockedSections(currentPrincipal);
+  const effectivePage: Page =
+    !isAdmin && blockedForUser.includes(currentPage)
+      ? "dashboard"
+      : currentPage;
+
   if (isInitializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -128,7 +144,6 @@ function AppContent() {
             {/* Logo with arc text */}
             <div className="flex flex-col items-center space-y-4">
               <div className="relative" style={{ width: 180, height: 180 }}>
-                {/* SVG arc text — "VIAL TRAITE SERVICE" curved above the circle */}
                 <svg
                   viewBox="0 0 180 180"
                   className="absolute inset-0 w-full h-full"
@@ -154,7 +169,6 @@ function AppContent() {
                     </textPath>
                   </text>
                 </svg>
-                {/* Circle with logo image */}
                 <div
                   className="absolute inset-0 flex items-center justify-center"
                   style={{ padding: "28px" }}
@@ -169,7 +183,6 @@ function AppContent() {
                 </div>
               </div>
 
-              {/* Subtitle only — title is now in the arc */}
               <div className="flex items-center justify-center gap-2">
                 <div className="h-0.5 w-8 bg-white/40 rounded" />
                 <span className="text-white/70 text-xs font-medium uppercase tracking-widest">
@@ -216,36 +229,61 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background pb-safe overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
       <Header userName={userProfile?.name} />
 
-      <main className="flex-1 w-full mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8 max-w-7xl min-w-0">
-        <div className={currentPage === "dashboard" ? "block" : "hidden"}>
-          <Dashboard />
-        </div>
-        <div className={currentPage === "calendar" ? "block" : "hidden"}>
-          <Calendar />
-        </div>
-        <div className={currentPage === "memo" ? "block" : "hidden"}>
-          <Memo />
-        </div>
-        <div className={currentPage === "facturation" ? "block" : "hidden"}>
-          <Facturation />
-        </div>
-        <div className={currentPage === "clients" ? "block" : "hidden"}>
-          <Clients />
-        </div>
-        <div className={currentPage === "ticket-resto" ? "block" : "hidden"}>
-          <TicketRestoPage />
-        </div>
-        <div className={currentPage === "ticket-essence" ? "block" : "hidden"}>
-          <TicketEssencePage />
-        </div>
-      </main>
+      {/* Body: sidebar + content */}
+      <div className="flex flex-1 min-h-0">
+        <DesktopSideNav
+          currentPage={effectivePage}
+          onNavigate={handleTabChange}
+          isAdmin={isAdmin}
+          blockedSections={blockedForUser}
+        />
+
+        <main className="flex-1 min-w-0 px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8 overflow-x-hidden">
+          <div className={effectivePage === "dashboard" ? "block" : "hidden"}>
+            <Dashboard />
+          </div>
+          <div className={effectivePage === "calendar" ? "block" : "hidden"}>
+            <Calendar />
+          </div>
+          <div className={effectivePage === "memo" ? "block" : "hidden"}>
+            <Memo />
+          </div>
+          <div className={effectivePage === "facturation" ? "block" : "hidden"}>
+            <Facturation />
+          </div>
+          <div className={effectivePage === "clients" ? "block" : "hidden"}>
+            <Clients />
+          </div>
+          <div
+            className={effectivePage === "ticket-resto" ? "block" : "hidden"}
+          >
+            <TicketRestoPage />
+          </div>
+          <div
+            className={effectivePage === "ticket-essence" ? "block" : "hidden"}
+          >
+            <TicketEssencePage />
+          </div>
+          {isAdmin && (
+            <div className={effectivePage === "profil" ? "block" : "hidden"}>
+              <Profil />
+            </div>
+          )}
+        </main>
+      </div>
 
       <Footer />
 
-      <MobileBottomNav currentPage={currentPage} onNavigate={handleTabChange} />
+      {/* Mobile bottom nav — hidden on desktop */}
+      <MobileBottomNav
+        currentPage={effectivePage}
+        onNavigate={handleTabChange}
+        isAdmin={isAdmin}
+        blockedSections={blockedForUser}
+      />
 
       <Dialog open={showProfileSetup} onOpenChange={() => {}}>
         <DialogContent

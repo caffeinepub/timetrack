@@ -7,7 +7,7 @@ import {
   FileText,
   TrendingUp,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -368,8 +368,6 @@ export default function Dashboard() {
     win.focus();
     setTimeout(() => win.print(), 500);
   }
-
-  // Get display name for greeting
 
   if (isLoading) {
     return (
