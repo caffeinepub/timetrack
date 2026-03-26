@@ -38,14 +38,16 @@ module {
     };
   };
 
-  // Returns #guest for unregistered users instead of trapping
   public func getUserRole(state : AccessControlState, caller : Principal) : UserRole {
     if (caller.isAnonymous()) {
       #guest;
     } else {
       switch (state.userRoles.get(caller)) {
         case (?role) { role };
-        case (null) { #guest };
+        case (null) {
+          // Return guest instead of trapping for unregistered users
+          #guest;
+        };
       };
     };
   };
@@ -72,6 +74,10 @@ module {
   };
 
   public func isAdmin(state : AccessControlState, caller : Principal) : Bool {
-    getUserRole(state, caller) == #admin;
+    if (caller.isAnonymous()) { return false };
+    switch (state.userRoles.get(caller)) {
+      case (?#admin) { true };
+      case (_) { false };
+    };
   };
 };
