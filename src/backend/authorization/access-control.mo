@@ -45,8 +45,7 @@ module {
       switch (state.userRoles.get(caller)) {
         case (?role) { role };
         case (null) {
-          // Return guest instead of trapping for unregistered users
-          #guest;
+          Runtime.trap("User is not registered");
         };
       };
     };
@@ -74,10 +73,6 @@ module {
   };
 
   public func isAdmin(state : AccessControlState, caller : Principal) : Bool {
-    if (caller.isAnonymous()) { return false };
-    switch (state.userRoles.get(caller)) {
-      case (?#admin) { true };
-      case (_) { false };
-    };
+    getUserRole(state, caller) == #admin;
   };
 };

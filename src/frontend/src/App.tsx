@@ -17,7 +17,7 @@ import Header from "./components/Header";
 import MobileBottomNav from "./components/MobileBottomNav";
 import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
-import { useGetCallerUserProfile, useIsCallerAdmin } from "./hooks/useQueries";
+import { useGetCallerUserProfile } from "./hooks/useQueries";
 import Calendar from "./pages/Calendar";
 import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
@@ -29,6 +29,7 @@ import TicketRestoPage from "./pages/TicketResto";
 
 const ADMIN_PRINCIPAL_ID =
   "gilph-edmid-nr3ic-svhal-6eq2x-ef6kc-ll54b-f6ow2-wc6zo-yf3cx-sae";
+const ADMIN_LS_KEY = "vts_is_admin";
 
 export type Page =
   | "dashboard"
@@ -80,19 +81,35 @@ function AppContent() {
   const isAuthenticated = !!identity;
 
   const currentPrincipal = identity?.getPrincipal().toString() || "";
-  // Check admin via frontend principal match
-  const isPrincipalAdmin = currentPrincipal === ADMIN_PRINCIPAL_ID;
-  // Check admin via backend query
-  const { data: isCallerAdminFromBackend } = useIsCallerAdmin();
-  const isAdmin = isPrincipalAdmin || isCallerAdminFromBackend === true;
+  const isAdmin = currentPrincipal === ADMIN_PRINCIPAL_ID;
+
+  // Persist admin status to localStorage so nav shows immediately on next load
+  useEffect(() => {
+    if (isAdmin) {
+      localStorage.setItem(ADMIN_LS_KEY, "true");
+    } else if (currentPrincipal && currentPrincipal !== "") {
+      // If we have a principal and it's NOT admin, clear the flag
+      localStorage.removeItem(ADMIN_LS_KEY);
+    }
+  }, [isAdmin, currentPrincipal]);
+
+  // Use cached admin status for rendering (shows nav immediately without waiting for identity)
+  const [cachedIsAdmin, setCachedIsAdmin] = useState(
+    () => localStorage.getItem(ADMIN_LS_KEY) === "true",
+  );
+  useEffect(() => {
+    setCachedIsAdmin(isAdmin || localStorage.getItem(ADMIN_LS_KEY) === "true");
+  }, [isAdmin]);
+
+  const effectiveIsAdmin = isAdmin || cachedIsAdmin;
 
   // Auto-initialize access control when the hardcoded admin principal connects
   const { actor } = useActor();
   useEffect(() => {
-    if (isPrincipalAdmin && actor && !isCallerAdminFromBackend) {
+    if (isAdmin && actor) {
       actor.initializeAccessControl().catch(() => {});
     }
-  }, [isPrincipalAdmin, actor, isCallerAdminFromBackend]);
+  }, [isAdmin, actor]);
 
   const {
     data: userProfile,
@@ -101,8 +118,11 @@ function AppContent() {
     refetch: refetchProfile,
   } = useGetCallerUserProfile();
 
+  // Bug fix: admin must never be blocked by the profile setup dialog,
+  // even if their profile data was lost.
   const showProfileSetup =
     isAuthenticated &&
+    !effectiveIsAdmin &&
     !profileLoading &&
     profileFetched &&
     userProfile === null;
@@ -119,7 +139,6 @@ function AppContent() {
     setIsSavingProfile(true);
     try {
       // Always call initializeAccessControl first to ensure the user is registered
-      // This is critical for new users on the production canister
       await actor.initializeAccessControl();
       await actor.saveCallerUserProfile({
         name: profileName.trim(),
@@ -146,7 +165,7 @@ function AppContent() {
   // If a blocked page is somehow selected, redirect to dashboard
   const blockedForUser = isAdmin ? [] : getBlockedSections(currentPrincipal);
   const effectivePage: Page =
-    !isAdmin && blockedForUser.includes(currentPage)
+    !effectiveIsAdmin && blockedForUser.includes(currentPage)
       ? "dashboard"
       : currentPage;
 
@@ -258,14 +277,16 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
-      <Header userName={userProfile?.name} />
+      <Header
+        userName={userProfile?.name ?? (effectiveIsAdmin ? "Admin" : undefined)}
+      />
 
       {/* Body: sidebar + content */}
       <div className="flex flex-1 min-h-0">
         <DesktopSideNav
           currentPage={effectivePage}
           onNavigate={handleTabChange}
-          isAdmin={isAdmin}
+          isAdmin={effectiveIsAdmin}
           blockedSections={blockedForUser}
         />
 
@@ -295,7 +316,7 @@ function AppContent() {
           >
             <TicketEssencePage />
           </div>
-          {isAdmin && (
+          {effectiveIsAdmin && (
             <div className={effectivePage === "profil" ? "block" : "hidden"}>
               <Profil />
             </div>
@@ -309,7 +330,7 @@ function AppContent() {
       <MobileBottomNav
         currentPage={effectivePage}
         onNavigate={handleTabChange}
-        isAdmin={isAdmin}
+        isAdmin={effectiveIsAdmin}
         blockedSections={blockedForUser}
       />
 
