@@ -402,6 +402,27 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ── TEMPORAIRE : Affichage Principal ID ── */}
+      {identity && (
+        <div
+          className="rounded-lg px-3 py-2 text-xs"
+          style={{
+            background: "oklch(var(--navy-dark))",
+            border: "1px solid oklch(var(--vts-orange))",
+          }}
+        >
+          <p className="text-white/60 mb-1 font-semibold">
+            🔑 Votre identifiant (temporaire)
+          </p>
+          <p className="text-orange-300 font-mono break-all select-all">
+            {identity.getPrincipal().toString()}
+          </p>
+          <p className="text-white/40 mt-1 text-xs italic">
+            Appuyez sur le texte pour le sélectionner, puis copiez-le.
+          </p>
+        </div>
+      )}
+
       {/* ── Period selector ── */}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="flex rounded-lg overflow-hidden border border-border">
