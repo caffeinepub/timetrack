@@ -1,22 +1,22 @@
 # Vial Traite Service
 
 ## Current State
-The admin user accidentally deactivated their own account via the Profil section, changing their backend role from `#admin` to `#guest` via `assignCallerUserRole`.
+Version 117 en production. L'admin s'est accidentellement désactivé dans la section Profil, ce qui a mis son rôle backend en `#guest`. Il ne peut plus se connecter car toutes les fonctions backend requièrent le rôle `#user` minimum.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Hardcoded admin protection in `access-control.mo`: `isHardcodedAdmin()` check that always returns `#admin` role for the hardcoded principal ID, regardless of stored role
-- `initializeAccessControl()` call in `Profil.tsx` on load to re-register admin role
+- Constante `PROTECTED_ADMIN` dans `access-control.mo` avec l'ID principal de l'admin
+- Fonction `isProtectedAdmin` qui vérifie si un principal est l'admin protégé
 
 ### Modify
-- `getUserRole()`: returns `#admin` for hardcoded admin principal before checking the map
-- `initialize()`: always sets hardcoded admin to `#admin` role
-- `assignRole()`: silently ignores role changes targeting the hardcoded admin principal
+- `getUserRole` : retourne toujours `#admin` pour le principal protégé, sans consulter la map
+- `initialize` : force l'assignation `#admin` pour le principal protégé à chaque appel
+- `assignRole` : bloque toute tentative de modifier le rôle de l'admin protégé
 
 ### Remove
-- Nothing removed
+- Rien
 
 ## Implementation Plan
-1. Fix `access-control.mo` to protect hardcoded admin from role changes
-2. Add `initializeAccessControl()` call in `Profil.tsx` load to restore admin role on next access
+1. Modifier `access-control.mo` avec la protection de l'admin
+2. Déployer sans reconstruire le backend (données préservées)
