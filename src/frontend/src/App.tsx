@@ -76,6 +76,8 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const { identity, isInitializing, login, isLoggingIn } =
     useInternetIdentity();
@@ -100,6 +102,7 @@ function AppContent() {
     data: userProfile,
     isLoading: profileLoading,
     isFetched: profileFetched,
+    refetch: refetchProfile,
   } = useGetCallerUserProfile();
 
   const saveProfile = useSaveCallerUserProfile();
@@ -112,13 +115,29 @@ function AppContent() {
 
   const handleSaveProfile = async () => {
     if (!profileName.trim()) return;
+    if (!actor) {
+      setProfileError(
+        "Connexion au serveur non disponible. Veuillez recharger la page.",
+      );
+      return;
+    }
+    setProfileError("");
+    setIsSavingProfile(true);
     try {
+      // Always call initializeAccessControl first to ensure the user is registered
+      // This is critical for new users on the production canister
+      await actor.initializeAccessControl();
       await saveProfile.mutateAsync({
         name: profileName.trim(),
         email: profileEmail.trim(),
       });
+      // Refetch profile to confirm it was saved
+      await refetchProfile();
     } catch (error) {
       console.error("Error saving profile:", error);
+      setProfileError("Erreur lors de l'enregistrement. Veuillez réessayer.");
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
@@ -340,15 +359,27 @@ function AppContent() {
                 className="text-base"
               />
             </div>
+            {profileError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+                {profileError}
+              </p>
+            )}
           </div>
           <Button
             type="button"
             onClick={handleSaveProfile}
-            disabled={!profileName.trim() || saveProfile.isPending}
+            disabled={!profileName.trim() || isSavingProfile}
             className="w-full touch-action-manipulation"
             data-ocid="profile.submit_button"
           >
-            {saveProfile.isPending ? "Enregistrement..." : "Enregistrer"}
+            {isSavingProfile ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                Enregistrement...
+              </>
+            ) : (
+              "Enregistrer"
+            )}
           </Button>
         </DialogContent>
       </Dialog>
