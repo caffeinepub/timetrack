@@ -66,8 +66,6 @@ export default function Profil() {
     const load = async () => {
       try {
         setLoading(true);
-        // Re-initialize access control to ensure admin role is correctly set
-        actor.initializeAccessControl().catch(() => {});
         const result = await actor.obtenirTousLesProfils();
         const parsed: ProfileWithPrincipal[] = result.map(([p, profile]) => ({
           principalStr: p.toString(),

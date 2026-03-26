@@ -25,7 +25,12 @@ export function useActor() {
       };
 
       const actor = await createActorWithConfig(actorOptions);
-      await actor.initializeAccessControl();
+      // Wrap in try-catch so actor is always returned even if initializeAccessControl fails
+      try {
+        await actor.initializeAccessControl();
+      } catch (e) {
+        console.warn("initializeAccessControl failed, continuing anyway:", e);
+      }
       return actor;
     },
     // Only refetch when identity changes

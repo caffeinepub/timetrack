@@ -29,7 +29,6 @@ import TicketRestoPage from "./pages/TicketResto";
 
 const ADMIN_PRINCIPAL_ID =
   "gilph-edmid-nr3ic-svhal-6eq2x-ef6kc-ll54b-f6ow2-wc6zo-yf3cx-sae";
-const ADMIN_LS_KEY = "vts_is_admin";
 
 export type Page =
   | "dashboard"
@@ -83,25 +82,10 @@ function AppContent() {
   const currentPrincipal = identity?.getPrincipal().toString() || "";
   const isAdmin = currentPrincipal === ADMIN_PRINCIPAL_ID;
 
-  // Persist admin status to localStorage so nav shows immediately on next load
-  useEffect(() => {
-    if (isAdmin) {
-      localStorage.setItem(ADMIN_LS_KEY, "true");
-    } else if (currentPrincipal && currentPrincipal !== "") {
-      // If we have a principal and it's NOT admin, clear the flag
-      localStorage.removeItem(ADMIN_LS_KEY);
-    }
-  }, [isAdmin, currentPrincipal]);
-
-  // Use cached admin status for rendering (shows nav immediately without waiting for identity)
-  const [cachedIsAdmin, setCachedIsAdmin] = useState(
-    () => localStorage.getItem(ADMIN_LS_KEY) === "true",
-  );
-  useEffect(() => {
-    setCachedIsAdmin(isAdmin || localStorage.getItem(ADMIN_LS_KEY) === "true");
-  }, [isAdmin]);
-
-  const effectiveIsAdmin = isAdmin || cachedIsAdmin;
+  // effectiveIsAdmin is derived purely from the live identity principal.
+  // The app shows a loading spinner while isInitializing, so by the time
+  // the main UI renders, identity is always resolved and isAdmin is correct.
+  const effectiveIsAdmin = isAdmin;
 
   // Auto-initialize access control when the hardcoded admin principal connects
   const { actor } = useActor();

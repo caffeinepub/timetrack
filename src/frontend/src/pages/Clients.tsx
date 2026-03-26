@@ -515,7 +515,11 @@ export default function Clients() {
   const currentUserPrincipal = identity
     ? identity.getPrincipal().toString()
     : null;
-  const { data: clients = [], isLoading } = useGetClients();
+  const {
+    data: clients = [],
+    isLoading,
+    error: clientsError,
+  } = useGetClients();
   const addClient = useAddClient();
   const updateClient = useUpdateClient();
   const deleteClient = useDeleteClient();
@@ -685,6 +689,11 @@ export default function Clients() {
       </div>
 
       {/* Loading */}
+      {clientsError && (
+        <div className="text-center py-8 text-red-500 text-sm">
+          Erreur de chargement des clients. Veuillez recharger la page.
+        </div>
+      )}
       {isLoading && (
         <div
           className="flex justify-center py-12"

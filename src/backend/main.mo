@@ -459,6 +459,13 @@ actor {
       let adminPrincipal = Principal.fromText(HARDCODED_ADMIN);
       accessControlState.userRoles.add(adminPrincipal, #admin);
       accessControlState.adminAssigned := true;
+      // Auto-create admin profile if missing so admin appears in obtenirTousLesProfils
+      switch (userProfiles.get(adminPrincipal)) {
+        case (null) {
+          userProfiles.add(adminPrincipal, { name = "Admin"; email = ""; signatureIntervenant = null });
+        };
+        case (?_) {};
+      };
     };
     // Register caller if not yet registered
     if (caller.toText() != HARDCODED_ADMIN) {
@@ -889,7 +896,8 @@ actor {
 
   // Admin-only function to view user work entries
   public query ({ caller }) func obtenirJourneesPubliques(user : Principal) : async [TimeEntry] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    let callerIsAdminJP = caller.toText() == HARDCODED_ADMIN or AccessControl.hasPermission(accessControlState, caller, #admin);
+    if (not callerIsAdminJP) {
       Runtime.trap("Unauthorized: Only admins can view other users' work entries");
     };
     let entries = timeEntries.values();
@@ -899,7 +907,8 @@ actor {
 
   // Admin-only function to view user interventions
   public query ({ caller }) func obtenirInterventionsPubliques(user : Principal) : async [InterventionAvecPieces] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+    let callerIsAdminIP = caller.toText() == HARDCODED_ADMIN or AccessControl.hasPermission(accessControlState, caller, #admin);
+    if (not callerIsAdminIP) {
       Runtime.trap("Unauthorized: Only admins can view other users' interventions");
     };
     let filtered = interventions.values().filter(func(i : Intervention) : Bool {
