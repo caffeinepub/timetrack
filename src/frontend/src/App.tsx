@@ -28,7 +28,7 @@ import TicketEssencePage from "./pages/TicketEssence";
 import TicketRestoPage from "./pages/TicketResto";
 
 const ADMIN_PRINCIPAL_ID =
-  "wywjn-5mgyd-gneu2-5lmjv-llt4v-qjhx4-erbxt-57cr7-5qxw7-eawne-bae";
+  "qqb4l-yz3r5-axq5a-4pvuz-2i2ao-6ssuu-tc6rb-ocqyp-asmgd-jsu2l-6qe";
 
 export type Page =
   | "dashboard"
