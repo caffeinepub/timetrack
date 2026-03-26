@@ -1,26 +1,22 @@
-# Vial Traite Service — PWA + Logo
+# Vial Traite Service
 
 ## Current State
-L'application a un logo vache emoji (🐄) dans le header, et un logo image sur la page de connexion. Pas de configuration PWA.
+The admin user accidentally deactivated their own account via the Profil section, changing their backend role from `#admin` to `#guest` via `assignCallerUserRole`.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Fichier manifest.json pour PWA (installable sur écran d'accueil Android/iPhone)
-- Icône PWA 512x512 (tête de vache sobre blanche sur fond bleu marine)
-- Meta tags PWA dans index.html
-- "Vial Traite Service" en texte blanc en arc autour du logo sur la page de connexion
+- Hardcoded admin protection in `access-control.mo`: `isHardcodedAdmin()` check that always returns `#admin` role for the hardcoded principal ID, regardless of stored role
+- `initializeAccessControl()` call in `Profil.tsx` on load to re-register admin role
 
 ### Modify
-- index.html : ajouter les balises PWA (manifest, theme-color, apple-touch-icon)
-- Login page : affichage de "Vial Traite Service" en blanc en arc autour de l'image du logo
-- Header : remplacer l'emoji 🐄 par l'image du logo vache (visible sur desktop et mobile)
+- `getUserRole()`: returns `#admin` for hardcoded admin principal before checking the map
+- `initialize()`: always sets hardcoded admin to `#admin` role
+- `assignRole()`: silently ignores role changes targeting the hardcoded admin principal
 
 ### Remove
-- Emoji 🐄 dans le badge du header
+- Nothing removed
 
 ## Implementation Plan
-1. Créer public/manifest.json avec nom, icônes et couleurs de thème
-2. Mettre à jour index.html avec les balises PWA
-3. Mettre à jour la page de connexion avec SVG arc text autour du logo
-4. Mettre à jour Header.tsx pour utiliser l'image du logo au lieu de l'emoji
+1. Fix `access-control.mo` to protect hardcoded admin from role changes
+2. Add `initializeAccessControl()` call in `Profil.tsx` load to restore admin role on next access
