@@ -28,7 +28,7 @@ import TicketEssencePage from "./pages/TicketEssence";
 import TicketRestoPage from "./pages/TicketResto";
 
 const ADMIN_PRINCIPAL_ID =
-  "gilph-edmid-nr3ic-svhal-6eq2x-ef6kc-ll54b-f6ow2-wc6zo-yf3cx-sae";
+  "wywjn-5mgyd-gneu2-5lmjv-llt4v-qjhx4-erbxt-57cr7-5qxw7-eawne-bae";
 
 export type Page =
   | "dashboard"
@@ -82,9 +82,6 @@ function AppContent() {
   const currentPrincipal = identity?.getPrincipal().toString() || "";
   const isAdmin = currentPrincipal === ADMIN_PRINCIPAL_ID;
 
-  // effectiveIsAdmin is derived purely from the live identity principal.
-  // The app shows a loading spinner while isInitializing, so by the time
-  // the main UI renders, identity is always resolved and isAdmin is correct.
   const effectiveIsAdmin = isAdmin;
 
   // Auto-initialize access control when the hardcoded admin principal connects
@@ -102,8 +99,6 @@ function AppContent() {
     refetch: refetchProfile,
   } = useGetCallerUserProfile();
 
-  // Bug fix: admin must never be blocked by the profile setup dialog,
-  // even if their profile data was lost.
   const showProfileSetup =
     isAuthenticated &&
     !effectiveIsAdmin &&
@@ -122,14 +117,12 @@ function AppContent() {
     setProfileError("");
     setIsSavingProfile(true);
     try {
-      // Always call initializeAccessControl first to ensure the user is registered
       await actor.initializeAccessControl();
       await actor.saveCallerUserProfile({
         name: profileName.trim(),
         email: profileEmail.trim(),
         signatureIntervenant: undefined,
       });
-      // Refetch profile to confirm it was saved
       await refetchProfile();
     } catch (error) {
       console.error("Error saving profile:", error);
@@ -146,7 +139,6 @@ function AppContent() {
     });
   };
 
-  // If a blocked page is somehow selected, redirect to dashboard
   const blockedForUser = isAdmin ? [] : getBlockedSections(currentPrincipal);
   const effectivePage: Page =
     !effectiveIsAdmin && blockedForUser.includes(currentPage)
@@ -172,7 +164,6 @@ function AppContent() {
       >
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 pb-32">
           <div className="w-full max-w-sm text-center space-y-6">
-            {/* Logo with arc text */}
             <div className="flex flex-col items-center space-y-4">
               <div className="relative" style={{ width: 180, height: 180 }}>
                 <svg
@@ -265,7 +256,6 @@ function AppContent() {
         userName={userProfile?.name ?? (effectiveIsAdmin ? "Admin" : undefined)}
       />
 
-      {/* Body: sidebar + content */}
       <div className="flex flex-1 min-h-0">
         <DesktopSideNav
           currentPage={effectivePage}
@@ -310,7 +300,6 @@ function AppContent() {
 
       <Footer />
 
-      {/* Mobile bottom nav — hidden on desktop */}
       <MobileBottomNav
         currentPage={effectivePage}
         onNavigate={handleTabChange}

@@ -6,7 +6,7 @@ import { UserRole } from "../backend.d";
 import { useActor } from "../hooks/useActor";
 
 const ADMIN_PRINCIPAL_ID =
-  "gilph-edmid-nr3ic-svhal-6eq2x-ef6kc-ll54b-f6ow2-wc6zo-yf3cx-sae";
+  "wywjn-5mgyd-gneu2-5lmjv-llt4v-qjhx4-erbxt-57cr7-5qxw7-eawne-bae";
 
 const ALL_SECTIONS = [
   { key: "dashboard", label: "Bord" },
@@ -73,14 +73,12 @@ export default function Profil() {
         }));
         setProfiles(parsed);
 
-        // Load section restrictions from localStorage
         const newBlockedMap: Record<string, string[]> = {};
         for (const { principalStr } of parsed) {
           newBlockedMap[principalStr] = getBlockedSections(principalStr);
         }
         setBlockedMap(newBlockedMap);
 
-        // Initialize status as active for all
         const newStatus: Record<string, "active" | "disabled"> = {};
         for (const { principalStr } of parsed) {
           newStatus[principalStr] = "active";
@@ -98,6 +96,8 @@ export default function Profil() {
 
   const toggleStatus = async (principalStr: string) => {
     if (!actor) return;
+    // Protect the admin account — never allow deactivation
+    if (principalStr === ADMIN_PRINCIPAL_ID) return;
     setActionLoading((prev) => ({ ...prev, [principalStr]: true }));
     try {
       const current = statusMap[principalStr] || "active";
@@ -159,7 +159,6 @@ export default function Profil() {
         </div>
       </div>
 
-      {/* Content */}
       {loading && (
         <div
           className="rounded-xl p-8 flex items-center justify-center"
@@ -212,7 +211,6 @@ export default function Profil() {
               style={{ background: "oklch(var(--navy-dark))" }}
               data-ocid={`profil.item.${idx + 1}`}
             >
-              {/* Card header */}
               <div className="p-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div
@@ -280,13 +278,11 @@ export default function Profil() {
                 )}
               </div>
 
-              {/* Separator */}
               <div
                 className="mx-4 h-px"
                 style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
               />
 
-              {/* Sections toggle row */}
               <button
                 type="button"
                 onClick={() => toggleExpand(principalStr)}
