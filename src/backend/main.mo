@@ -889,7 +889,7 @@ actor {
   public query ({ caller }) func obtenirTousLesProfils() : async [(Principal, UserProfile)] {
     let callerIsAdmin = caller.toText() == HARDCODED_ADMIN or AccessControl.isAdmin(accessControlState, caller);
     if (not callerIsAdmin) {
-      Runtime.trap("Unauthorized: Only admins can view all profiles");
+      Runtime.trap("Unauthorized: caller=" # caller.toText() # " expected=" # HARDCODED_ADMIN);
     };
     userProfiles.entries().toArray()
   };

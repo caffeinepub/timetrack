@@ -11,7 +11,7 @@ const ADMIN_PRINCIPAL_ID =
 const ALL_SECTIONS = [
   { key: "dashboard", label: "Bord" },
   { key: "calendar", label: "Calendrier" },
-  { key: "memo", label: "Mémo" },
+  { key: "memo", label: "M\u00e9mo" },
   { key: "facturation", label: "Facturation" },
   { key: "clients", label: "Clients" },
   { key: "ticket-resto", label: "Ticket Resto" },
@@ -45,11 +45,23 @@ interface ProfileWithPrincipal {
   profile: UserProfile;
 }
 
+function extractErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === "string") return e;
+  try {
+    return JSON.stringify(e);
+  } catch {
+    return String(e);
+  }
+}
+
 export default function Profil() {
-  const { actor, isFetching } = useActor();
+  const { actor, isFetching, isAuthenticated } = useActor();
   const [profiles, setProfiles] = useState<ProfileWithPrincipal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [statusMap, setStatusMap] = useState<
     Record<string, "active" | "disabled">
   >({});
@@ -61,42 +73,68 @@ export default function Profil() {
     {},
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryCount is used as a manual trigger
   useEffect(() => {
-    if (!actor || isFetching) return;
+    // Only load profiles when actor is ready AND user is authenticated
+    if (!actor || isFetching || !isAuthenticated) return;
+    let cancelled = false;
+
     const load = async () => {
-      try {
-        setLoading(true);
-        const result = await actor.obtenirTousLesProfils();
-        const parsed: ProfileWithPrincipal[] = result.map(([p, profile]) => ({
-          principalStr: p.toString(),
-          profile,
-        }));
-        setProfiles(parsed);
+      setLoading(true);
+      setError(null);
+      setErrorDetail(null);
 
-        const newBlockedMap: Record<string, string[]> = {};
-        for (const { principalStr } of parsed) {
-          newBlockedMap[principalStr] = getBlockedSections(principalStr);
-        }
-        setBlockedMap(newBlockedMap);
+      let lastError: unknown;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const result = await actor.obtenirTousLesProfils();
+          if (cancelled) return;
+          const parsed: ProfileWithPrincipal[] = result.map(([p, profile]) => ({
+            principalStr: p.toString(),
+            profile,
+          }));
+          setProfiles(parsed);
 
-        const newStatus: Record<string, "active" | "disabled"> = {};
-        for (const { principalStr } of parsed) {
-          newStatus[principalStr] = "active";
+          const newBlockedMap: Record<string, string[]> = {};
+          for (const { principalStr } of parsed) {
+            newBlockedMap[principalStr] = getBlockedSections(principalStr);
+          }
+          setBlockedMap(newBlockedMap);
+
+          const newStatus: Record<string, "active" | "disabled"> = {};
+          for (const { principalStr } of parsed) {
+            newStatus[principalStr] = "active";
+          }
+          setStatusMap(newStatus);
+          setLoading(false);
+          return;
+        } catch (e) {
+          lastError = e;
+          if (attempt < 2) await new Promise((r) => setTimeout(r, 1500));
         }
-        setStatusMap(newStatus);
-      } catch (e) {
-        console.error(e);
+      }
+
+      if (!cancelled) {
+        console.error("Failed to load profiles:", lastError);
+        const detail = extractErrorMessage(lastError);
+        setErrorDetail(detail);
         setError("Erreur lors du chargement des profils.");
-      } finally {
         setLoading(false);
       }
     };
+
     load();
-  }, [actor, isFetching]);
+    return () => {
+      cancelled = true;
+    };
+  }, [actor, isFetching, isAuthenticated, retryCount]);
+
+  const handleRetry = () => {
+    setRetryCount((c) => c + 1);
+  };
 
   const toggleStatus = async (principalStr: string) => {
     if (!actor) return;
-    // Protect the admin account — never allow deactivation
     if (principalStr === ADMIN_PRINCIPAL_ID) return;
     setActionLoading((prev) => ({ ...prev, [principalStr]: true }));
     try {
@@ -151,10 +189,10 @@ export default function Profil() {
         </div>
         <div>
           <h1 className="text-xl font-bold text-white">
-            Section Profil — Administration
+            Section Profil \u2014 Administration
           </h1>
           <p className="text-sm" style={{ color: "oklch(var(--vts-green))" }}>
-            Gestion des accès utilisateurs
+            Gestion des acc\u00e8s utilisateurs
           </p>
         </div>
       </div>
@@ -178,11 +216,25 @@ export default function Profil() {
 
       {error && (
         <div
-          className="rounded-xl p-4 text-red-400 font-semibold border border-red-500/30"
+          className="rounded-xl p-4 border border-red-500/30 flex flex-col gap-3"
           style={{ background: "oklch(var(--navy-dark))" }}
           data-ocid="profil.error_state"
         >
-          {error}
+          <span className="text-red-400 font-semibold">{error}</span>
+          {errorDetail && (
+            <p className="text-red-300/70 text-xs font-mono break-all">
+              {errorDetail}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={handleRetry}
+            className="self-start px-4 py-2 rounded-lg text-sm font-bold text-white transition-opacity hover:opacity-80"
+            style={{ backgroundColor: "#ea580c" }}
+            data-ocid="profil.primary_button"
+          >
+            R\u00e9essayer
+          </button>
         </div>
       )}
 
@@ -192,7 +244,7 @@ export default function Profil() {
           style={{ background: "oklch(var(--navy-dark))" }}
           data-ocid="profil.empty_state"
         >
-          Aucun profil utilisateur enregistré.
+          Aucun profil utilisateur enregistr\u00e9.
         </div>
       )}
 
@@ -243,7 +295,7 @@ export default function Profil() {
                             : "bg-red-500/20 text-red-400"
                         }`}
                       >
-                        {status === "active" ? "Actif" : "Désactivé"}
+                        {status === "active" ? "Actif" : "D\u00e9sactiv\u00e9"}
                       </span>
                     </div>
                     {profile.email && (
@@ -272,7 +324,7 @@ export default function Profil() {
                     {isActioning
                       ? "..."
                       : status === "active"
-                        ? "Désactiver"
+                        ? "D\u00e9sactiver"
                         : "Activer"}
                   </button>
                 )}
@@ -290,7 +342,7 @@ export default function Profil() {
                 data-ocid={`profil.panel.${idx + 1}`}
               >
                 <span style={{ color: "oklch(var(--vts-green))" }}>
-                  Gérer les sections
+                  G\u00e9rer les sections
                 </span>
                 {isExpanded ? (
                   <ChevronUp className="w-4 h-4" />
