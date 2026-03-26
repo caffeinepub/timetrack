@@ -385,7 +385,7 @@ actor {
     switch (ticketsResto.get(id)) {
       case (null) { false };
       case (?ticket) {
-        if (caller != ticket.userId and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (caller != ticket.userId and not isCallerAdminInternal(caller)) {
           Runtime.trap("Non autorisé à supprimer ce ticket resto");
         };
         ticketsResto.remove(id);
@@ -417,7 +417,7 @@ actor {
     switch (ticketsEssence.get(id)) {
       case (null) { false };
       case (?ticket) {
-        if (caller != ticket.userId and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (caller != ticket.userId and not isCallerAdminInternal(caller)) {
           Runtime.trap("Non autorisé à supprimer ce ticket essence");
         };
         ticketsEssence.remove(id);
@@ -452,6 +452,22 @@ actor {
   // Autorisation système
   let accessControlState = AccessControl.initState();
 
+  // Hardcoded admin principal - always admin regardless of access control state (v136)
+  let HARDCODED_ADMIN : Text = "qqb4l-yz3r5-axq5a-4pvuz-2i2ao-6ssuu-tc6rb-ocqyp-asmgd-jsu2l-6qe";
+
+  // Helper: hardcoded admin always has access regardless of role
+  func callerHasAccess(caller : Principal) : Bool {
+    if (caller.isAnonymous()) { return false };
+    if (caller.toText() == HARDCODED_ADMIN) { return true };
+    AccessControl.hasPermission(accessControlState, caller, #user)
+  };
+
+  // Helper: check if caller is admin (hardcoded or via access control)
+  func isCallerAdminInternal(caller : Principal) : Bool {
+    if (caller.toText() == HARDCODED_ADMIN) { return true };
+    AccessControl.isAdmin(accessControlState, caller)
+  };
+
   // Sécurité et gestion des utilisateurs
   public shared ({ caller }) func initializeAccessControl() : async () {
     // Always reset hardcoded admin to admin role (fix accidental deactivation)
@@ -483,18 +499,8 @@ actor {
     AccessControl.assignRole(accessControlState, caller, user, role);
   };
 
-  // Hardcoded admin principal - always admin regardless of access control state (v136)
-  let HARDCODED_ADMIN : Text = "qqb4l-yz3r5-axq5a-4pvuz-2i2ao-6ssuu-tc6rb-ocqyp-asmgd-jsu2l-6qe";
-
-  // Helper: hardcoded admin always has access regardless of role
-  func callerHasAccess(caller : Principal) : Bool {
-    if (caller.toText() == HARDCODED_ADMIN) { return true };
-    AccessControl.hasPermission(accessControlState, caller, #user)
-  };
-
   public query ({ caller }) func isCallerAdmin() : async Bool {
-    if (caller.toText() == HARDCODED_ADMIN) { return true };
-    AccessControl.isAdmin(accessControlState, caller);
+    isCallerAdminInternal(caller)
   };
 
   // -------- MEMO FUNCTIONS (public section) --------
@@ -528,7 +534,7 @@ actor {
     switch (memoEntries.get(id)) {
       case (null) { Runtime.trap("Mémo non trouvé") };
       case (?entry) {
-        if (entry.createdBy != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (entry.createdBy != caller and not isCallerAdminInternal(caller)) {
           Runtime.trap("Non autorisé : vous ne pouvez supprimer que vos propres mémos");
         };
       };
@@ -630,7 +636,7 @@ actor {
     switch (interventions.get(id)) {
       case (null) { /* not found: will create */ };
       case (?existing) {
-        if (existing.user != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (existing.user != caller and not isCallerAdminInternal(caller)) {
           Runtime.trap("Non autorisé");
         };
       };
@@ -675,7 +681,7 @@ actor {
           case (null) { false };
         };
         // Allow deletion if: own intervention, validated intervention (any authenticated user can delete), or admin
-        if (existing.user != caller and not isValidated and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (existing.user != caller and not isValidated and not isCallerAdminInternal(caller)) {
           Runtime.trap("Non autorisé");
         };
       };
@@ -711,7 +717,7 @@ actor {
     if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can view interventions");
     };
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
+    let isAdmin = isCallerAdminInternal(caller);
     interventions.values().filter(func(i : Intervention) : Bool {
       i.date == date and (i.user == caller or isAdmin)
     }).map(interventionAvecPieces).toArray();
@@ -721,7 +727,7 @@ actor {
     if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can view interventions");
     };
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
+    let isAdmin = isCallerAdminInternal(caller);
     let sorted = interventions.values().filter(func(i : Intervention) : Bool {
       i.user == caller or isAdmin
     }).map(interventionAvecPieces).toArray();
@@ -770,7 +776,7 @@ actor {
       Runtime.trap("Unauthorized: Only users can list files");
     };
 
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
+    let isAdmin = isCallerAdminInternal(caller);
     
     if (isAdmin) {
       fichiersStockes.values().toArray();
@@ -789,7 +795,7 @@ actor {
     switch (fichiersStockes.get(_id)) {
       case (null) { null };
       case (?fichier) {
-        if (fichier.proprietaire == caller or AccessControl.isAdmin(accessControlState, caller)) {
+        if (fichier.proprietaire == caller or isCallerAdminInternal(caller)) {
           ?fichier;
         } else {
           Runtime.trap("Non autorisé : vous ne pouvez accéder qu'à vos propres fichiers");
@@ -803,7 +809,7 @@ actor {
       Runtime.trap("Unauthorized: Only users can search files");
     };
 
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
+    let isAdmin = isCallerAdminInternal(caller);
     
     if (isAdmin) {
       fichiersStockes.values().toArray();
@@ -822,7 +828,7 @@ actor {
     switch (fichiersStockes.get(_id)) {
       case (null) { false };
       case (?fichier) {
-        if (fichier.proprietaire != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (fichier.proprietaire != caller and not isCallerAdminInternal(caller)) {
           Runtime.trap("Non autorisé : vous ne pouvez supprimer que vos propres fichiers");
         };
         fichiersStockes.remove(_id);
@@ -841,7 +847,7 @@ actor {
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
-    let callerIsAdmin = caller.toText() == HARDCODED_ADMIN or AccessControl.isAdmin(accessControlState, caller);
+    let callerIsAdmin = isCallerAdminInternal(caller);
     if (caller.isAnonymous()) {
       Runtime.trap("Unauthorized: Anonymous users cannot view profiles");
     };
@@ -887,7 +893,7 @@ actor {
 
   // Admin-only function to view all profiles
   public query ({ caller }) func obtenirTousLesProfils() : async [(Principal, UserProfile)] {
-    let callerIsAdmin = caller.toText() == HARDCODED_ADMIN or AccessControl.isAdmin(accessControlState, caller);
+    let callerIsAdmin = isCallerAdminInternal(caller);
     if (not callerIsAdmin) {
       Runtime.trap("Unauthorized: caller=" # caller.toText() # " expected=" # HARDCODED_ADMIN);
     };
@@ -896,8 +902,7 @@ actor {
 
   // Admin-only function to view user work entries
   public query ({ caller }) func obtenirJourneesPubliques(user : Principal) : async [TimeEntry] {
-    let callerIsAdminJP = caller.toText() == HARDCODED_ADMIN or AccessControl.hasPermission(accessControlState, caller, #admin);
-    if (not callerIsAdminJP) {
+    if (not isCallerAdminInternal(caller)) {
       Runtime.trap("Unauthorized: Only admins can view other users' work entries");
     };
     let entries = timeEntries.values();
@@ -907,8 +912,7 @@ actor {
 
   // Admin-only function to view user interventions
   public query ({ caller }) func obtenirInterventionsPubliques(user : Principal) : async [InterventionAvecPieces] {
-    let callerIsAdminIP = caller.toText() == HARDCODED_ADMIN or AccessControl.hasPermission(accessControlState, caller, #admin);
-    if (not callerIsAdminIP) {
+    if (not isCallerAdminInternal(caller)) {
       Runtime.trap("Unauthorized: Only admins can view other users' interventions");
     };
     let filtered = interventions.values().filter(func(i : Intervention) : Bool {
@@ -964,7 +968,7 @@ actor {
     switch (timeEntries.get(id)) {
       case (null) { /* not found: will create as upsert */ };
       case (?existingEntry) {
-        if (existingEntry.user != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (existingEntry.user != caller and not isCallerAdminInternal(caller)) {
           Runtime.trap("Non autorisé");
         };
       };
@@ -999,7 +1003,7 @@ actor {
         Runtime.trap("Journée non trouvée");
       };
       case (?existingEntry) {
-        if (existingEntry.user != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (existingEntry.user != caller and not isCallerAdminInternal(caller)) {
           Runtime.trap("Non autorisé : vous ne pouvez supprimer que vos propres journées");
         };
       };
@@ -1013,7 +1017,7 @@ actor {
       Runtime.trap("Unauthorized: Only users can view work entries");
     };
 
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
+    let isAdmin = isCallerAdminInternal(caller);
     let entries = timeEntries.values();
     let filteredEntries = if (isAdmin) {
       entries.toArray();
@@ -1051,7 +1055,7 @@ actor {
         Runtime.trap("Média quotidien non trouvé");
       };
       case (?existingEntry) {
-        if (existingEntry.user != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (existingEntry.user != caller and not isCallerAdminInternal(caller)) {
           Runtime.trap("Non autorisé : vous ne pouvez supprimer que vos propres médias quotidiens");
         };
       };
@@ -1068,7 +1072,7 @@ actor {
     let entries = dailyMediaEntries.values();
     let filteredEntries = entries.filter(
       func(entry) {
-        entry.relatedDay == date and (entry.user == caller or AccessControl.isAdmin(accessControlState, caller));
+        entry.relatedDay == date and (entry.user == caller or isCallerAdminInternal(caller));
       }
     );
     filteredEntries.toArray();
@@ -1082,7 +1086,7 @@ actor {
     let entries = dailyMediaEntries.values();
     let filteredEntries = entries.filter(
       func(entry) {
-        entry.relatedDay == date and (switch (entry.mediaType) { case (#audio(_)) { true }; case (_) { false } }) and (entry.user == caller or AccessControl.isAdmin(accessControlState, caller));
+        entry.relatedDay == date and (switch (entry.mediaType) { case (#audio(_)) { true }; case (_) { false } }) and (entry.user == caller or isCallerAdminInternal(caller));
       }
     ).toArray();
 
@@ -1097,7 +1101,7 @@ actor {
     let entries = dailyMediaEntries.values();
     let filteredEntries = entries.filter(
       func(entry) {
-        entry.relatedDay == date and (switch (entry.mediaType) { case (#photo(_)) { true }; case (_) { false } }) and (entry.user == caller or AccessControl.isAdmin(accessControlState, caller));
+        entry.relatedDay == date and (switch (entry.mediaType) { case (#photo(_)) { true }; case (_) { false } }) and (entry.user == caller or isCallerAdminInternal(caller));
       }
     ).toArray();
 
@@ -1135,7 +1139,7 @@ actor {
         Runtime.trap("Entrée de journal non trouvée");
       };
       case (?existingEntry) {
-        if (existingEntry.user != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (existingEntry.user != caller and not isCallerAdminInternal(caller)) {
           Runtime.trap("Non autorisé : vous ne pouvez modifier que vos propres entrées de journal");
         };
       };
@@ -1165,7 +1169,7 @@ actor {
         Runtime.trap("Entrée de journal non trouvée");
       };
       case (?existingEntry) {
-        if (existingEntry.user != caller and not AccessControl.isAdmin(accessControlState, caller)) {
+        if (existingEntry.user != caller and not isCallerAdminInternal(caller)) {
           Runtime.trap("Non autorisé : vous ne pouvez supprimer que vos propres entrées de journal");
         };
       };
@@ -1179,7 +1183,7 @@ actor {
       Runtime.trap("Unauthorized: Only users can view journal entries");
     };
 
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
+    let isAdmin = isCallerAdminInternal(caller);
     let entries = journalEntries.values();
     let filteredEntries = if (isAdmin) {
       entries.toArray();
@@ -1201,7 +1205,7 @@ actor {
     var totalRepas : Int = 0;
     var totalTrajet : Int = 0;
 
-    let isAdmin = AccessControl.isAdmin(accessControlState, caller);
+    let isAdmin = isCallerAdminInternal(caller);
     let entries = timeEntries.values();
     let filteredEntries = if (isAdmin) {
       entries;
@@ -1247,7 +1251,7 @@ actor {
       Runtime.trap("Unauthorized: Only users can calculate totals");
     };
 
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+    if (caller != user and not isCallerAdminInternal(caller)) {
       Runtime.trap("Non autorisé : vous ne pouvez calculer les totaux que pour vos propres données");
     };
 
@@ -1295,7 +1299,7 @@ actor {
       Runtime.trap("Unauthorized: Only users can calculate monthly totals");
     };
 
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+    if (caller != user and not isCallerAdminInternal(caller)) {
       Runtime.trap("Non autorisé : vous ne pouvez calculer les totaux mensuels que pour vos propres données");
     };
 
@@ -1345,7 +1349,7 @@ actor {
       Runtime.trap("Unauthorized: Only users can calculate weekly totals");
     };
 
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+    if (caller != user and not isCallerAdminInternal(caller)) {
       Runtime.trap("Non autorisé : vous ne pouvez calculer les totaux hebdomadaires que pour vos propres données");
     };
 
@@ -1395,7 +1399,7 @@ actor {
       Runtime.trap("Unauthorized: Only users can generate PDF reports");
     };
 
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+    if (caller != user and not isCallerAdminInternal(caller)) {
       Runtime.trap("Accès non autorisé. Vous pouvez générer des rapports PDF uniquement pour vos propres données.");
     };
 
@@ -1511,7 +1515,7 @@ actor {
       Runtime.trap("Unauthorized: Only users can calculate leave days");
     };
 
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+    if (caller != user and not isCallerAdminInternal(caller)) {
       Runtime.trap("Non autorisé : vous ne pouvez calculer les jours de congé que pour vos propres données");
     };
 
@@ -1536,7 +1540,7 @@ actor {
       Runtime.trap("Unauthorized: Only users can calculate on-call days");
     };
 
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+    if (caller != user and not isCallerAdminInternal(caller)) {
       Runtime.trap("Non autorisé : vous ne pouvez calculer les jours d'astreinte que pour vos propres données");
     };
 
@@ -1566,4 +1570,3 @@ actor {
     Runtime.trap("Publish restart workflow triggered. This actor is already running the latest version. If a publish failure occurred, redeploying should automatically resolve it. No further action is needed.");
   };
 };
-
