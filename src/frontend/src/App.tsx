@@ -17,11 +17,7 @@ import Header from "./components/Header";
 import MobileBottomNav from "./components/MobileBottomNav";
 import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
-import {
-  useGetCallerUserProfile,
-  useIsCallerAdmin,
-  useSaveCallerUserProfile,
-} from "./hooks/useQueries";
+import { useGetCallerUserProfile, useIsCallerAdmin } from "./hooks/useQueries";
 import Calendar from "./pages/Calendar";
 import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
@@ -105,8 +101,6 @@ function AppContent() {
     refetch: refetchProfile,
   } = useGetCallerUserProfile();
 
-  const saveProfile = useSaveCallerUserProfile();
-
   const showProfileSetup =
     isAuthenticated &&
     !profileLoading &&
@@ -127,9 +121,10 @@ function AppContent() {
       // Always call initializeAccessControl first to ensure the user is registered
       // This is critical for new users on the production canister
       await actor.initializeAccessControl();
-      await saveProfile.mutateAsync({
+      await actor.saveCallerUserProfile({
         name: profileName.trim(),
         email: profileEmail.trim(),
+        signatureIntervenant: undefined,
       });
       // Refetch profile to confirm it was saved
       await refetchProfile();
