@@ -25,12 +25,7 @@ export function useActor() {
       };
 
       const actor = await createActorWithConfig(actorOptions);
-      // Wrap initializeAccessControl in try-catch so actor creation always succeeds
-      try {
-        await actor.initializeAccessControl();
-      } catch (e) {
-        console.warn("initializeAccessControl failed (non-blocking):", e);
-      }
+      await actor.initializeAccessControl();
       return actor;
     },
     // Only refetch when identity changes
@@ -55,11 +50,8 @@ export function useActor() {
     }
   }, [actorQuery.data, queryClient]);
 
-  const isAuthenticated = !!identity;
-
   return {
     actor: actorQuery.data || null,
     isFetching: actorQuery.isFetching,
-    isAuthenticated,
   };
 }

@@ -56,7 +56,7 @@ function extractErrorMessage(e: unknown): string {
 }
 
 export default function Profil() {
-  const { actor, isFetching, isAuthenticated } = useActor();
+  const { actor, isFetching } = useActor();
   const [profiles, setProfiles] = useState<ProfileWithPrincipal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,8 +75,7 @@ export default function Profil() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: retryCount is used as a manual trigger
   useEffect(() => {
-    // Only load profiles when actor is ready AND user is authenticated
-    if (!actor || isFetching || !isAuthenticated) return;
+    if (!actor || isFetching) return;
     let cancelled = false;
 
     const load = async () => {
@@ -127,7 +126,7 @@ export default function Profil() {
     return () => {
       cancelled = true;
     };
-  }, [actor, isFetching, isAuthenticated, retryCount]);
+  }, [actor, isFetching, retryCount]);
 
   const handleRetry = () => {
     setRetryCount((c) => c + 1);
