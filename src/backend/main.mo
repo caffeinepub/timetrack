@@ -483,7 +483,7 @@ actor {
     AccessControl.assignRole(accessControlState, caller, user, role);
   };
 
-  // Hardcoded admin principal - always admin regardless of access control state
+  // Hardcoded admin principal - always admin regardless of access control state (v135)
   let HARDCODED_ADMIN : Text = "qqb4l-yz3r5-axq5a-4pvuz-2i2ao-6ssuu-tc6rb-ocqyp-asmgd-jsu2l-6qe";
 
   // Helper: hardcoded admin always has access regardless of role
