@@ -806,8 +806,8 @@ actor {
   // -------- USER PROFILE FUNCTIONS --------
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view profiles");
+    if (caller.isAnonymous()) {
+      return null;
     };
     userProfiles.get(caller);
   };
@@ -824,9 +824,11 @@ actor {
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can save profiles");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Anonymous users cannot save profiles");
     };
+    // Auto-register user if not yet registered
+    AccessControl.initialize(accessControlState, caller);
     userProfiles.add(caller, profile);
   };
 
