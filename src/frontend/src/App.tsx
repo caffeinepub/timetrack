@@ -9,7 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Toaster } from "@/components/ui/sonner";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import DesktopSideNav from "./components/DesktopSideNav";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Footer from "./components/Footer";
@@ -23,12 +23,8 @@ import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
 import Facturation from "./pages/Facturation";
 import Memo from "./pages/Memo";
-import Profil, { getBlockedSections } from "./pages/Profil";
 import TicketEssencePage from "./pages/TicketEssence";
 import TicketRestoPage from "./pages/TicketResto";
-
-const ADMIN_PRINCIPAL_ID =
-  "qqb4l-yz3r5-axq5a-4pvuz-2i2ao-6ssuu-tc6rb-ocqyp-asmgd-jsu2l-6qe";
 
 export type Page =
   | "dashboard"
@@ -37,8 +33,7 @@ export type Page =
   | "facturation"
   | "clients"
   | "ticket-resto"
-  | "ticket-essence"
-  | "profil";
+  | "ticket-essence";
 
 function GrassDecoration() {
   return (
@@ -79,18 +74,7 @@ function AppContent() {
     useInternetIdentity();
   const isAuthenticated = !!identity;
 
-  const currentPrincipal = identity?.getPrincipal().toString() || "";
-  const isAdmin = currentPrincipal === ADMIN_PRINCIPAL_ID;
-
-  const effectiveIsAdmin = isAdmin;
-
-  // Auto-initialize access control when the hardcoded admin principal connects
   const { actor } = useActor();
-  useEffect(() => {
-    if (isAdmin && actor) {
-      actor.initializeAccessControl().catch(() => {});
-    }
-  }, [isAdmin, actor]);
 
   const {
     data: userProfile,
@@ -101,7 +85,6 @@ function AppContent() {
 
   const showProfileSetup =
     isAuthenticated &&
-    !effectiveIsAdmin &&
     !profileLoading &&
     profileFetched &&
     userProfile === null;
@@ -138,12 +121,6 @@ function AppContent() {
       setCurrentPage(page);
     });
   };
-
-  const blockedForUser = isAdmin ? [] : getBlockedSections(currentPrincipal);
-  const effectivePage: Page =
-    !effectiveIsAdmin && blockedForUser.includes(currentPage)
-      ? "dashboard"
-      : currentPage;
 
   if (isInitializing) {
     return (
@@ -252,60 +229,44 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
-      <Header
-        userName={userProfile?.name ?? (effectiveIsAdmin ? "Admin" : undefined)}
-      />
+      <Header userName={userProfile?.name} />
 
       <div className="flex flex-1 min-h-0">
         <DesktopSideNav
-          currentPage={effectivePage}
+          currentPage={currentPage}
           onNavigate={handleTabChange}
-          isAdmin={effectiveIsAdmin}
-          blockedSections={blockedForUser}
         />
 
         <main className="flex-1 min-w-0 px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8 overflow-x-hidden">
-          <div className={effectivePage === "dashboard" ? "block" : "hidden"}>
+          <div className={currentPage === "dashboard" ? "block" : "hidden"}>
             <Dashboard />
           </div>
-          <div className={effectivePage === "calendar" ? "block" : "hidden"}>
+          <div className={currentPage === "calendar" ? "block" : "hidden"}>
             <Calendar />
           </div>
-          <div className={effectivePage === "memo" ? "block" : "hidden"}>
+          <div className={currentPage === "memo" ? "block" : "hidden"}>
             <Memo />
           </div>
-          <div className={effectivePage === "facturation" ? "block" : "hidden"}>
+          <div className={currentPage === "facturation" ? "block" : "hidden"}>
             <Facturation />
           </div>
-          <div className={effectivePage === "clients" ? "block" : "hidden"}>
+          <div className={currentPage === "clients" ? "block" : "hidden"}>
             <Clients />
           </div>
-          <div
-            className={effectivePage === "ticket-resto" ? "block" : "hidden"}
-          >
+          <div className={currentPage === "ticket-resto" ? "block" : "hidden"}>
             <TicketRestoPage />
           </div>
           <div
-            className={effectivePage === "ticket-essence" ? "block" : "hidden"}
+            className={currentPage === "ticket-essence" ? "block" : "hidden"}
           >
             <TicketEssencePage />
           </div>
-          {effectiveIsAdmin && (
-            <div className={effectivePage === "profil" ? "block" : "hidden"}>
-              <Profil />
-            </div>
-          )}
         </main>
       </div>
 
       <Footer />
 
-      <MobileBottomNav
-        currentPage={effectivePage}
-        onNavigate={handleTabChange}
-        isAdmin={effectiveIsAdmin}
-        blockedSections={blockedForUser}
-      />
+      <MobileBottomNav currentPage={currentPage} onNavigate={handleTabChange} />
 
       <Dialog open={showProfileSetup} onOpenChange={() => {}}>
         <DialogContent

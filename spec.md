@@ -1,23 +1,27 @@
-# Vial Traite Service — Fix Admin Backend Recompilation
+# Vial Traite Service — Retour à la v107
 
 ## Current State
-The backend local code (`main.mo`) already has the correct admin ID `qqb4l-yz3r5-...` as HARDCODED_ADMIN. However, the deployed canister is still running an old compilation that expects `gilph-edmid-...` as admin. This causes `Unauthorized: caller=qqb4l... expected=gilph-edmid-...` errors in the admin section.
-
-The old admin ID (`gilph-edmid-...`) must have NO special privileges — it is treated as a plain user like any other.
+L'application contient une section "Profil Admin" (page Profil.tsx) avec gestion des accès utilisateurs, qui cause une erreur permanente dans le backend (admin ID mismatch). Toutes les références admin sont dans App.tsx, MobileBottomNav, DesktopSideNav, Header et Dashboard.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Nothing new
+- Rien
 
 ### Modify
-- Force full backend recompilation so the deployed canister matches local code with `qqb4l-yz3r5-...` as the only HARDCODED_ADMIN
-- Remove all forced/hardcoded privileges for `gilph-edmid-...`
+- **App.tsx** : Supprimer ADMIN_PRINCIPAL_ID, isAdmin, effectiveIsAdmin, getBlockedSections, blockedForUser, effectivePage admin logic, import Profil, rendu de la page Profil, et l'appel initializeAccessControl admin. La page active est simplement `currentPage` sans blocage.
+- **MobileBottomNav.tsx** : Supprimer isAdmin prop, ADMIN_ITEM, import Shield
+- **DesktopSideNav.tsx** : Supprimer isAdmin prop, ADMIN_ITEM, import Shield
+- **Header.tsx** : Supprimer useIsCallerAdmin, isAdminLoading, PublishRetryDialog et son import
+- **Dashboard.tsx** : Supprimer l'encart temporaire d'affichage du Principal ID (bloc orange)
 
 ### Remove
-- All references to `gilph-edmid-...` as admin — it has no special role
+- Page Profil de la navigation et du routing (le fichier peut rester)
 
 ## Implementation Plan
-1. Regenerate Motoko backend with complete feature set and only `qqb4l-yz3r5-axq5a-4pvuz-2i2ao-6ssuu-tc6rb-ocqyp-asmgd-jsu2l-6qe` as HARDCODED_ADMIN
-2. `gilph-edmid-...` is treated as a normal user with no special access
-3. Redeploy frontend without changes
+1. Modifier App.tsx pour supprimer tout le code admin
+2. Modifier MobileBottomNav.tsx pour supprimer isAdmin/ADMIN_ITEM
+3. Modifier DesktopSideNav.tsx pour supprimer isAdmin/ADMIN_ITEM
+4. Modifier Header.tsx pour supprimer les références admin
+5. Modifier Dashboard.tsx pour supprimer l'affichage du Principal ID
+6. Valider et déployer

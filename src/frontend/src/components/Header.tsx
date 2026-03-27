@@ -2,9 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { LogIn, LogOut } from "lucide-react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useIsCallerAdmin } from "../hooks/useQueries";
 import { useSafeTap } from "../hooks/useSafeTap";
-import PublishRetryDialog from "./PublishRetryDialog";
 
 interface HeaderProps {
   userName?: string;
@@ -13,7 +11,6 @@ interface HeaderProps {
 export default function Header({ userName }: HeaderProps) {
   const { login, clear, loginStatus, identity } = useInternetIdentity();
   const queryClient = useQueryClient();
-  const { data: isAdmin, isLoading: isAdminLoading } = useIsCallerAdmin();
   const safeTap = useSafeTap();
 
   const isAuthenticated = !!identity;
@@ -82,9 +79,6 @@ export default function Header({ userName }: HeaderProps) {
 
           {/* Right: actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {isAuthenticated && !isAdminLoading && isAdmin && (
-              <PublishRetryDialog />
-            )}
             <Button
               type="button"
               onClick={handleAuth}

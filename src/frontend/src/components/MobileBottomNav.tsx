@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   MessageSquare,
   Receipt,
-  Shield,
   Users,
   UtensilsCrossed,
 } from "lucide-react";
@@ -16,32 +15,21 @@ import { useSafeTap } from "../hooks/useSafeTap";
 interface MobileBottomNavProps {
   currentPage: Page;
   onNavigate: (page: Page) => void;
-  isAdmin?: boolean;
-  blockedSections?: string[];
 }
 
-const BASE_NAV_ITEMS: { page: Page; label: string; Icon: React.ElementType }[] =
-  [
-    { page: "dashboard", label: "Bord", Icon: LayoutDashboard },
-    { page: "calendar", label: "Calendrier", Icon: CalendarDays },
-    { page: "memo", label: "Mémo", Icon: MessageSquare },
-    { page: "facturation", label: "Facturation", Icon: Receipt },
-    { page: "clients", label: "Clients", Icon: Users },
-    { page: "ticket-resto", label: "T.Resto", Icon: UtensilsCrossed },
-    { page: "ticket-essence", label: "T.Essence", Icon: Car },
-  ];
-
-const ADMIN_ITEM: { page: Page; label: string; Icon: React.ElementType } = {
-  page: "profil",
-  label: "Admin",
-  Icon: Shield,
-};
+const NAV_ITEMS: { page: Page; label: string; Icon: React.ElementType }[] = [
+  { page: "dashboard", label: "Bord", Icon: LayoutDashboard },
+  { page: "calendar", label: "Calendrier", Icon: CalendarDays },
+  { page: "memo", label: "Mémo", Icon: MessageSquare },
+  { page: "facturation", label: "Facturation", Icon: Receipt },
+  { page: "clients", label: "Clients", Icon: Users },
+  { page: "ticket-resto", label: "T.Resto", Icon: UtensilsCrossed },
+  { page: "ticket-essence", label: "T.Essence", Icon: Car },
+];
 
 export default function MobileBottomNav({
   currentPage,
   onNavigate,
-  isAdmin = false,
-  blockedSections = [],
 }: MobileBottomNavProps) {
   const safeTap = useSafeTap({ debounceMs: 300 });
 
@@ -49,11 +37,6 @@ export default function MobileBottomNav({
     (page: Page) => safeTap(() => onNavigate(page))(),
     [safeTap, onNavigate],
   );
-
-  const navItems = BASE_NAV_ITEMS.filter(
-    (item) => !blockedSections.includes(item.page),
-  );
-  if (isAdmin) navItems.push(ADMIN_ITEM);
 
   return (
     <nav
@@ -68,12 +51,9 @@ export default function MobileBottomNav({
         className="flex items-stretch h-14 overflow-x-auto"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
-        {navItems.map(({ page, label, Icon }) => {
+        {NAV_ITEMS.map(({ page, label, Icon }) => {
           const isActive = currentPage === page;
-          const isAdminItem = page === "profil";
-          const activeColor = isAdminItem
-            ? "#ea580c"
-            : "oklch(var(--vts-green))";
+          const activeColor = "oklch(var(--vts-green))";
           return (
             <button
               key={page}
