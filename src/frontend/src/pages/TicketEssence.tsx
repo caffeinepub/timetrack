@@ -131,7 +131,7 @@ export default function TicketEssencePage() {
   const profileNameMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const [principal, profile] of allProfiles as any[]) {
-      map.set(principal.toString(), profile.name ?? "Utilisateur");
+      map.set(principal.toString(), profile.name || "Utilisateur");
     }
     return map;
   }, [allProfiles]);
@@ -239,7 +239,7 @@ export default function TicketEssencePage() {
         typeVehicule: f.typeVehicule,
         kmTotal: BigInt(f.kmTotal || "0"),
         nomUtilisateur:
-          profileNameMap.get(identity.getPrincipal().toString()) ??
+          profileNameMap.get(identity.getPrincipal().toString()) ||
           "Utilisateur",
         montant: Number.parseFloat(f.montant) || 0,
         prixLitre: Number.parseFloat(f.prixLitre) || 0,

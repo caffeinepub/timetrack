@@ -385,6 +385,11 @@ export const idlService = IDL.Service({
       [IDL.Vec(InterventionAvecPieces)],
       ['query'],
     ),
+  'obtenirToutesInterventionsPourFacturation' : IDL.Func(
+      [],
+      [IDL.Vec(InterventionAvecPieces)],
+      ['query'],
+    ),
   'obtenirVehiculeDefaut' : IDL.Func([], [IDL.Opt(VehiculeDefaut)], ['query']),
   'rechercherFichiers' : IDL.Func([IDL.Text], [IDL.Vec(Fichier)], ['query']),
   'recupererFichier' : IDL.Func([IDL.Nat], [IDL.Opt(Fichier)], ['query']),
@@ -790,6 +795,11 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'obtenirToutesInterventions' : IDL.Func(
+        [],
+        [IDL.Vec(InterventionAvecPieces)],
+        ['query'],
+      ),
+    'obtenirToutesInterventionsPourFacturation' : IDL.Func(
         [],
         [IDL.Vec(InterventionAvecPieces)],
         ['query'],

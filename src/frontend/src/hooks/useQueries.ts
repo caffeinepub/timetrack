@@ -562,7 +562,7 @@ export function useGetAllInterventions() {
     queryKey: ["interventions", "all"],
     queryFn: async () => {
       if (!actor) return [];
-      return (actor as any).obtenirToutesInterventions();
+      return (actor as any).obtenirToutesInterventionsPourFacturation();
     },
     enabled: !!actor && !isFetching,
   });
@@ -628,7 +628,7 @@ export function useGetToutesInterventionsFact() {
     queryKey: ["facturationInterventions"],
     queryFn: async () => {
       if (!actor) return [];
-      return (actor as any).obtenirToutesInterventions();
+      return (actor as any).obtenirToutesInterventionsPourFacturation();
     },
     enabled: !!actor && !isFetching,
   });

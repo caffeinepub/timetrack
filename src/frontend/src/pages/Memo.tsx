@@ -14,14 +14,18 @@ import {
   Video,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ExternalBlob } from "../backend";
 import MediaViewer, { type MediaItem } from "../components/MediaViewer";
 import { VoiceInput } from "../components/VoiceInput";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useDeleteMemo, useGetMemos } from "../hooks/useQueries";
+import {
+  useDeleteMemo,
+  useGetCallerUserProfile,
+  useGetMemos,
+} from "../hooks/useQueries";
 
 function formatDateFr(ts: bigint): string {
   const date = new Date(Number(ts) / 1_000_000);
@@ -95,7 +99,14 @@ export default function Memo() {
   const { data: memos = [], isLoading } = useGetMemos();
   const deleteMemo = useDeleteMemo();
 
+  const { data: userProfile } = useGetCallerUserProfile();
   const [authorName, setAuthorName] = useState("");
+
+  useEffect(() => {
+    if (userProfile?.name) {
+      setAuthorName((prev) => prev || userProfile.name);
+    }
+  }, [userProfile?.name]);
   const [content, setContent] = useState("");
   const [photos, setPhotos] = useState<ExternalBlob[]>([]);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);

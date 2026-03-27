@@ -930,14 +930,15 @@ actor {
     };
   };
 
-  // Admin-only function to view all profiles
+  // Public function to view all profiles (accessible to all authenticated users)
   public query ({ caller }) func obtenirTousLesProfils() : async [(Principal, UserProfile)] {
-    let callerIsAdmin = isCallerAdminInternal(caller);
-    if (not callerIsAdmin) {
-      Runtime.trap("Unauthorized: caller=" # caller.toText() # " expected=" # HARDCODED_ADMIN);
+    if (caller.isAnonymous()) {
+      Runtime.trap("Not authenticated");
     };
     userProfiles.entries().toArray()
   };
+
+
 
   // Admin-only function to view user work entries
   public query ({ caller }) func obtenirJourneesPubliques(user : Principal) : async [TimeEntry] {

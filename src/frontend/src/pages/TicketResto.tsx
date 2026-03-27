@@ -190,7 +190,7 @@ export default function TicketRestoPage() {
   const profileNameMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const [principal, profile] of allProfiles as any[]) {
-      map.set(principal.toString(), profile.name ?? "Utilisateur");
+      map.set(principal.toString(), profile.name || "Utilisateur");
     }
     return map;
   }, [allProfiles]);
@@ -272,7 +272,7 @@ export default function TicketRestoPage() {
         semaineKey: currentWeekKey,
         jourSemaine: jour,
         nomUtilisateur:
-          profileNameMap.get(identity.getPrincipal().toString()) ??
+          profileNameMap.get(identity.getPrincipal().toString()) ||
           "Utilisateur",
         montant,
       };

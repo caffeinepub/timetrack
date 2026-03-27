@@ -307,6 +307,7 @@ export interface _SERVICE {
   'obtenirTicketsResto' : ActorMethod<[], Array<TicketResto>>,
   'obtenirTousLesProfils' : ActorMethod<[], Array<[Principal, UserProfile]>>,
   'obtenirToutesInterventions' : ActorMethod<[], Array<InterventionAvecPieces>>,
+  'obtenirToutesInterventionsPourFacturation' : ActorMethod<[], Array<InterventionAvecPieces>>,
   'obtenirVehiculeDefaut' : ActorMethod<[], [] | [VehiculeDefaut]>,
   'rechercherFichiers' : ActorMethod<[string], Array<Fichier>>,
   'recupererFichier' : ActorMethod<[bigint], [] | [Fichier]>,

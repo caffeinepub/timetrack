@@ -163,14 +163,12 @@ function ClientInterventions({
   currentUserPrincipal,
   actor,
   onInterventionDeleted,
-  profileNameMap,
 }: {
   clientNom: string;
   allInterventions: any[];
   currentUserPrincipal: string | null;
   actor: any;
   onInterventionDeleted: () => void;
-  profileNameMap: Map<string, string>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [mediaModal, setMediaModal] = useState<MediaModalState>(null);
@@ -257,10 +255,7 @@ function ClientInterventions({
             </p>
           ) : (
             interventions.map((inv: any, i: number) => {
-              const profileName =
-                profileNameMap.get((inv as any).user?.toString()) ||
-                (inv as any).nomUtilisateur ||
-                "—";
+              const profileName = (inv as any).nomUtilisateur || "—";
               const photos: any[] = Array.isArray(inv.photos) ? inv.photos : [];
               const videos: any[] = Array.isArray(inv.videos) ? inv.videos : [];
 
@@ -535,27 +530,11 @@ export default function Clients() {
     queryKey: ["clientsInterventions"],
     queryFn: async () => {
       if (!actor) return [];
-      return (actor as any).obtenirToutesInterventions();
+      // Use facturation endpoint which returns ALL users' interventions
+      return (actor as any).obtenirToutesInterventionsPourFacturation();
     },
     enabled: !!actor && !actorFetching,
   });
-
-  const { data: allProfiles = [] } = useQuery({
-    queryKey: ["allProfiles"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return (actor as any).obtenirTousLesProfils();
-    },
-    enabled: !!actor && !actorFetching,
-  });
-
-  const profileNameMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const [principal, profile] of allProfiles as any[]) {
-      map.set(principal.toString(), (profile as any).name ?? "");
-    }
-    return map;
-  }, [allProfiles]);
 
   const filtered = clients.filter((c) => {
     const q = search.toLowerCase();
@@ -837,7 +816,6 @@ export default function Clients() {
                 allInterventions={allInterventions as any[]}
                 currentUserPrincipal={currentUserPrincipal}
                 actor={actor}
-                profileNameMap={profileNameMap}
                 onInterventionDeleted={() => {
                   queryClient.invalidateQueries({
                     queryKey: ["clientsInterventions"],

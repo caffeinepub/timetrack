@@ -100,16 +100,12 @@ function exportInterventionPdf(inv: any, profileName: string) {
   setTimeout(() => win.print(), 500);
 }
 
-function exportMultiplePdf(
-  interventions: any[],
-  profileNameMap?: Map<string, string>,
-) {
+function exportMultiplePdf(interventions: any[]) {
   const win = window.open("", "_blank");
   if (!win) return;
   const body = interventions
     .map((inv) => {
-      const profileName =
-        profileNameMap?.get(inv.user?.toString()) || inv.nomUtilisateur || "—";
+      const profileName = inv.nomUtilisateur || "—";
       return buildInterventionHtml(inv, profileName);
     })
     .join("");
@@ -131,25 +127,9 @@ function exportMultiplePdf(
 type StatusFilter = "all" | "validated" | "pending";
 
 export default function Facturation() {
-  const { actor, isFetching: actorFetching } = useActor();
+  const { actor } = useActor();
   const queryClient = useQueryClient();
 
-  const { data: allProfiles = [] } = useQuery({
-    queryKey: ["allProfiles"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return (actor as any).obtenirTousLesProfils();
-    },
-    enabled: !!actor && !actorFetching,
-  });
-
-  const profileNameMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const [principal, profile] of allProfiles as any[]) {
-      map.set(principal.toString(), (profile as any).name ?? "");
-    }
-    return map;
-  }, [allProfiles]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   // Local soft-deleted IDs (for immediate UI feedback)
@@ -172,6 +152,26 @@ export default function Facturation() {
   const { identity } = useInternetIdentity();
   const callerPrincipal = identity?.getPrincipal().toString() ?? "";
 
+  const { data: allProfiles = [] } = useQuery<any[]>({
+    queryKey: ["allProfilesFact"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return (actor as any).obtenirTousLesProfils();
+    },
+    enabled: !!actor,
+  });
+
+  const profileNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const [principal, profile] of allProfiles as any[]) {
+      const name = profile?.name;
+      if (name && name !== "") {
+        map.set(principal.toString(), name);
+      }
+    }
+    return map;
+  }, [allProfiles]);
+
   // Sort + filter (exclude locally deleted)
   const filteredInterventions = useMemo(() => {
     let list = [...(allInterventions as any[])]
@@ -189,10 +189,7 @@ export default function Facturation() {
     if (filterName.trim()) {
       const search = filterName.trim().toLowerCase();
       list = list.filter((inv) => {
-        const profileName =
-          profileNameMap.get((inv as any).user?.toString()) ||
-          (inv as any).nomUtilisateur ||
-          "—";
+        const profileName = (inv as any).nomUtilisateur || "—";
         return (
           profileName.toLowerCase().includes(search) ||
           (inv.clientNom || "").toLowerCase().includes(search)
@@ -204,6 +201,7 @@ export default function Facturation() {
     } else if (filterStatus === "pending") {
       list = list.filter((inv) => inv.valide !== true);
     }
+    // "all" shows everything — no filter applied
     return list;
   }, [
     allInterventions,
@@ -212,7 +210,6 @@ export default function Facturation() {
     filterDateTo,
     filterName,
     filterStatus,
-    profileNameMap,
   ]);
 
   const hasFilters =
@@ -232,6 +229,7 @@ export default function Facturation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["facturationInterventions"] });
+      queryClient.invalidateQueries({ queryKey: ["clientsInterventions"] });
     },
   });
 
@@ -312,7 +310,7 @@ export default function Facturation() {
       selectedIds.has(inv.id),
     );
     if (selected.length === 0) return;
-    exportMultiplePdf(selected, profileNameMap);
+    exportMultiplePdf(selected);
     setSelectedIds(new Set());
     setBulkAction(null);
   };
@@ -394,7 +392,7 @@ export default function Facturation() {
         <div className="flex gap-2">
           {(
             [
-              { value: "all", label: "Toutes" },
+              { value: "all", label: "En cours" },
               { value: "pending", label: "En attente" },
               { value: "validated", label: "Validées" },
             ] as { value: StatusFilter; label: string }[]
@@ -540,9 +538,9 @@ export default function Facturation() {
         <div className="space-y-3">
           {filteredInterventions.map((inv: any, idx: number) => {
             const profileName =
-              profileNameMap.get((inv as any).user?.toString()) ||
+              profileNameMap.get(inv.user?.toString()) ||
               (inv as any).nomUtilisateur ||
-              "—";
+              "Utilisateur";
             const isValide = inv.valide === true;
             const isCreator = inv.user?.toString() === callerPrincipal;
             const isDeleting = deletingId === inv.id;

@@ -1078,6 +1078,20 @@ export class Backend implements backendInterface {
             return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
         }
     }
+    async obtenirToutesInterventionsPourFacturation(): Promise<Array<InterventionAvecPieces>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.obtenirToutesInterventionsPourFacturation();
+                return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.obtenirToutesInterventionsPourFacturation();
+            return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async obtenirVehiculeDefaut(): Promise<VehiculeDefaut | null> {
         if (this.processError) {
             try {
