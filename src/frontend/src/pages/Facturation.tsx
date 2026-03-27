@@ -1,10 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { Principal } from "@icp-sdk/core/principal";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, FileText, Search, Trash2, User, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useActor } from "../hooks/useActor";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { useGetToutesInterventionsFact } from "../hooks/useQueries";
 
 function formatHeure(h: bigint | number, m: bigint | number): string {
   const hh = Number(h);
@@ -101,14 +102,14 @@ function exportInterventionPdf(inv: any, profileName: string) {
 
 function exportMultiplePdf(
   interventions: any[],
-  profileNameMap: Map<string, string>,
+  profileNameMap?: Map<string, string>,
 ) {
   const win = window.open("", "_blank");
   if (!win) return;
   const body = interventions
     .map((inv) => {
       const profileName =
-        profileNameMap.get(inv.user?.toString?.() ?? "") ?? "Utilisateur";
+        profileNameMap?.get(inv.user?.toString()) || inv.nomUtilisateur || "—";
       return buildInterventionHtml(inv, profileName);
     })
     .join("");
@@ -132,6 +133,23 @@ type StatusFilter = "all" | "validated" | "pending";
 export default function Facturation() {
   const { actor, isFetching: actorFetching } = useActor();
   const queryClient = useQueryClient();
+
+  const { data: allProfiles = [] } = useQuery({
+    queryKey: ["allProfiles"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return (actor as any).obtenirTousLesProfils();
+    },
+    enabled: !!actor && !actorFetching,
+  });
+
+  const profileNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const [principal, profile] of allProfiles as any[]) {
+      map.set(principal.toString(), (profile as any).name ?? "");
+    }
+    return map;
+  }, [allProfiles]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   // Local soft-deleted IDs (for immediate UI feedback)
@@ -149,42 +167,10 @@ export default function Facturation() {
   const [filterName, setFilterName] = useState("");
   const [filterStatus, setFilterStatus] = useState<StatusFilter>("all");
 
-  // Load all profiles
-  const { data: allProfiles = [] } = useQuery({
-    queryKey: ["allProfiles"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.obtenirTousLesProfils();
-    },
-    enabled: !!actor && !actorFetching,
-  });
-
-  // Build profile name map: Principal -> name
-  const profileNameMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const [principal, profile] of allProfiles as [Principal, any][]) {
-      map.set(principal.toString(), profile.name || "Utilisateur");
-    }
-    return map;
-  }, [allProfiles]);
-
-  // Load ALL users' interventions
-  const { data: allInterventions = [], isLoading } = useQuery({
-    queryKey: [
-      "facturationInterventions",
-      (allProfiles as [Principal, any][]).map(([p]) => p.toString()).join(","),
-    ],
-    queryFn: async () => {
-      if (!actor || (allProfiles as any[]).length === 0) return [];
-      const results = await Promise.all(
-        (allProfiles as [Principal, any][]).map(([principal]) =>
-          actor.obtenirInterventionsPubliques(principal),
-        ),
-      );
-      return results.flat();
-    },
-    enabled: !!actor && !actorFetching && (allProfiles as any[]).length > 0,
-  });
+  const { data: allInterventions = [], isLoading } =
+    useGetToutesInterventionsFact();
+  const { identity } = useInternetIdentity();
+  const callerPrincipal = identity?.getPrincipal().toString() ?? "";
 
   // Sort + filter (exclude locally deleted)
   const filteredInterventions = useMemo(() => {
@@ -204,7 +190,9 @@ export default function Facturation() {
       const search = filterName.trim().toLowerCase();
       list = list.filter((inv) => {
         const profileName =
-          profileNameMap.get(inv.user?.toString?.() ?? "") ?? "Utilisateur";
+          profileNameMap.get((inv as any).user?.toString()) ||
+          (inv as any).nomUtilisateur ||
+          "—";
         return (
           profileName.toLowerCase().includes(search) ||
           (inv.clientNom || "").toLowerCase().includes(search)
@@ -288,7 +276,7 @@ export default function Facturation() {
     if (!actor) return;
     for (const id of selectedIds) {
       const inv = (allInterventions as any[]).find((i) => i.id === id);
-      if (inv && !inv.valide) {
+      if (inv && !inv.valide && inv.user?.toString() === callerPrincipal) {
         await (actor as any).validerIntervention(id);
       }
     }
@@ -301,6 +289,8 @@ export default function Facturation() {
     if (!actor) return;
     const deleted: string[] = [];
     for (const id of selectedIds) {
+      const inv = (allInterventions as any[]).find((i) => i.id === id);
+      if (!inv || inv.user?.toString() !== callerPrincipal) continue;
       try {
         await actor.supprimerDeFacturation(id);
         deleted.push(id);
@@ -550,8 +540,11 @@ export default function Facturation() {
         <div className="space-y-3">
           {filteredInterventions.map((inv: any, idx: number) => {
             const profileName =
-              profileNameMap.get(inv.user?.toString?.() ?? "") ?? "Utilisateur";
+              profileNameMap.get((inv as any).user?.toString()) ||
+              (inv as any).nomUtilisateur ||
+              "—";
             const isValide = inv.valide === true;
+            const isCreator = inv.user?.toString() === callerPrincipal;
             const isDeleting = deletingId === inv.id;
             const isSelected = selectedIds.has(inv.id);
             const isPendingDelete =
@@ -734,7 +727,7 @@ export default function Facturation() {
                   </Button>
 
                   {/* Valider */}
-                  {!isValide && (
+                  {!isValide && isCreator && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -747,8 +740,8 @@ export default function Facturation() {
                     </Button>
                   )}
 
-                  {/* Supprimer - disponible pour toute intervention validée */}
-                  {isValide && !isDeleting && (
+                  {/* Supprimer - disponible uniquement pour le créateur */}
+                  {isValide && isCreator && !isDeleting && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -762,7 +755,7 @@ export default function Facturation() {
                       Supprimer
                     </Button>
                   )}
-                  {isValide && isDeleting && (
+                  {isValide && isCreator && isDeleting && (
                     <div className="flex gap-2 items-center">
                       <span className="text-xs text-red-600">Confirmer ?</span>
                       <Button

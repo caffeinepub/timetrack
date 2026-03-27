@@ -288,11 +288,16 @@ export default function Reports() {
   };
 
   const handleExportPdf = () => {
-    exportPdf(getPeriodTitle(), filteredEntries, filteredInterventions, totals);
+    exportPdf(
+      getPeriodTitle(),
+      filteredEntries,
+      filteredInterventions as any[],
+      totals,
+    );
   };
 
   const handleExportAnnualPdf = () => {
-    exportAnnualPdf(selectedYear, allEntries, allInterventions, "");
+    exportAnnualPdf(selectedYear, allEntries, allInterventions as any[], "");
   };
 
   // Unused but kept for potential future use

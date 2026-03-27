@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Principal } from "@icp-sdk/core/principal";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown,
@@ -161,17 +160,17 @@ type MediaModalState = { url: string; type: "image" | "video" } | null;
 function ClientInterventions({
   clientNom,
   allInterventions,
-  profileNameMap,
   currentUserPrincipal,
   actor,
   onInterventionDeleted,
+  profileNameMap,
 }: {
   clientNom: string;
   allInterventions: any[];
-  profileNameMap: Map<string, string>;
   currentUserPrincipal: string | null;
   actor: any;
   onInterventionDeleted: () => void;
+  profileNameMap: Map<string, string>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [mediaModal, setMediaModal] = useState<MediaModalState>(null);
@@ -259,8 +258,9 @@ function ClientInterventions({
           ) : (
             interventions.map((inv: any, i: number) => {
               const profileName =
-                profileNameMap.get(inv.user?.toString?.() ?? "") ??
-                "Utilisateur";
+                profileNameMap.get((inv as any).user?.toString()) ||
+                (inv as any).nomUtilisateur ||
+                "—";
               const photos: any[] = Array.isArray(inv.photos) ? inv.photos : [];
               const videos: any[] = Array.isArray(inv.videos) ? inv.videos : [];
 
@@ -531,40 +531,31 @@ export default function Clients() {
   const [form, setForm] = useState(emptyForm());
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  // Load all profiles for interventions
+  const { data: allInterventions = [] } = useQuery({
+    queryKey: ["clientsInterventions"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return (actor as any).obtenirToutesInterventions();
+    },
+    enabled: !!actor && !actorFetching,
+  });
+
   const { data: allProfiles = [] } = useQuery({
     queryKey: ["allProfiles"],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.obtenirTousLesProfils();
+      return (actor as any).obtenirTousLesProfils();
     },
     enabled: !!actor && !actorFetching,
   });
 
   const profileNameMap = useMemo(() => {
     const map = new Map<string, string>();
-    for (const [principal, profile] of allProfiles as [Principal, any][]) {
-      map.set(principal.toString(), profile.name || "Utilisateur");
+    for (const [principal, profile] of allProfiles as any[]) {
+      map.set(principal.toString(), (profile as any).name ?? "");
     }
     return map;
   }, [allProfiles]);
-
-  const { data: allInterventions = [] } = useQuery({
-    queryKey: [
-      "clientsInterventions",
-      (allProfiles as [Principal, any][]).map(([p]) => p.toString()).join(","),
-    ],
-    queryFn: async () => {
-      if (!actor || (allProfiles as any[]).length === 0) return [];
-      const results = await Promise.all(
-        (allProfiles as [Principal, any][]).map(([principal]) =>
-          actor.obtenirInterventionsPubliques(principal),
-        ),
-      );
-      return results.flat();
-    },
-    enabled: !!actor && !actorFetching && (allProfiles as any[]).length > 0,
-  });
 
   const filtered = clients.filter((c) => {
     const q = search.toLowerCase();
@@ -844,14 +835,17 @@ export default function Clients() {
               <ClientInterventions
                 clientNom={client.nom}
                 allInterventions={allInterventions as any[]}
-                profileNameMap={profileNameMap}
                 currentUserPrincipal={currentUserPrincipal}
                 actor={actor}
-                onInterventionDeleted={() =>
+                profileNameMap={profileNameMap}
+                onInterventionDeleted={() => {
                   queryClient.invalidateQueries({
                     queryKey: ["clientsInterventions"],
-                  })
-                }
+                  });
+                  queryClient.invalidateQueries({
+                    queryKey: ["facturationInterventions"],
+                  });
+                }}
               />
             </CardContent>
           </Card>

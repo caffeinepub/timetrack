@@ -225,6 +225,7 @@ actor {
     clientAbsent : Bool;
     valide : Bool;
     estAstreinte : Bool;
+    nomUtilisateur : Text;
   };
 
   public type InterventionInput = {
@@ -293,6 +294,10 @@ actor {
       estAstreinte = switch (interventionEstAstreinte.get(i.id)) {
         case (?v) { v };
         case (null) { false };
+      };
+      nomUtilisateur = switch (userProfiles.get(i.user)) {
+        case (?p) { if (p.name == "" or p.name == "Utilisateur") { "Utilisateur" } else { p.name } };
+        case (null) { "Utilisateur" };
       };
     };
   };
@@ -459,7 +464,8 @@ actor {
   func callerHasAccess(caller : Principal) : Bool {
     if (caller.isAnonymous()) { return false };
     if (caller.toText() == HARDCODED_ADMIN) { return true };
-    AccessControl.hasPermission(accessControlState, caller, #user)
+    // Any authenticated non-anonymous user gets access
+    true
   };
 
   // Helper: check if caller is admin (hardcoded or via access control)
@@ -695,12 +701,28 @@ actor {
     if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can validate interventions");
     };
+    switch (interventions.get(id)) {
+      case (null) { Runtime.trap("Intervention non trouvée") };
+      case (?existing) {
+        if (existing.user != caller and not isCallerAdminInternal(caller)) {
+          Runtime.trap("Non autorisé : seul le créateur peut valider cette intervention");
+        };
+      };
+    };
     interventionValidees.add(id, true);
   };
 
   public shared ({ caller }) func supprimerDeFacturation(id : Text) : async () {
     if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can remove interventions from facturation");
+    };
+    switch (interventions.get(id)) {
+      case (null) { Runtime.trap("Intervention non trouvée") };
+      case (?existing) {
+        if (existing.user != caller and not isCallerAdminInternal(caller)) {
+          Runtime.trap("Non autorisé : seul le créateur peut supprimer cette intervention");
+        };
+      };
     };
     // Soft delete: hide from facturation only, keep in calendar and client file
     interventionSupprimeeFacturation.add(id, true);
@@ -711,6 +733,23 @@ actor {
       case (?v) { v };
       case (null) { false };
     };
+  };
+
+  // Public facturation function - accessible to all authenticated users
+  public query ({ caller }) func obtenirToutesInterventionsPourFacturation() : async [InterventionAvecPieces] {
+    if (not (callerHasAccess(caller))) {
+      Runtime.trap("Unauthorized: Only users can view facturation");
+    };
+    let filtered = interventions.values().filter(func(i : Intervention) : Bool {
+      let supprimee = switch (interventionSupprimeeFacturation.get(i.id)) {
+        case (?v) { v };
+        case (null) { false };
+      };
+      not supprimee
+    }).map(interventionAvecPieces).toArray();
+    filtered.sort(func(a : InterventionAvecPieces, b : InterventionAvecPieces) : Order.Order {
+      Int.compare(b.date, a.date)
+    });
   };
 
   public query ({ caller }) func obtenirInterventionsPourJour(date : Time.Time) : async [InterventionAvecPieces] {

@@ -640,6 +640,8 @@ export default function Calendar() {
 
       // Refresh the entries list after saving
       queryClient.invalidateQueries({ queryKey: ["timeEntries"] });
+      queryClient.invalidateQueries({ queryKey: ["facturationInterventions"] });
+      queryClient.invalidateQueries({ queryKey: ["clientsInterventions"] });
 
       toast.success(
         editingEntry ? "Journée mise à jour" : "Journée enregistrée",
@@ -671,6 +673,8 @@ export default function Calendar() {
         }
       }
       await deleteEntry(id);
+      queryClient.invalidateQueries({ queryKey: ["facturationInterventions"] });
+      queryClient.invalidateQueries({ queryKey: ["clientsInterventions"] });
       toast.success("Journée supprimée");
       setDialogOpen(false);
     } catch (e) {

@@ -509,6 +509,7 @@ export function useAddIntervention() {
       queryClient.invalidateQueries({
         queryKey: ["interventions", "all"],
       });
+      queryClient.invalidateQueries({ queryKey: ["facturationInterventions"] });
     },
   });
 }
@@ -531,6 +532,7 @@ export function useUpdateIntervention() {
       queryClient.invalidateQueries({
         queryKey: ["interventions", "all"],
       });
+      queryClient.invalidateQueries({ queryKey: ["facturationInterventions"] });
     },
   });
 }
@@ -617,5 +619,17 @@ export function useDeleteMemo() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["memos"] });
     },
+  });
+}
+
+export function useGetToutesInterventionsFact() {
+  const { actor, isFetching } = useActor();
+  return useQuery<import("../backend.d").InterventionAvecPieces[]>({
+    queryKey: ["facturationInterventions"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return (actor as any).obtenirToutesInterventions();
+    },
+    enabled: !!actor && !isFetching,
   });
 }

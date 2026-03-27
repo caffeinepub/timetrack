@@ -72,6 +72,7 @@ export interface InterventionAvecPieces {
     createdAt: Time;
     user: Principal;
     valide: boolean;
+    nomUtilisateur: string;
     heureApremDebutMin: bigint;
     heureApremDebutH: bigint;
     heureApremFinH: bigint;
@@ -270,6 +271,7 @@ export interface backendInterface {
     obtenirTicketsEssence(): Promise<Array<TicketEssence>>;
     obtenirTicketsResto(): Promise<Array<TicketResto>>;
     obtenirTousLesProfils(): Promise<Array<[Principal, UserProfile]>>;
+    obtenirToutesInterventionsPourFacturation(): Promise<Array<InterventionAvecPieces>>;
     obtenirToutesInterventions(): Promise<Array<InterventionAvecPieces>>;
     obtenirVehiculeDefaut(): Promise<VehiculeDefaut | null>;
     rechercherFichiers(_motCle: string): Promise<Array<Fichier>>;
