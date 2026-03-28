@@ -24,14 +24,16 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  MapPin,
+  Phone,
   Plus,
   Trash2,
   User,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { PlanningItem } from "../backend";
+import type { Client, PlanningItem } from "../backend";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
@@ -60,7 +62,6 @@ function dateToNs(dateStr: string): bigint {
 }
 
 function getDayOfWeek(year: number, month: number, day: number): number {
-  // Returns 0=Mon … 6=Sun
   const d = new Date(year, month, day).getDay();
   return d === 0 ? 6 : d - 1;
 }
@@ -99,6 +100,99 @@ interface DayItem {
   dates?: bigint[];
 }
 
+// Client autocomplete component
+function ClientAutocomplete({
+  value,
+  clients,
+  onSelect,
+  onManual,
+}: {
+  value: string;
+  clients: Client[];
+  onSelect: (client: Client) => void;
+  onManual: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(value);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return clients.slice(0, 8);
+    return clients
+      .filter((c) => c.nom.toLowerCase().includes(query.toLowerCase()))
+      .slice(0, 8);
+  }, [clients, query]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <Input
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          onManual(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="Rechercher un client..."
+        data-ocid="planning.client.input"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+          {filtered.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-orange-50 flex items-center justify-between gap-2"
+              onMouseDown={() => {
+                setQuery(c.nom);
+                onSelect(c);
+                setOpen(false);
+              }}
+            >
+              <span className="font-medium">{c.nom}</span>
+              {c.listeNoire && (
+                <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold">
+                  LISTE NOIRE
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Client info card
+function ClientInfoCard({ client }: { client: Client }) {
+  return (
+    <div className="mt-2 p-3 rounded-xl border border-gray-200 bg-gray-50 space-y-1 text-xs">
+      <div className="flex items-center justify-between">
+        <span className="font-bold text-gray-900">{client.nom}</span>
+        {client.listeNoire && (
+          <span className="bg-red-600 text-white px-2 py-0.5 rounded font-bold text-xs">
+            LISTE NOIRE
+          </span>
+        )}
+      </div>
+      {client.adresse && (
+        <div className="flex items-center gap-1 text-gray-600">
+          <MapPin className="w-3 h-3" />
+          <span>{client.adresse}</span>
+        </div>
+      )}
+      {client.telephone && (
+        <div className="flex items-center gap-1 text-gray-600">
+          <Phone className="w-3 h-3" />
+          <span>{client.telephone}</span>
+        </div>
+      )}
+      {client.email && <div className="text-gray-500">{client.email}</div>}
+    </div>
+  );
+}
+
 export default function Planning() {
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
@@ -111,11 +205,11 @@ export default function Planning() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   // Filters
-  const [filterUser, setFilterUser] = useState("all");
+  const [filterUserPrincipal, setFilterUserPrincipal] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [filterStatut, setFilterStatut] = useState("all");
 
-  // Create form (no titre field)
+  // Create form
   const [createForm, setCreateForm] = useState({
     dates: [] as string[],
     destinataire: "",
@@ -123,6 +217,7 @@ export default function Planning() {
     typeMission: "depannage",
     description: "",
   });
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   // Edit dates form
   const [editDates, setEditDates] = useState<string[]>([]);
@@ -166,6 +261,16 @@ export default function Planning() {
     enabled: !!actor && !isFetching,
   });
 
+  // Load clients for autocomplete
+  const { data: clients = [] } = useQuery<Client[]>({
+    queryKey: ["clients"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.obtenirClients();
+    },
+    enabled: !!actor && !isFetching,
+  });
+
   // Validated interventions as planning-like items
   const validatedInterventions: DayItem[] = useMemo(() => {
     return (interventions as any[])
@@ -188,32 +293,47 @@ export default function Planning() {
 
   // All items combined
   const allItems: DayItem[] = useMemo(() => {
-    const fromPlanning: DayItem[] = planningItems.map((p) => ({
-      id: p.id,
-      titre: p.titre,
-      clientNom: p.clientNom,
-      typeMission: p.typeMission,
-      nomDestinataire: p.nomDestinataire,
-      statut: p.statut,
-      description: p.description,
-      isIntervention: false,
-      createur: p.createur,
-      destinataire: p.destinataire,
-      dates: p.dates,
-    }));
+    const fromPlanning: DayItem[] = planningItems.map((p) => {
+      const desc = p.description;
+      return {
+        id: p.id,
+        titre: p.titre,
+        clientNom: p.clientNom,
+        typeMission: p.typeMission,
+        nomDestinataire: p.nomDestinataire,
+        statut: p.statut,
+        description: desc,
+        isIntervention: false,
+        createur: p.createur,
+        destinataire: p.destinataire,
+        dates: p.dates,
+      };
+    });
     return [...fromPlanning, ...validatedInterventions];
   }, [planningItems, validatedInterventions]);
 
-  // Apply filters
+  // Apply filters — use principal ID for planning items
   const filteredItems = useMemo(() => {
     return allItems.filter((item) => {
-      if (filterUser !== "all" && item.nomDestinataire !== filterUser)
-        return false;
+      if (filterUserPrincipal !== "all") {
+        // For planning items, compare destinataire principal
+        if (item.destinataire) {
+          if (item.destinataire.toString() !== filterUserPrincipal)
+            return false;
+        } else {
+          // For validated interventions, fall back to name match
+          const prof = (profiles as [any, any][]).find(
+            ([p]) => p.toString() === filterUserPrincipal,
+          );
+          const name = prof ? prof[1].name : "";
+          if (item.nomDestinataire !== name) return false;
+        }
+      }
       if (filterType !== "all" && item.typeMission !== filterType) return false;
       if (filterStatut !== "all" && item.statut !== filterStatut) return false;
       return true;
     });
-  }, [allItems, filterUser, filterType, filterStatut]);
+  }, [allItems, filterUserPrincipal, filterType, filterStatut, profiles]);
 
   // Build date map: dateStr -> DayItem[]
   const dateMap = useMemo(() => {
@@ -239,14 +359,6 @@ export default function Planning() {
     const items = dateMap.get(todayStr) || [];
     return items.filter((i) => i.statut === "execute").length;
   }, [dateMap, todayStr]);
-
-  // Unique users for filter
-  const allUsers = useMemo(() => {
-    const set = new Set<string>();
-    for (const item of allItems)
-      if (item.nomDestinataire) set.add(item.nomDestinataire);
-    return Array.from(set).sort();
-  }, [allItems]);
 
   const daysInMonth = getDaysInMonth(viewYear, viewMonth);
   const firstDayOfWeek = getDayOfWeek(viewYear, viewMonth, 1);
@@ -322,6 +434,7 @@ export default function Planning() {
     );
     const nomCreateur = callerProfile ? callerProfile[1].name : "";
     const generatedTitre = `${TYPE_LABELS[createForm.typeMission] || createForm.typeMission}${createForm.clientNom ? ` — ${createForm.clientNom}` : ""}`;
+    const encodedDesc = createForm.description.trim();
     try {
       await actor.creerPlanningItem(
         generateId(),
@@ -332,7 +445,7 @@ export default function Planning() {
         nomCreateur,
         createForm.clientNom.trim(),
         createForm.typeMission,
-        createForm.description.trim(),
+        encodedDesc,
       );
       queryClient.invalidateQueries({ queryKey: ["planningItems"] });
       setShowCreate(false);
@@ -343,19 +456,11 @@ export default function Planning() {
         typeMission: "depannage",
         description: "",
       });
+      setSelectedClient(null);
       toast.success("Mission créée");
     } catch {
       toast.error("Erreur lors de la création");
     }
-  };
-
-  const _toggleDateInList = (
-    dateStr: string,
-    list: string[],
-    setList: (v: string[]) => void,
-  ) => {
-    if (list.includes(dateStr)) setList(list.filter((d) => d !== dateStr));
-    else setList([...list, dateStr].sort());
   };
 
   const profilesLoaded = (profiles as any[]).length > 0;
@@ -409,18 +514,24 @@ export default function Planning() {
 
       {/* Filters */}
       <div className="flex gap-2 flex-wrap">
-        <Select value={filterUser} onValueChange={setFilterUser}>
+        <Select
+          value={filterUserPrincipal}
+          onValueChange={setFilterUserPrincipal}
+        >
           <SelectTrigger
-            className="w-40 h-8 text-xs"
+            className="w-44 h-8 text-xs"
             data-ocid="planning.user.select"
           >
             <SelectValue placeholder="Intervenant" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tous les intervenants</SelectItem>
-            {allUsers.map((u) => (
-              <SelectItem key={u} value={u}>
-                {u}
+            <SelectItem value="all">Toutes les missions</SelectItem>
+            {(profiles as [any, any][]).map(([principal, profile]) => (
+              <SelectItem
+                key={principal.toString()}
+                value={principal.toString()}
+              >
+                {profile.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -496,7 +607,6 @@ export default function Planning() {
 
         {/* Day cells */}
         <div className="grid grid-cols-7">
-          {/* Empty cells for first week offset */}
           {DAYS.slice(0, firstDayOfWeek).map((d) => (
             <div
               key={`empty-${viewYear}-${viewMonth}-${d}`}
@@ -723,17 +833,24 @@ export default function Planning() {
                 </Select>
               )}
             </div>
+
             <div className="space-y-1">
               <Label className="text-sm">Client</Label>
-              <Input
+              <ClientAutocomplete
                 value={createForm.clientNom}
-                onChange={(e) =>
-                  setCreateForm((f) => ({ ...f, clientNom: e.target.value }))
-                }
-                placeholder="Nom du client"
-                data-ocid="planning.client.input"
+                clients={clients}
+                onSelect={(c) => {
+                  setSelectedClient(c);
+                  setCreateForm((f) => ({ ...f, clientNom: c.nom }));
+                }}
+                onManual={(name) => {
+                  setSelectedClient(null);
+                  setCreateForm((f) => ({ ...f, clientNom: name }));
+                }}
               />
+              {selectedClient && <ClientInfoCard client={selectedClient} />}
             </div>
+
             <div className="space-y-1">
               <Label className="text-sm">Type *</Label>
               <Select
@@ -752,6 +869,7 @@ export default function Planning() {
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-1">
               <Label className="text-sm">
                 Dates * (sélectionnez une ou plusieurs dates)
@@ -761,6 +879,7 @@ export default function Planning() {
                 onChange={(dates) => setCreateForm((f) => ({ ...f, dates }))}
               />
             </div>
+
             <div className="space-y-1">
               <Label className="text-sm">Description</Label>
               <Textarea
@@ -800,13 +919,18 @@ export default function Planning() {
         open={!!showEditDates}
         onOpenChange={(o) => !o && setShowEditDates(null)}
       >
-        <DialogContent className="max-w-sm" data-ocid="planning.edit_dialog">
+        <DialogContent
+          className="max-w-sm max-h-[90vh] overflow-y-auto"
+          data-ocid="planning.edit_dialog"
+        >
           <DialogHeader>
-            <DialogTitle>Modifier les dates</DialogTitle>
+            <DialogTitle>Modifier la mission</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <Label className="text-sm">Sélectionnez les dates</Label>
-            <DateMultiPicker selected={editDates} onChange={setEditDates} />
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label className="text-sm">Dates</Label>
+              <DateMultiPicker selected={editDates} onChange={setEditDates} />
+            </div>
           </div>
           <DialogFooter className="gap-2">
             <Button

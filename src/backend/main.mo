@@ -513,9 +513,8 @@ actor {
 
   // Create planning item
   public shared ({ caller }) func creerPlanningItem(id : Text, titre : Text, dates : [Time.Time], destinataire : Principal, nomDestinataire : Text, nomCreateur : Text, clientNom : Text, typeMission : Text, description : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can create your planning items");
-    };
+    // Auto-register caller if not yet registered
+    AccessControl.initialize(accessControlState, caller);
     let item : PlanningItem = {
       id;
       titre;
@@ -535,9 +534,7 @@ actor {
 
   // Update planning item dates (only createur or destinataire)
   public shared ({ caller }) func modifierDatesPlanningItem(id : Text, newDates : [Time.Time]) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can modify planning item dates");
-    };
+    AccessControl.initialize(accessControlState, caller);
     switch (planningItems.get(id)) {
       case (null) { Runtime.trap("Planning item not found") };
       case (?item) {
@@ -552,9 +549,7 @@ actor {
 
   // Delete planning item (only createur or destinataire)
   public shared ({ caller }) func supprimerPlanningItem(id : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can delete planning items");
-    };
+    AccessControl.initialize(accessControlState, caller);
     switch (planningItems.get(id)) {
       case (null) { Runtime.trap("Planning item not found") };
       case (?item) {
