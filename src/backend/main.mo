@@ -9,12 +9,12 @@ import Order "mo:core/Order";
 import Time "mo:core/Time";
 import Array "mo:core/Array";
 import Iter "mo:core/Iter";
-import Migration "migration";
+
 import MixinStorage "blob-storage/Mixin";
 import Float "mo:core/Float";
 import Nat "mo:core/Nat";
 
-(with migration = Migration.run)
+
 actor {
   include MixinStorage();
 

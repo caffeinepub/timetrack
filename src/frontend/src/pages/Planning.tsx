@@ -115,9 +115,8 @@ export default function Planning() {
   const [filterType, setFilterType] = useState("all");
   const [filterStatut, setFilterStatut] = useState("all");
 
-  // Create form
+  // Create form (no titre field)
   const [createForm, setCreateForm] = useState({
-    titre: "",
     dates: [] as string[],
     destinataire: "",
     clientNom: "",
@@ -306,28 +305,29 @@ export default function Planning() {
 
   const handleCreate = async () => {
     if (!actor || !callerPrincipal) return;
-    if (
-      !createForm.titre.trim() ||
-      !createForm.destinataire ||
-      createForm.dates.length === 0
-    ) {
+    if (!createForm.destinataire || createForm.dates.length === 0) {
       toast.error("Remplissez tous les champs obligatoires");
       return;
     }
     const targetProfile = (profiles as [any, any][]).find(
       ([p]) => p.toString() === createForm.destinataire,
     );
-    const nomDestinataire = targetProfile ? targetProfile[1].name : "";
+    if (!targetProfile) {
+      toast.error("Intervenant introuvable, veuillez réessayer");
+      return;
+    }
+    const nomDestinataire = targetProfile[1].name;
     const callerProfile = (profiles as [any, any][]).find(
       ([p]) => p.toString() === callerPrincipal.toString(),
     );
     const nomCreateur = callerProfile ? callerProfile[1].name : "";
+    const generatedTitre = `${TYPE_LABELS[createForm.typeMission] || createForm.typeMission}${createForm.clientNom ? ` — ${createForm.clientNom}` : ""}`;
     try {
       await actor.creerPlanningItem(
         generateId(),
-        createForm.titre.trim(),
+        generatedTitre,
         createForm.dates.map(dateToNs),
-        targetProfile![0],
+        targetProfile[0],
         nomDestinataire,
         nomCreateur,
         createForm.clientNom.trim(),
@@ -337,7 +337,6 @@ export default function Planning() {
       queryClient.invalidateQueries({ queryKey: ["planningItems"] });
       setShowCreate(false);
       setCreateForm({
-        titre: "",
         dates: [],
         destinataire: "",
         clientNom: "",
@@ -358,6 +357,8 @@ export default function Planning() {
     if (list.includes(dateStr)) setList(list.filter((d) => d !== dateStr));
     else setList([...list, dateStr].sort());
   };
+
+  const profilesLoaded = (profiles as any[]).length > 0;
 
   return (
     <div className="space-y-4">
@@ -694,38 +695,33 @@ export default function Planning() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1">
-              <Label className="text-sm">Titre *</Label>
-              <Input
-                value={createForm.titre}
-                onChange={(e) =>
-                  setCreateForm((f) => ({ ...f, titre: e.target.value }))
-                }
-                placeholder="Titre de la mission"
-                data-ocid="planning.titre.input"
-              />
-            </div>
-            <div className="space-y-1">
               <Label className="text-sm">Intervenant *</Label>
-              <Select
-                value={createForm.destinataire}
-                onValueChange={(v) =>
-                  setCreateForm((f) => ({ ...f, destinataire: v }))
-                }
-              >
-                <SelectTrigger data-ocid="planning.destinataire.select">
-                  <SelectValue placeholder="Choisir un intervenant" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(profiles as [any, any][]).map(([principal, profile]) => (
-                    <SelectItem
-                      key={principal.toString()}
-                      value={principal.toString()}
-                    >
-                      {profile.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {!profilesLoaded ? (
+                <p className="text-xs text-gray-400 py-1">
+                  Chargement des intervenants...
+                </p>
+              ) : (
+                <Select
+                  value={createForm.destinataire}
+                  onValueChange={(v) =>
+                    setCreateForm((f) => ({ ...f, destinataire: v }))
+                  }
+                >
+                  <SelectTrigger data-ocid="planning.destinataire.select">
+                    <SelectValue placeholder="Choisir un intervenant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(profiles as [any, any][]).map(([principal, profile]) => (
+                      <SelectItem
+                        key={principal.toString()}
+                        value={principal.toString()}
+                      >
+                        {profile.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-1">
               <Label className="text-sm">Client</Label>
@@ -790,6 +786,7 @@ export default function Planning() {
               onClick={handleCreate}
               className="text-white"
               style={{ backgroundColor: "#ea580c" }}
+              disabled={!profilesLoaded}
               data-ocid="planning.submit_button"
             >
               Créer la mission
