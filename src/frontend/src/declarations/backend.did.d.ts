@@ -60,6 +60,7 @@ export interface InterventionAvecPieces {
   'pieces' : Array<PieceUtilisee>,
   'heureMatinDebutMin' : bigint,
   'signatureClient' : string,
+  'nomUtilisateur' : string,
   'clientNom' : string,
   'heureMatinDebutH' : bigint,
   'videos' : Array<ExternalBlob>,
@@ -114,6 +115,20 @@ export interface MemoEntry {
   'authorName' : string,
   'videos' : Array<ExternalBlob>,
   'photos' : Array<ExternalBlob>,
+}
+export interface Mission {
+  'id' : string,
+  'statut' : string,
+  'titre' : string,
+  'typeMission' : string,
+  'createur' : Principal,
+  'datePrevue' : Time,
+  'description' : string,
+  'nomClient' : string,
+  'nomDestinataire' : string,
+  'nomCreateur' : string,
+  'destinataire' : Principal,
+  'dateCreation' : Time,
 }
 export interface PdfReportData {
   'titre' : string,
@@ -236,6 +251,7 @@ export interface _SERVICE {
     _CaffeineStorageRefillResult
   >,
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
+  'accepterMission' : ActorMethod<[string], undefined>,
   'ajouterClient' : ActorMethod<[Client], undefined>,
   'ajouterIntervention' : ActorMethod<[InterventionInput], undefined>,
   'ajouterTicketEssence' : ActorMethod<[TicketEssence], undefined>,
@@ -251,8 +267,13 @@ export interface _SERVICE {
     Totals
   >,
   'calculerTotauxPourUtilisateur' : ActorMethod<[Principal], Totals>,
+  'compterMissionsEnAttentePourMoi' : ActorMethod<[], bigint>,
   'creerMemo' : ActorMethod<
     [string, string, string, Array<ExternalBlob>, Array<ExternalBlob>],
+    undefined
+  >,
+  'creerMission' : ActorMethod<
+    [string, string, Time, Principal, string, string, string, string, string],
     undefined
   >,
   'enregistrerJournal' : ActorMethod<
@@ -273,6 +294,8 @@ export interface _SERVICE {
     ],
     PdfReportData
   >,
+  'getAllCreatedMissionsForCreators' : ActorMethod<[], Array<Mission>>,
+  'getAllPendingMissionsForEveryone' : ActorMethod<[], Array<Mission>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
@@ -301,16 +324,26 @@ export interface _SERVICE {
   'obtenirMediasAudioPourJour' : ActorMethod<[Time], Array<ExternalBlob>>,
   'obtenirMediasPourJour' : ActorMethod<[Time], Array<DailyMediaEntry>>,
   'obtenirMemos' : ActorMethod<[], Array<MemoEntry>>,
+  'obtenirMissionsCreees' : ActorMethod<[], Array<Mission>>,
+  'obtenirMissionsRecues' : ActorMethod<[], Array<Mission>>,
   'obtenirPhotosPourJour' : ActorMethod<[Time], Array<ExternalBlob>>,
   'obtenirSignatureIntervenant' : ActorMethod<[], [] | [string]>,
   'obtenirTicketsEssence' : ActorMethod<[], Array<TicketEssence>>,
   'obtenirTicketsResto' : ActorMethod<[], Array<TicketResto>>,
   'obtenirTousLesProfils' : ActorMethod<[], Array<[Principal, UserProfile]>>,
   'obtenirToutesInterventions' : ActorMethod<[], Array<InterventionAvecPieces>>,
-  'obtenirToutesInterventionsPourFacturation' : ActorMethod<[], Array<InterventionAvecPieces>>,
+  'obtenirToutesInterventionsPourFacturation' : ActorMethod<
+    [],
+    Array<InterventionAvecPieces>
+  >,
+  'obtenirToutesMissionsAcceptees' : ActorMethod<[], Array<Mission>>,
   'obtenirVehiculeDefaut' : ActorMethod<[], [] | [VehiculeDefaut]>,
   'rechercherFichiers' : ActorMethod<[string], Array<Fichier>>,
   'recupererFichier' : ActorMethod<[bigint], [] | [Fichier]>,
+  'redigerMissionVersAutre' : ActorMethod<
+    [string, Principal, string],
+    undefined
+  >,
   'restartPublish' : ActorMethod<[], undefined>,
   'sauvegarderSignatureIntervenant' : ActorMethod<[string], undefined>,
   'sauverVehiculeDefaut' : ActorMethod<[VehiculeDefaut], undefined>,
@@ -323,6 +356,7 @@ export interface _SERVICE {
   'supprimerJournee' : ActorMethod<[string], undefined>,
   'supprimerMediaQuotidien' : ActorMethod<[string], undefined>,
   'supprimerMemo' : ActorMethod<[string], undefined>,
+  'supprimerMission' : ActorMethod<[string], undefined>,
   'supprimerTicketEssence' : ActorMethod<[string], boolean>,
   'supprimerTicketResto' : ActorMethod<[string], boolean>,
   'uploadPhotoDansStoic' : ActorMethod<

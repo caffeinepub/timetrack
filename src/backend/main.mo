@@ -319,6 +319,169 @@ actor {
   let interventionSupprimeeFacturation = Map.empty<Text, Bool>();
   let memoEntries = Map.empty<Text, MemoEntry>();
 
+  // -------- MISSION SYSTEM --------
+  // New mission type
+  public type Mission = {
+    id : Text;
+    titre : Text;
+    datePrevue : Time.Time;
+    createur : Principal;
+    destinataire : Principal;
+    nomCreateur : Text;
+    nomDestinataire : Text;
+    nomClient : Text;
+    typeMission : Text; // "depannage" | "controle" | "chantier"
+    description : Text;
+    statut : Text; // "en_attente" | "acceptee"
+    dateCreation : Time.Time;
+  };
+
+  module Mission {
+    public func compareByDatePrevue(a : Mission, b : Mission) : Order.Order {
+      Int.compare(a.datePrevue, b.datePrevue);
+    };
+
+    public func compareByDateCreation(a : Mission, b : Mission) : Order.Order {
+      Int.compare(a.dateCreation, b.dateCreation);
+    };
+  };
+
+  let missions = Map.empty<Text, Mission>();
+
+  // Creer une mission (caller is createur)
+  public shared ({ caller }) func creerMission(id : Text, titre : Text, datePrevue : Time.Time, destinataire : Principal, nomDestinataire : Text, nomCreateur : Text, nomClient : Text, typeMission : Text, description : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can create missions");
+    };
+    let mission : Mission = {
+      id;
+      titre;
+      datePrevue;
+      createur = caller;
+      destinataire;
+      nomCreateur;
+      nomDestinataire;
+      nomClient;
+      typeMission;
+      description;
+      statut = "en_attente";
+      dateCreation = Time.now();
+    };
+    missions.add(id, mission);
+  };
+
+  // Accepter une mission (change statut to acceptee)
+  public shared ({ caller }) func accepterMission(id : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can accept missions");
+    };
+    switch (missions.get(id)) {
+      case (null) { Runtime.trap("Mission non trouvee") };
+      case (?mission) {
+        if (mission.destinataire != caller) {
+          Runtime.trap("Vous n'etes pas le destinataire de cette mission");
+        };
+        let updatedMission = { mission with statut = "acceptee" };
+        missions.add(id, updatedMission);
+      };
+    };
+  };
+
+  // Rediger vers un autre collegue (change destinataire)
+  public shared ({ caller }) func redigerMissionVersAutre(id : Text, nouveauDestinataire : Principal, nomNouveauDestinataire : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can redirect missions");
+    };
+    switch (missions.get(id)) {
+      case (null) { Runtime.trap("Mission non trouvee") };
+      case (?mission) {
+        if (mission.destinataire != caller) {
+          Runtime.trap("Vous n'etes pas le delegue de cette mission");
+        };
+        let updatedMission = {
+          mission with
+          destinataire = nouveauDestinataire;
+          nomDestinataire = nomNouveauDestinataire;
+          statut = "en_attente";
+        };
+        missions.add(id, updatedMission);
+      };
+    };
+  };
+
+  // Supprimer une mission (only createur or destinataire)
+  public shared ({ caller }) func supprimerMission(id : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete missions");
+    };
+    switch (missions.get(id)) {
+      case (null) { Runtime.trap("Mission non trouvee") };
+      case (?mission) {
+        if (caller != mission.createur and caller != mission.destinataire and not isCallerAdminInternal(caller)) {
+          Runtime.trap("Non autorise : vous ne pouvez supprimer que vos propres missions");
+        };
+        missions.remove(id);
+      };
+    };
+  };
+
+  // Obtenir missions recues par l'utilisateur
+  public query ({ caller }) func obtenirMissionsRecues() : async [Mission] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view missions");
+    };
+
+    let filtered = missions.values().filter(func(mission) { mission.destinataire == caller }).toArray();
+    filtered.sort(Mission.compareByDatePrevue);
+  };
+
+  // Obtenir missions creees par l'utilisateur
+  public query ({ caller }) func obtenirMissionsCreees() : async [Mission] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view missions");
+    };
+
+    let filtered = missions.values().filter(func(mission) { mission.createur == caller }).toArray();
+    filtered.sort(Mission.compareByDateCreation);
+  };
+
+  // Obtenir toutes les missions acceptees (visible to all authenticated users)
+  public query ({ caller }) func obtenirToutesMissionsAcceptees() : async [Mission] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view accepted missions");
+    };
+
+    let filtered = missions.values().filter(func(mission) { mission.statut == "acceptee" }).toArray();
+    filtered.sort(Mission.compareByDatePrevue);
+  };
+
+  // Compter le nombre de missions en attente pour l'utilisateur
+  public query ({ caller }) func compterMissionsEnAttentePourMoi() : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can count pending missions");
+    };
+    missions.values().filter(
+      func(mission) { mission.destinataire == caller and mission.statut == "en_attente" }
+    ).toArray().size();
+  };
+
+  // GET EVERYONE'S (DESTINATAIRE) PENDING MISSIONS (admin only)
+  public query ({ caller }) func getAllPendingMissionsForEveryone() : async [Mission] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can view all pending missions");
+    };
+    let pending = missions.values().filter(func(mission) { mission.statut == "en_attente" }).toArray();
+    pending.sort(Mission.compareByDateCreation);
+  };
+
+  // GET ALL MISSIONS FOR CREATORS (ADMIN)
+  public query ({ caller }) func getAllCreatedMissionsForCreators() : async [Mission] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can view all created missions");
+    };
+    missions.values().toArray();
+  };
+
   // -------- NEW TICKET RESTO & ESSENCE MODULES --------
 
   // Ticket Resto (restaurant vouchers/meals)
@@ -377,14 +540,14 @@ actor {
 
   // Ticket Resto functions
   public shared ({ caller }) func ajouterTicketResto(ticket : TicketResto) : async () {
-    if (not (callerHasAccess(caller))) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can add meal tickets");
     };
     ticketsResto.add(ticket.id, ticket);
   };
 
   public shared ({ caller }) func supprimerTicketResto(id : Text) : async Bool {
-    if (not (callerHasAccess(caller))) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can delete meal tickets");
     };
     switch (ticketsResto.get(id)) {
@@ -400,7 +563,7 @@ actor {
   };
 
   public query ({ caller }) func obtenirTicketsResto() : async [TicketResto] {
-    if (not (callerHasAccess(caller))) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view meal tickets");
     };
     let all = ticketsResto.values().toArray();
@@ -409,14 +572,14 @@ actor {
 
   // Ticket Essence functions
   public shared ({ caller }) func ajouterTicketEssence(ticket : TicketEssence) : async () {
-    if (not (callerHasAccess(caller))) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can add fuel tickets");
     };
     ticketsEssence.add(ticket.id, ticket);
   };
 
   public shared ({ caller }) func supprimerTicketEssence(id : Text) : async Bool {
-    if (not (callerHasAccess(caller))) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can delete fuel tickets");
     };
     switch (ticketsEssence.get(id)) {
@@ -432,7 +595,7 @@ actor {
   };
 
   public query ({ caller }) func obtenirTicketsEssence() : async [TicketEssence] {
-    if (not (callerHasAccess(caller))) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view fuel tickets");
     };
     let all = ticketsEssence.values().toArray();
@@ -441,14 +604,14 @@ actor {
 
   // Vehicule defaults functions
   public shared ({ caller }) func sauverVehiculeDefaut(vehicule : VehiculeDefaut) : async () {
-    if (not (callerHasAccess(caller))) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can save vehicle defaults");
     };
     vehiculesDefaut.add(caller, vehicule);
   };
 
   public query ({ caller }) func obtenirVehiculeDefaut() : async ?VehiculeDefaut {
-    if (not (callerHasAccess(caller))) {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view vehicle defaults");
     };
     vehiculesDefaut.get(caller);
@@ -843,7 +1006,7 @@ actor {
     };
   };
 
-  public query ({ caller }) func rechercherFichiers(_motCle: Text) : async [Fichier] {
+  public query ({ caller }) func rechercherFichiers(_motCle : Text) : async [Fichier] {
     if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can search files");
     };
@@ -1610,3 +1773,4 @@ actor {
     Runtime.trap("Publish restart workflow triggered. This actor is already running the latest version. If a publish failure occurred, redeploying should automatically resolve it. No further action is needed.");
   };
 };
+

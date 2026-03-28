@@ -14,6 +14,20 @@ export class ExternalBlob {
     static fromBytes(blob: Uint8Array<ArrayBuffer>): ExternalBlob;
     withUploadProgress(onProgress: (percentage: number) => void): ExternalBlob;
 }
+export interface Mission {
+    id: string;
+    statut: string;
+    titre: string;
+    typeMission: string;
+    createur: Principal;
+    datePrevue: Time;
+    description: string;
+    nomClient: string;
+    nomDestinataire: string;
+    nomCreateur: string;
+    destinataire: Principal;
+    dateCreation: Time;
+}
 export type MediaType = {
     __kind__: "audio";
     audio: ExternalBlob;
@@ -21,13 +35,13 @@ export type MediaType = {
     __kind__: "photo";
     photo: ExternalBlob;
 };
+export type Time = bigint;
 export interface InterventionSlot {
     endHour: bigint;
     endMinute: bigint;
     startMinute: bigint;
     startHour: bigint;
 }
-export type Time = bigint;
 export interface InterventionInput {
     id: string;
     clientAbsent: boolean;
@@ -72,7 +86,6 @@ export interface InterventionAvecPieces {
     createdAt: Time;
     user: Principal;
     valide: boolean;
-    nomUtilisateur: string;
     heureApremDebutMin: bigint;
     heureApremDebutH: bigint;
     heureApremFinH: bigint;
@@ -84,6 +97,7 @@ export interface InterventionAvecPieces {
     pieces: Array<PieceUtilisee>;
     heureMatinDebutMin: bigint;
     signatureClient: string;
+    nomUtilisateur: string;
     clientNom: string;
     heureMatinDebutH: bigint;
     videos: Array<ExternalBlob>;
@@ -223,6 +237,7 @@ export enum UserRole {
     guest = "guest"
 }
 export interface backendInterface {
+    accepterMission(id: string): Promise<void>;
     ajouterClient(client: Client): Promise<void>;
     ajouterIntervention(input: InterventionInput): Promise<void>;
     ajouterTicketEssence(ticket: TicketEssence): Promise<void>;
@@ -235,7 +250,9 @@ export interface backendInterface {
     calculerTotauxPourMois(user: Principal, mois: bigint, annee: bigint): Promise<Totals>;
     calculerTotauxPourSemaine(user: Principal, semaine: bigint, annee: bigint): Promise<Totals>;
     calculerTotauxPourUtilisateur(user: Principal): Promise<Totals>;
+    compterMissionsEnAttentePourMoi(): Promise<bigint>;
     creerMemo(id: string, authorName: string, content: string, photos: Array<ExternalBlob>, videos: Array<ExternalBlob>): Promise<void>;
+    creerMission(id: string, titre: string, datePrevue: Time, destinataire: Principal, nomDestinataire: string, nomCreateur: string, nomClient: string, typeMission: string, description: string): Promise<void>;
     enregistrerJournal(id: string, audioUrl: string, transcription: string, notes: string, photos: Array<ExternalBlob>, dayType: DayType | null): Promise<void>;
     enregistrerJournee(input: TimeEntryInput): Promise<void>;
     enregistrerMediaQuotidien(id: string, mediaType: MediaType, relatedDay: Time): Promise<void>;
@@ -247,6 +264,8 @@ export interface backendInterface {
         __kind__: "mois";
         mois: [bigint, bigint];
     }, user: Principal): Promise<PdfReportData>;
+    getAllCreatedMissionsForCreators(): Promise<Array<Mission>>;
+    getAllPendingMissionsForEveryone(): Promise<Array<Mission>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
@@ -266,16 +285,20 @@ export interface backendInterface {
     obtenirMediasAudioPourJour(date: Time): Promise<Array<ExternalBlob>>;
     obtenirMediasPourJour(date: Time): Promise<Array<DailyMediaEntry>>;
     obtenirMemos(): Promise<Array<MemoEntry>>;
+    obtenirMissionsCreees(): Promise<Array<Mission>>;
+    obtenirMissionsRecues(): Promise<Array<Mission>>;
     obtenirPhotosPourJour(date: Time): Promise<Array<ExternalBlob>>;
     obtenirSignatureIntervenant(): Promise<string | null>;
     obtenirTicketsEssence(): Promise<Array<TicketEssence>>;
     obtenirTicketsResto(): Promise<Array<TicketResto>>;
     obtenirTousLesProfils(): Promise<Array<[Principal, UserProfile]>>;
-    obtenirToutesInterventionsPourFacturation(): Promise<Array<InterventionAvecPieces>>;
     obtenirToutesInterventions(): Promise<Array<InterventionAvecPieces>>;
+    obtenirToutesInterventionsPourFacturation(): Promise<Array<InterventionAvecPieces>>;
+    obtenirToutesMissionsAcceptees(): Promise<Array<Mission>>;
     obtenirVehiculeDefaut(): Promise<VehiculeDefaut | null>;
     rechercherFichiers(_motCle: string): Promise<Array<Fichier>>;
     recupererFichier(_id: bigint): Promise<Fichier | null>;
+    redigerMissionVersAutre(id: string, nouveauDestinataire: Principal, nomNouveauDestinataire: string): Promise<void>;
     restartPublish(): Promise<void>;
     sauvegarderSignatureIntervenant(sig: string): Promise<void>;
     sauverVehiculeDefaut(vehicule: VehiculeDefaut): Promise<void>;
@@ -288,6 +311,7 @@ export interface backendInterface {
     supprimerJournee(id: string): Promise<void>;
     supprimerMediaQuotidien(id: string): Promise<void>;
     supprimerMemo(id: string): Promise<void>;
+    supprimerMission(id: string): Promise<void>;
     supprimerTicketEssence(id: string): Promise<boolean>;
     supprimerTicketResto(id: string): Promise<boolean>;
     uploadPhotoDansStoic(filename: string, content: ExternalBlob, mimeType: string, taille: bigint, description: string): Promise<bigint | null>;

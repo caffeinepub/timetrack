@@ -29,6 +29,7 @@ import {
   getDayTypeColors,
 } from "../components/DayTypeCheckboxGroup";
 import MediaViewer, { type MediaItem } from "../components/MediaViewer";
+import MissionsSection from "../components/MissionsSection";
 import { SignaturePad } from "../components/SignaturePad";
 import { VoiceInput } from "../components/VoiceInput";
 import { useActor } from "../hooks/useActor";
@@ -2110,6 +2111,7 @@ export default function Calendar() {
           onClose={() => setMediaViewer(null)}
         />
       )}
+      <MissionsSection />
     </div>
   );
 }

@@ -93,6 +93,20 @@ export interface _CaffeineStorageRefillResult {
     success?: boolean;
     topped_up_amount?: bigint;
 }
+export interface Mission {
+    id: string;
+    statut: string;
+    titre: string;
+    typeMission: string;
+    createur: Principal;
+    datePrevue: Time;
+    description: string;
+    nomClient: string;
+    nomDestinataire: string;
+    nomCreateur: string;
+    destinataire: Principal;
+    dateCreation: Time;
+}
 export type MediaType = {
     __kind__: "audio";
     audio: ExternalBlob;
@@ -100,13 +114,13 @@ export type MediaType = {
     __kind__: "photo";
     photo: ExternalBlob;
 };
+export type Time = bigint;
 export interface InterventionSlot {
     endHour: bigint;
     endMinute: bigint;
     startMinute: bigint;
     startHour: bigint;
 }
-export type Time = bigint;
 export interface InterventionInput {
     id: string;
     clientAbsent: boolean;
@@ -129,6 +143,9 @@ export interface InterventionInput {
     heureMatinFinMin: bigint;
     photos: Array<ExternalBlob>;
 }
+export interface _CaffeineStorageRefillInformation {
+    proposed_top_up_amount?: bigint;
+}
 export interface Client {
     id: string;
     nom: string;
@@ -137,9 +154,6 @@ export interface Client {
     adresse: string;
     listeNoire: boolean;
     telephone: string;
-}
-export interface _CaffeineStorageRefillInformation {
-    proposed_top_up_amount?: bigint;
 }
 export interface _CaffeineStorageCreateCertificateResult {
     method: string;
@@ -169,6 +183,7 @@ export interface InterventionAvecPieces {
     pieces: Array<PieceUtilisee>;
     heureMatinDebutMin: bigint;
     signatureClient: string;
+    nomUtilisateur: string;
     clientNom: string;
     heureMatinDebutH: bigint;
     videos: Array<ExternalBlob>;
@@ -314,6 +329,7 @@ export interface backendInterface {
     _caffeineStorageCreateCertificate(blobHash: string): Promise<_CaffeineStorageCreateCertificateResult>;
     _caffeineStorageRefillCashier(refillInformation: _CaffeineStorageRefillInformation | null): Promise<_CaffeineStorageRefillResult>;
     _caffeineStorageUpdateGatewayPrincipals(): Promise<void>;
+    accepterMission(id: string): Promise<void>;
     ajouterClient(client: Client): Promise<void>;
     ajouterIntervention(input: InterventionInput): Promise<void>;
     ajouterTicketEssence(ticket: TicketEssence): Promise<void>;
@@ -326,7 +342,9 @@ export interface backendInterface {
     calculerTotauxPourMois(user: Principal, mois: bigint, annee: bigint): Promise<Totals>;
     calculerTotauxPourSemaine(user: Principal, semaine: bigint, annee: bigint): Promise<Totals>;
     calculerTotauxPourUtilisateur(user: Principal): Promise<Totals>;
+    compterMissionsEnAttentePourMoi(): Promise<bigint>;
     creerMemo(id: string, authorName: string, content: string, photos: Array<ExternalBlob>, videos: Array<ExternalBlob>): Promise<void>;
+    creerMission(id: string, titre: string, datePrevue: Time, destinataire: Principal, nomDestinataire: string, nomCreateur: string, nomClient: string, typeMission: string, description: string): Promise<void>;
     enregistrerJournal(id: string, audioUrl: string, transcription: string, notes: string, photos: Array<ExternalBlob>, dayType: DayType | null): Promise<void>;
     enregistrerJournee(input: TimeEntryInput): Promise<void>;
     enregistrerMediaQuotidien(id: string, mediaType: MediaType, relatedDay: Time): Promise<void>;
@@ -338,6 +356,8 @@ export interface backendInterface {
         __kind__: "mois";
         mois: [bigint, bigint];
     }, user: Principal): Promise<PdfReportData>;
+    getAllCreatedMissionsForCreators(): Promise<Array<Mission>>;
+    getAllPendingMissionsForEveryone(): Promise<Array<Mission>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
@@ -357,15 +377,20 @@ export interface backendInterface {
     obtenirMediasAudioPourJour(date: Time): Promise<Array<ExternalBlob>>;
     obtenirMediasPourJour(date: Time): Promise<Array<DailyMediaEntry>>;
     obtenirMemos(): Promise<Array<MemoEntry>>;
+    obtenirMissionsCreees(): Promise<Array<Mission>>;
+    obtenirMissionsRecues(): Promise<Array<Mission>>;
     obtenirPhotosPourJour(date: Time): Promise<Array<ExternalBlob>>;
     obtenirSignatureIntervenant(): Promise<string | null>;
     obtenirTicketsEssence(): Promise<Array<TicketEssence>>;
     obtenirTicketsResto(): Promise<Array<TicketResto>>;
     obtenirTousLesProfils(): Promise<Array<[Principal, UserProfile]>>;
     obtenirToutesInterventions(): Promise<Array<InterventionAvecPieces>>;
+    obtenirToutesInterventionsPourFacturation(): Promise<Array<InterventionAvecPieces>>;
+    obtenirToutesMissionsAcceptees(): Promise<Array<Mission>>;
     obtenirVehiculeDefaut(): Promise<VehiculeDefaut | null>;
     rechercherFichiers(_motCle: string): Promise<Array<Fichier>>;
     recupererFichier(_id: bigint): Promise<Fichier | null>;
+    redigerMissionVersAutre(id: string, nouveauDestinataire: Principal, nomNouveauDestinataire: string): Promise<void>;
     restartPublish(): Promise<void>;
     sauvegarderSignatureIntervenant(sig: string): Promise<void>;
     sauverVehiculeDefaut(vehicule: VehiculeDefaut): Promise<void>;
@@ -378,6 +403,7 @@ export interface backendInterface {
     supprimerJournee(id: string): Promise<void>;
     supprimerMediaQuotidien(id: string): Promise<void>;
     supprimerMemo(id: string): Promise<void>;
+    supprimerMission(id: string): Promise<void>;
     supprimerTicketEssence(id: string): Promise<boolean>;
     supprimerTicketResto(id: string): Promise<boolean>;
     uploadPhotoDansStoic(filename: string, content: ExternalBlob, mimeType: string, taille: bigint, description: string): Promise<bigint | null>;
@@ -467,6 +493,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor._caffeineStorageUpdateGatewayPrincipals();
+            return result;
+        }
+    }
+    async accepterMission(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.accepterMission(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.accepterMission(arg0);
             return result;
         }
     }
@@ -638,6 +678,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async compterMissionsEnAttentePourMoi(): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.compterMissionsEnAttentePourMoi();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.compterMissionsEnAttentePourMoi();
+            return result;
+        }
+    }
     async creerMemo(arg0: string, arg1: string, arg2: string, arg3: Array<ExternalBlob>, arg4: Array<ExternalBlob>): Promise<void> {
         if (this.processError) {
             try {
@@ -649,6 +703,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.creerMemo(arg0, arg1, arg2, await to_candid_vec_n10(this._uploadFile, this._downloadFile, arg3), await to_candid_vec_n10(this._uploadFile, this._downloadFile, arg4));
+            return result;
+        }
+    }
+    async creerMission(arg0: string, arg1: string, arg2: Time, arg3: Principal, arg4: string, arg5: string, arg6: string, arg7: string, arg8: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.creerMission(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.creerMission(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
             return result;
         }
     }
@@ -725,6 +793,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.genererDonneesRapportPdf(to_candid_variant_n23(this._uploadFile, this._downloadFile, arg0), arg1);
+            return result;
+        }
+    }
+    async getAllCreatedMissionsForCreators(): Promise<Array<Mission>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllCreatedMissionsForCreators();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllCreatedMissionsForCreators();
+            return result;
+        }
+    }
+    async getAllPendingMissionsForEveryone(): Promise<Array<Mission>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllPendingMissionsForEveryone();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllPendingMissionsForEveryone();
             return result;
         }
     }
@@ -994,6 +1090,34 @@ export class Backend implements backendInterface {
             return from_candid_vec_n53(this._uploadFile, this._downloadFile, result);
         }
     }
+    async obtenirMissionsCreees(): Promise<Array<Mission>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.obtenirMissionsCreees();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.obtenirMissionsCreees();
+            return result;
+        }
+    }
+    async obtenirMissionsRecues(): Promise<Array<Mission>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.obtenirMissionsRecues();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.obtenirMissionsRecues();
+            return result;
+        }
+    }
     async obtenirPhotosPourJour(arg0: Time): Promise<Array<ExternalBlob>> {
         if (this.processError) {
             try {
@@ -1092,6 +1216,20 @@ export class Backend implements backendInterface {
             return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
         }
     }
+    async obtenirToutesMissionsAcceptees(): Promise<Array<Mission>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.obtenirToutesMissionsAcceptees();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.obtenirToutesMissionsAcceptees();
+            return result;
+        }
+    }
     async obtenirVehiculeDefaut(): Promise<VehiculeDefaut | null> {
         if (this.processError) {
             try {
@@ -1132,6 +1270,20 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.recupererFichier(arg0);
             return from_candid_opt_n65(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async redigerMissionVersAutre(arg0: string, arg1: Principal, arg2: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.redigerMissionVersAutre(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.redigerMissionVersAutre(arg0, arg1, arg2);
+            return result;
         }
     }
     async restartPublish(): Promise<void> {
@@ -1299,6 +1451,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.supprimerMemo(arg0);
+            return result;
+        }
+    }
+    async supprimerMission(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.supprimerMission(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.supprimerMission(arg0);
             return result;
         }
     }
@@ -1495,6 +1661,7 @@ async function from_candid_record_n36(_uploadFile: (file: ExternalBlob) => Promi
     pieces: Array<_PieceUtilisee>;
     heureMatinDebutMin: bigint;
     signatureClient: string;
+    nomUtilisateur: string;
     clientNom: string;
     heureMatinDebutH: bigint;
     videos: Array<_ExternalBlob>;
@@ -1519,6 +1686,7 @@ async function from_candid_record_n36(_uploadFile: (file: ExternalBlob) => Promi
     pieces: Array<PieceUtilisee>;
     heureMatinDebutMin: bigint;
     signatureClient: string;
+    nomUtilisateur: string;
     clientNom: string;
     heureMatinDebutH: bigint;
     videos: Array<ExternalBlob>;
@@ -1544,6 +1712,7 @@ async function from_candid_record_n36(_uploadFile: (file: ExternalBlob) => Promi
         pieces: value.pieces,
         heureMatinDebutMin: value.heureMatinDebutMin,
         signatureClient: value.signatureClient,
+        nomUtilisateur: value.nomUtilisateur,
         clientNom: value.clientNom,
         heureMatinDebutH: value.heureMatinDebutH,
         videos: await from_candid_vec_n37(_uploadFile, _downloadFile, value.videos),
