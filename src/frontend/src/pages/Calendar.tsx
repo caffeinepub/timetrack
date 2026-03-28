@@ -400,6 +400,56 @@ export default function Calendar() {
     }
   }, [myPrincipal, selectedProfilePrincipal]);
 
+  // Check for mission draft from Planning page
+  useEffect(() => {
+    const raw = localStorage.getItem("calendarMissionDraft");
+    if (!raw || !myPrincipal) return;
+    try {
+      const draft = JSON.parse(raw);
+      // Only consume when own calendar is shown
+      const targetDate = draft.date ? new Date(draft.date) : null;
+      if (!targetDate) return;
+      localStorage.removeItem("calendarMissionDraft");
+      // Navigate calendar to the right month
+      setViewYear(targetDate.getFullYear());
+      setViewMonth(targetDate.getMonth());
+      // Pre-fill a new entry form with client name and address
+      setSelectedDate(targetDate);
+      setEditingEntry(null);
+      setForm({
+        ...defaultForm(),
+        interventionSlots: [
+          {
+            ficheId: "",
+            clientNom: draft.clientNom ?? "",
+            clientAdresse: draft.clientAdresse ?? "",
+            matinDebutH: "",
+            matinDebutMin: "",
+            matinFinH: "",
+            matinFinMin: "",
+            apremDebutH: "",
+            apremDebutMin: "",
+            apremFinH: "",
+            apremFinMin: "",
+            ficheDescription: draft.description ?? "",
+            signatureClient: "",
+            signatureIntervenant: "",
+            piecesLignes: [],
+            photos: [],
+            photoUrls: [],
+            videos: [],
+            videoUrls: [],
+            estAstreinte: false,
+            clientAbsent: false,
+          },
+        ],
+      });
+      setDialogOpen(true);
+    } catch (_) {
+      localStorage.removeItem("calendarMissionDraft");
+    }
+  }, [myPrincipal]);
+
   const isOwnCalendar =
     !selectedProfilePrincipal || selectedProfilePrincipal === myPrincipal;
 

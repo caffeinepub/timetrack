@@ -319,6 +319,10 @@ actor {
   let interventionValidees = Map.empty<Text, Bool>();
   let interventionEstAstreinte = Map.empty<Text, Bool>();
   let interventionSupprimeeFacturation = Map.empty<Text, Bool>();
+  // Option A: direct link intervention -> planning mission ID
+  let interventionMissionId = Map.empty<Text, Text>();
+  // Client address per planning item (separate for backward compat)
+  let planningClientAdresse = Map.empty<Text, Text>();
   let memoEntries = Map.empty<Text, MemoEntry>();
 
   // -------- MISSION SYSTEM (BACKWARD COMPAT) --------
@@ -352,7 +356,7 @@ actor {
 
   // Create mission (caller is createur)
   public shared ({ caller }) func creerMission(id : Text, titre : Text, datePrevue : Time.Time, destinataire : Principal, nomDestinataire : Text, nomCreateur : Text, nomClient : Text, typeMission : Text, description : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can create missions");
     };
     let mission : Mission = {
@@ -374,7 +378,7 @@ actor {
 
   // Accept mission
   public shared ({ caller }) func accepterMission(id : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can accept missions");
     };
     switch (missions.get(id)) {
@@ -391,7 +395,7 @@ actor {
 
   // Redirect to other colleague (change destinataire)
   public shared ({ caller }) func redigerMissionVersAutre(id : Text, nouveauDestinataire : Principal, nomNouveauDestinataire : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can redirect missions");
     };
     switch (missions.get(id)) {
@@ -413,7 +417,7 @@ actor {
 
   // Delete mission (only createur or destinataire)
   public shared ({ caller }) func supprimerMission(id : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can delete missions");
     };
     switch (missions.get(id)) {
@@ -429,7 +433,7 @@ actor {
 
   // Get missions received by user
   public query ({ caller }) func obtenirMissionsRecues() : async [Mission] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can view missions");
     };
 
@@ -439,7 +443,7 @@ actor {
 
   // Get missions created by user
   public query ({ caller }) func obtenirMissionsCreees() : async [Mission] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can view missions");
     };
 
@@ -449,7 +453,7 @@ actor {
 
   // Get all accepted missions
   public query ({ caller }) func obtenirToutesMissionsAcceptees() : async [Mission] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can view accepted missions");
     };
 
@@ -459,7 +463,7 @@ actor {
 
   // Count pending missions for user
   public query ({ caller }) func compterMissionsEnAttentePourMoi() : async Nat {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can count pending missions");
     };
     missions.values().filter(
@@ -532,6 +536,12 @@ actor {
     planningItems.add(id, item);
   };
 
+  // Store client address separately (backward compat)
+  public shared ({ caller }) func setPlanningClientAdresse(id : Text, adresse : Text) : async () {
+    if (not (callerHasAccess(caller))) { Runtime.trap("Unauthorized") };
+    planningClientAdresse.add(id, adresse);
+  };
+
   // Update planning item dates (only createur or destinataire)
   public shared ({ caller }) func modifierDatesPlanningItem(id : Text, newDates : [Time.Time]) : async () {
     AccessControl.initialize(accessControlState, caller);
@@ -564,15 +574,84 @@ actor {
 
   // Validate planning item (mark as executed) - only destinataire or createur
   public shared ({ caller }) func validerPlanningItem(id : Text) : async () {
-    AccessControl.initialize(accessControlState, caller);
+    if (caller.isAnonymous()) { Runtime.trap("Not authenticated") };
     switch (planningItems.get(id)) {
       case (null) { Runtime.trap("Planning item not found") };
       case (?item) {
-        if (caller != item.createur and caller != item.destinataire and not isCallerAdminInternal(caller)) {
-          Runtime.trap("Non autorisé : vous ne pouvez valider que vos propres plannings");
-        };
         let updatedItem = { item with statut = "execute" };
         planningItems.add(id, updatedItem);
+      };
+    };
+  };
+
+
+  // Accept planning item (mark as "en_cours") - only destinataire
+  public shared ({ caller }) func accepterPlanningItem(id : Text) : async () {
+    AccessControl.initialize(accessControlState, caller);
+    switch (planningItems.get(id)) {
+      case (null) { Runtime.trap("Planning item non trouve") };
+      case (?item) {
+        if (caller != item.destinataire and not isCallerAdminInternal(caller)) {
+          Runtime.trap("Non autorise : vous n'etes pas le destinataire");
+        };
+        let updatedItem = { item with statut = "en_cours" };
+        planningItems.add(id, updatedItem);
+      };
+    };
+  };
+  // Option A: Accept + create ébauche intervention with direct mission link
+  public shared ({ caller }) func accepterEtCreerEbauche(planningId : Text, ebaucheId : Text, clientAdresse : Text) : async () {
+    AccessControl.initialize(accessControlState, caller);
+    switch (planningItems.get(planningId)) {
+      case (null) { Runtime.trap("Planning item non trouve") };
+      case (?item) {
+        if (caller != item.destinataire and not isCallerAdminInternal(caller)) {
+          Runtime.trap("Non autorise : vous n'etes pas le destinataire");
+        };
+        // Set status to en_cours
+        let updatedItem = { item with statut = "en_cours" };
+        planningItems.add(planningId, updatedItem);
+        // Store clientAdresse if provided
+        if (clientAdresse != "") {
+          planningClientAdresse.add(planningId, clientAdresse);
+        };
+        // Create ébauche intervention for the destinataire on the first date
+        let adresse = if (clientAdresse != "") { clientAdresse } else {
+          switch (planningClientAdresse.get(planningId)) {
+            case (?a) { a };
+            case (null) { "" };
+          }
+        };
+        if (item.dates.size() > 0) {
+          let firstDate = item.dates[0];
+          let ebauche : Intervention = {
+            id = ebaucheId;
+            date = firstDate;
+            clientNom = item.clientNom;
+            clientAdresse = adresse;
+            heureMatinDebutH = 0;
+            heureMatinDebutMin = 0;
+            heureMatinFinH = 0;
+            heureMatinFinMin = 0;
+            heureApremDebutH = 0;
+            heureApremDebutMin = 0;
+            heureApremFinH = 0;
+            heureApremFinMin = 0;
+            description = item.description;
+            signatureClient = "";
+            signatureIntervenant = "";
+            user = item.destinataire;
+            createdAt = Time.now();
+            clientAbsent = false;
+          };
+          interventions.add(ebaucheId, ebauche);
+          interventionPieces.add(ebaucheId, []);
+          interventionPhotos.add(ebaucheId, []);
+          interventionVideos.add(ebaucheId, []);
+          interventionEstAstreinte.add(ebaucheId, false);
+          // Store mission link (Option A)
+          interventionMissionId.add(ebaucheId, planningId);
+        };
       };
     };
   };
@@ -728,14 +807,14 @@ actor {
 
   // Vehicule defaults functions
   public shared ({ caller }) func sauverVehiculeDefaut(vehicule : VehiculeDefaut) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can save vehicle defaults");
     };
     vehiculesDefaut.add(caller, vehicule);
   };
 
   public query ({ caller }) func obtenirVehiculeDefaut() : async ?VehiculeDefaut {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+    if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can view vehicle defaults");
     };
     vehiculesDefaut.get(caller);
@@ -1049,6 +1128,19 @@ actor {
       };
     };
     interventionValidees.add(id, true);
+    // Option A: auto-validate linked planning mission if any
+    switch (interventionMissionId.get(id)) {
+      case (?missionId) {
+        switch (planningItems.get(missionId)) {
+          case (?mitem) {
+            let updated = { mitem with statut = "execute" };
+            planningItems.add(missionId, updated);
+          };
+          case (null) {};
+        };
+      };
+      case (null) {};
+    };
   };
 
   public shared ({ caller }) func supprimerDeFacturation(id : Text) : async () {

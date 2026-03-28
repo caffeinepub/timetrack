@@ -252,6 +252,7 @@ export enum UserRole {
 }
 export interface backendInterface {
     accepterMission(id: string): Promise<void>;
+    accepterPlanningItem(id: string): Promise<void>;
     ajouterClient(client: Client): Promise<void>;
     ajouterIntervention(input: InterventionInput): Promise<void>;
     ajouterInterventionPourUtilisateur(targetUser: Principal, input: InterventionInput): Promise<void>;

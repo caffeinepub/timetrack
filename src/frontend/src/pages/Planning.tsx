@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import type { Page } from "../App";
 import type { Client, InterventionInput, PlanningItem } from "../backend";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
@@ -193,7 +194,9 @@ function ClientInfoCard({ client }: { client: Client }) {
   );
 }
 
-export default function Planning() {
+export default function Planning({
+  onNavigate,
+}: { onNavigate?: (page: Page) => void }) {
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
 
@@ -395,43 +398,40 @@ export default function Planning() {
   const handleAccept = async (item: DayItem) => {
     if (!actor || !callerPrincipal) return;
     try {
-      await (actor as any).accepterMission(item.id);
-      const datesToCreate = item.dates || [];
-      for (const dateNs of datesToCreate) {
-        const dateStr = toDateStr(dateNs);
-        const input: InterventionInput = {
-          id: `${item.id}-accepted-${dateStr}`,
-          date: dateNs,
-          clientNom: item.clientNom,
-          clientAdresse: item.clientAdresse ?? "",
-          description: item.description || "Mission planifiée",
-          heureMatinDebutH: BigInt(0),
-          heureMatinDebutMin: BigInt(0),
-          heureMatinFinH: BigInt(0),
-          heureMatinFinMin: BigInt(0),
-          heureApremDebutH: BigInt(0),
-          heureApremDebutMin: BigInt(0),
-          heureApremFinH: BigInt(0),
-          heureApremFinMin: BigInt(0),
-          estAstreinte: false,
-          clientAbsent: false,
-          signatureIntervenant: "",
-          signatureClient: "",
-          pieces: [],
-          photos: [],
-          videos: [],
-        };
-        try {
-          await actor.ajouterIntervention(input);
-        } catch {
-          // silent — best effort
-        }
-      }
+      const firstDate =
+        item.dates && item.dates.length > 0 ? item.dates[0] : null;
+      const dateStr = firstDate
+        ? toDateStr(firstDate)
+        : new Date().toISOString().slice(0, 10);
+      const ebaucheId = `ebauche-${item.id}-${Date.now()}`;
+      const clientAdresse = item.clientAdresse ?? "";
+      // Option A: backend creates ébauche with direct missionId link
+      await (actor as any).accepterEtCreerEbauche(
+        item.id,
+        ebaucheId,
+        clientAdresse,
+      );
+      // Also store in localStorage as fallback for Calendar pre-fill
+      const draft = {
+        missionId: item.id,
+        clientNom: item.clientNom,
+        clientAdresse,
+        description: item.description ?? "",
+        date: dateStr,
+        allDates: (item.dates || []).map(toDateStr),
+      };
+      localStorage.setItem("calendarMissionDraft", JSON.stringify(draft));
       queryClient.invalidateQueries({ queryKey: ["planningItems"] });
-      queryClient.invalidateQueries({ queryKey: ["interventions"] });
-      toast.success("Mission acceptée — ébauche créée dans votre calendrier");
-    } catch {
-      toast.error("Erreur lors de l'acceptation de la mission");
+      queryClient.invalidateQueries({ queryKey: ["journees"] });
+      toast.success(
+        "Mission acceptée — une intervention a été créée dans votre Calendrier",
+      );
+      if (onNavigate) onNavigate("calendar");
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      toast.error(
+        `Erreur lors de l'acceptation de la mission${msg ? `: ${msg}` : ""}`,
+      );
     }
   };
 
@@ -525,6 +525,15 @@ export default function Planning() {
         createForm.typeMission,
         encodedDesc,
       );
+      // Store clientAdresse for Option A ébauche creation
+      if (selectedClient?.adresse) {
+        try {
+          await (actor as any).setPlanningClientAdresse(
+            planId,
+            selectedClient.adresse,
+          );
+        } catch {}
+      }
       // Auto-create calendar drafts
       try {
         for (const dateStr of createForm.dates) {
@@ -729,12 +738,6 @@ export default function Planning() {
             const day = i + 1;
             const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
             const dayItems = dateMap.get(dateStr) || [];
-            const hasARealiser = dayItems.some(
-              (item) => item.statut === "a_realiser",
-            );
-            const hasExecute = dayItems.some(
-              (item) => item.statut === "execute",
-            );
             const isToday = dateStr === todayStr;
             const isSelected = dateStr === selectedDay;
 
@@ -760,18 +763,28 @@ export default function Planning() {
                 >
                   {day}
                 </span>
-                <div className="flex gap-0.5">
-                  {hasARealiser && (
+                <div className="flex gap-0.5 flex-wrap justify-center max-w-full px-0.5">
+                  {dayItems.slice(0, 5).map((mi) => (
                     <span
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: "#ea580c" }}
+                      key={mi.id}
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{
+                        backgroundColor:
+                          mi.statut === "execute"
+                            ? "#16a34a"
+                            : mi.statut === "en_cours"
+                              ? "#2563eb"
+                              : "#ea580c",
+                      }}
                     />
-                  )}
-                  {hasExecute && (
+                  ))}
+                  {dayItems.length > 5 && (
                     <span
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: "#16a34a" }}
-                    />
+                      className="text-gray-400"
+                      style={{ fontSize: "8px", lineHeight: "8px" }}
+                    >
+                      +
+                    </span>
                   )}
                 </div>
               </button>

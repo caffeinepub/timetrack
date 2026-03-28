@@ -289,7 +289,7 @@ function AppContent() {
             <TicketEssencePage />
           </div>
           <div className={currentPage === "planning" ? "block" : "hidden"}>
-            <Planning />
+            <Planning onNavigate={handleTabChange} />
           </div>
         </main>
       </div>

@@ -161,15 +161,6 @@ export default function Facturation() {
     enabled: !!actor,
   });
 
-  const { data: planningItems = [] } = useQuery<any[]>({
-    queryKey: ["planningItems"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return (actor as any).obtenirTousPlanningItems();
-    },
-    enabled: !!actor,
-  });
-
   const profileNameMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const [principal, profile] of allProfiles as any[]) {
@@ -236,37 +227,40 @@ export default function Facturation() {
     interventionDate: bigint,
   ) => {
     if (!actor || !clientNom) return;
-    const candidates = (planningItems as any[]).filter(
-      (p) =>
-        (p.statut === "a_realiser" || p.statut === "en_cours") &&
-        !p.isIntervention &&
-        (p.clientNom || "").toLowerCase().trim() ===
-          clientNom.toLowerCase().trim(),
-    );
-    if (candidates.length === 0) return;
-    const closest = candidates.reduce((best: any, current: any) => {
-      const currentDates: bigint[] =
-        current.dates && current.dates.length > 0 ? current.dates : [BigInt(0)];
-      const bestDates: bigint[] =
-        best.dates && best.dates.length > 0 ? best.dates : [BigInt(0)];
-      const currentClosest = currentDates.reduce((a: bigint, b: bigint) =>
-        Math.abs(Number(a) - Number(interventionDate)) <
-        Math.abs(Number(b) - Number(interventionDate))
-          ? a
-          : b,
-      );
-      const bestClosest = bestDates.reduce((a: bigint, b: bigint) =>
-        Math.abs(Number(a) - Number(interventionDate)) <
-        Math.abs(Number(b) - Number(interventionDate))
-          ? a
-          : b,
-      );
-      return Math.abs(Number(currentClosest) - Number(interventionDate)) <
-        Math.abs(Number(bestClosest) - Number(interventionDate))
-        ? current
-        : best;
-    });
     try {
+      // Always fetch fresh data from backend to avoid stale/empty cache issues
+      const freshItems: any[] = await (actor as any).obtenirTousPlanningItems();
+      const candidates = freshItems.filter(
+        (p) =>
+          (p.statut === "a_realiser" || p.statut === "en_cours") &&
+          (p.clientNom || "").toLowerCase().trim() ===
+            clientNom.toLowerCase().trim(),
+      );
+      if (candidates.length === 0) return;
+      const closest = candidates.reduce((best: any, current: any) => {
+        const currentDates: bigint[] =
+          current.dates && current.dates.length > 0
+            ? current.dates
+            : [BigInt(0)];
+        const bestDates: bigint[] =
+          best.dates && best.dates.length > 0 ? best.dates : [BigInt(0)];
+        const currentClosest = currentDates.reduce((a: bigint, b: bigint) =>
+          Math.abs(Number(a) - Number(interventionDate)) <
+          Math.abs(Number(b) - Number(interventionDate))
+            ? a
+            : b,
+        );
+        const bestClosest = bestDates.reduce((a: bigint, b: bigint) =>
+          Math.abs(Number(a) - Number(interventionDate)) <
+          Math.abs(Number(b) - Number(interventionDate))
+            ? a
+            : b,
+        );
+        return Math.abs(Number(currentClosest) - Number(interventionDate)) <
+          Math.abs(Number(bestClosest) - Number(interventionDate))
+          ? current
+          : best;
+      });
       await (actor as any).validerPlanningItem(closest.id);
       queryClient.invalidateQueries({ queryKey: ["planningItems"] });
     } catch (_) {
@@ -277,7 +271,9 @@ export default function Facturation() {
   const validateMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!actor) throw new Error("Non connecté");
+      // validerIntervention also auto-validates linked planning mission via Option A (backend)
       await (actor as any).validerIntervention(id);
+      // Fallback: also try string-matching for missions not linked via Option A
       const inv = (allInterventions as any[]).find((i) => i.id === id);
       if (inv?.clientNom) {
         await autoValiderPlanningPourClient(inv.clientNom, inv.date);
