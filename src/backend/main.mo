@@ -922,6 +922,39 @@ actor {
     interventionEstAstreinte.add(input.id, input.estAstreinte);
   };
 
+
+  // Add an intervention on behalf of another user (for Planning calendar sync)
+  public shared ({ caller }) func ajouterInterventionPourUtilisateur(targetUser : Principal, input : InterventionInput) : async () {
+    if (not (callerHasAccess(caller))) {
+      Runtime.trap("Unauthorized: Only users can add interventions");
+    };
+    let intervention : Intervention = {
+      id = input.id;
+      date = input.date;
+      clientNom = input.clientNom;
+      clientAdresse = input.clientAdresse;
+      heureMatinDebutH = input.heureMatinDebutH;
+      heureMatinDebutMin = input.heureMatinDebutMin;
+      heureMatinFinH = input.heureMatinFinH;
+      heureMatinFinMin = input.heureMatinFinMin;
+      heureApremDebutH = input.heureApremDebutH;
+      heureApremDebutMin = input.heureApremDebutMin;
+      heureApremFinH = input.heureApremFinH;
+      heureApremFinMin = input.heureApremFinMin;
+      description = input.description;
+      signatureClient = input.signatureClient;
+      signatureIntervenant = input.signatureIntervenant;
+      user = targetUser;
+      createdAt = Time.now();
+      clientAbsent = input.clientAbsent;
+    };
+    interventions.add(input.id, intervention);
+    interventionPieces.add(input.id, input.pieces);
+    interventionPhotos.add(input.id, input.photos);
+    interventionVideos.add(input.id, input.videos);
+    interventionEstAstreinte.add(input.id, input.estAstreinte);
+  };
+
   public shared ({ caller }) func modifierIntervention(id : Text, input : InterventionInput) : async () {
     if (not (callerHasAccess(caller))) {
       Runtime.trap("Unauthorized: Only users can modify interventions");
@@ -983,6 +1016,25 @@ actor {
     interventionValidees.remove(id);
     interventionEstAstreinte.remove(id);
   };
+
+  // Delete a planning draft - allowed if caller is creator or destinataire of the planning item
+  public shared ({ caller }) func supprimerInterventionDraft(planningItemId : Text, interventionId : Text) : async () {
+    if (not (callerHasAccess(caller))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (planningItems.get(planningItemId)) {
+      case (null) {}; // planning item already deleted, just clean up
+      case (?item) {
+        if (caller != item.createur and caller != item.destinataire and not isCallerAdminInternal(caller)) {
+          Runtime.trap("Non autorisé : seul le créateur ou le destinataire peut supprimer cette ébauche");
+        };
+      };
+    };
+    interventions.remove(interventionId);
+    interventionValidees.remove(interventionId);
+    interventionEstAstreinte.remove(interventionId);
+  };
+
 
   public shared ({ caller }) func validerIntervention(id : Text) : async () {
     if (not (callerHasAccess(caller))) {

@@ -238,7 +238,7 @@ export default function Facturation() {
     if (!actor || !clientNom) return;
     const candidates = (planningItems as any[]).filter(
       (p) =>
-        p.statut === "a_realiser" &&
+        (p.statut === "a_realiser" || p.statut === "en_cours") &&
         !p.isIntervention &&
         (p.clientNom || "").toLowerCase().trim() ===
           clientNom.toLowerCase().trim(),

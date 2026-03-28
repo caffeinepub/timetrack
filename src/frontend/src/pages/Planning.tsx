@@ -90,6 +90,7 @@ interface DayItem {
   id: string;
   titre: string;
   clientNom: string;
+  clientAdresse?: string;
   typeMission: string;
   nomDestinataire: string;
   statut: string;
@@ -264,10 +265,16 @@ export default function Planning() {
   const allItems: DayItem[] = useMemo(() => {
     const fromPlanning: DayItem[] = planningItems.map((p) => {
       const desc = p.description;
+      const clientData = clients.find(
+        (c) =>
+          c.nom.toLowerCase().trim() ===
+          (p.clientNom || "").toLowerCase().trim(),
+      );
       return {
         id: p.id,
         titre: p.titre,
         clientNom: p.clientNom,
+        clientAdresse: clientData?.adresse ?? "",
         typeMission: p.typeMission,
         nomDestinataire: p.nomDestinataire,
         statut: p.statut,
@@ -278,7 +285,7 @@ export default function Planning() {
       };
     });
     return fromPlanning;
-  }, [planningItems]);
+  }, [planningItems, clients]);
 
   // Apply filters — use principal ID for planning items
   const filteredItems = useMemo(() => {
@@ -320,7 +327,9 @@ export default function Planning() {
   // Today badges
   const todayARealisr = useMemo(() => {
     const items = dateMap.get(todayStr) || [];
-    return items.filter((i) => i.statut === "a_realiser").length;
+    return items.filter(
+      (i) => i.statut === "a_realiser" || i.statut === "en_cours",
+    ).length;
   }, [dateMap, todayStr]);
 
   const todayExecute = useMemo(() => {
@@ -365,7 +374,10 @@ export default function Planning() {
       if (item) {
         try {
           for (const d of item.dates) {
-            await actor.supprimerIntervention(`${id}-${toDateStr(d)}`);
+            await (actor as any).supprimerInterventionDraft(
+              id,
+              `${id}-${toDateStr(d)}`,
+            );
           }
         } catch {}
       }
@@ -380,6 +392,49 @@ export default function Planning() {
     }
   };
 
+  const handleAccept = async (item: DayItem) => {
+    if (!actor || !callerPrincipal) return;
+    try {
+      await (actor as any).accepterMission(item.id);
+      const datesToCreate = item.dates || [];
+      for (const dateNs of datesToCreate) {
+        const dateStr = toDateStr(dateNs);
+        const input: InterventionInput = {
+          id: `${item.id}-accepted-${dateStr}`,
+          date: dateNs,
+          clientNom: item.clientNom,
+          clientAdresse: item.clientAdresse ?? "",
+          description: item.description || "Mission planifiée",
+          heureMatinDebutH: BigInt(0),
+          heureMatinDebutMin: BigInt(0),
+          heureMatinFinH: BigInt(0),
+          heureMatinFinMin: BigInt(0),
+          heureApremDebutH: BigInt(0),
+          heureApremDebutMin: BigInt(0),
+          heureApremFinH: BigInt(0),
+          heureApremFinMin: BigInt(0),
+          estAstreinte: false,
+          clientAbsent: false,
+          signatureIntervenant: "",
+          signatureClient: "",
+          pieces: [],
+          photos: [],
+          videos: [],
+        };
+        try {
+          await actor.ajouterIntervention(input);
+        } catch {
+          // silent — best effort
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ["planningItems"] });
+      queryClient.invalidateQueries({ queryKey: ["interventions"] });
+      toast.success("Mission acceptée — ébauche créée dans votre calendrier");
+    } catch {
+      toast.error("Erreur lors de l'acceptation de la mission");
+    }
+  };
+
   const handleEditDatesSubmit = async () => {
     if (!actor || !showEditDates) return;
     try {
@@ -391,7 +446,10 @@ export default function Planning() {
       try {
         for (const ds of oldDateStrs) {
           if (!newDateStrs.includes(ds)) {
-            await actor.supprimerIntervention(`${showEditDates.id}-${ds}`);
+            await (actor as any).supprimerInterventionDraft(
+              showEditDates.id,
+              `${showEditDates.id}-${ds}`,
+            );
           }
         }
         for (const ds of newDateStrs) {
@@ -418,7 +476,10 @@ export default function Planning() {
               photos: [],
               videos: [],
             };
-            await actor.ajouterIntervention(input);
+            await (actor as any).ajouterInterventionPourUtilisateur(
+              showEditDates.destinataire,
+              input,
+            );
           }
         }
       } catch {}
@@ -489,7 +550,10 @@ export default function Planning() {
             photos: [],
             videos: [],
           };
-          await actor.ajouterIntervention(input);
+          await (actor as any).ajouterInterventionPourUtilisateur(
+            targetProfile[0],
+            input,
+          );
         }
       } catch {}
       queryClient.invalidateQueries({ queryKey: ["planningItems"] });
@@ -606,6 +670,7 @@ export default function Planning() {
           <SelectContent>
             <SelectItem value="all">Tous les statuts</SelectItem>
             <SelectItem value="a_realiser">À réaliser</SelectItem>
+            <SelectItem value="en_cours">En cours</SelectItem>
             <SelectItem value="execute">Exécuté</SelectItem>
           </SelectContent>
         </Select>
@@ -768,10 +833,18 @@ export default function Planning() {
                           className="text-xs px-2 py-0.5 rounded-full font-bold text-white"
                           style={{
                             backgroundColor:
-                              item.statut === "execute" ? "#16a34a" : "#ea580c",
+                              item.statut === "execute"
+                                ? "#16a34a"
+                                : item.statut === "en_cours"
+                                  ? "#2563eb"
+                                  : "#ea580c",
                           }}
                         >
-                          {item.statut === "execute" ? "Exécuté" : "À réaliser"}
+                          {item.statut === "execute"
+                            ? "Exécuté"
+                            : item.statut === "en_cours"
+                              ? "En cours"
+                              : "À réaliser"}
                         </span>
                       </div>
                       {item.clientNom && (
@@ -792,6 +865,18 @@ export default function Planning() {
                       )}
                     </div>
 
+                    {item.destinataire?.toString() === callerPrincipalStr &&
+                      item.statut === "a_realiser" && (
+                        <Button
+                          size="sm"
+                          className="h-7 px-2 text-xs text-white font-semibold"
+                          style={{ backgroundColor: "#16a34a" }}
+                          onClick={() => handleAccept(item)}
+                          data-ocid={`planning.accept_button.${idx + 1}`}
+                        >
+                          ✓ Accepter
+                        </Button>
+                      )}
                     {isOwner(item) && (
                       <div className="flex flex-col gap-1 flex-shrink-0">
                         <div className="flex gap-1">

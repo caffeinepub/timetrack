@@ -254,6 +254,7 @@ export interface backendInterface {
     accepterMission(id: string): Promise<void>;
     ajouterClient(client: Client): Promise<void>;
     ajouterIntervention(input: InterventionInput): Promise<void>;
+    ajouterInterventionPourUtilisateur(targetUser: Principal, input: InterventionInput): Promise<void>;
     ajouterTicketEssence(ticket: TicketEssence): Promise<void>;
     ajouterTicketResto(ticket: TicketResto): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
@@ -326,6 +327,7 @@ export interface backendInterface {
     supprimerFichier(_id: bigint): Promise<boolean>;
     supprimerIntervention(id: string): Promise<void>;
     supprimerJournal(id: string): Promise<void>;
+    supprimerInterventionDraft(planningItemId: string, interventionId: string): Promise<void>;
     supprimerJournee(id: string): Promise<void>;
     supprimerMediaQuotidien(id: string): Promise<void>;
     supprimerMemo(id: string): Promise<void>;

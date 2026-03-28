@@ -346,6 +346,7 @@ export interface backendInterface {
     accepterMission(id: string): Promise<void>;
     ajouterClient(client: Client): Promise<void>;
     ajouterIntervention(input: InterventionInput): Promise<void>;
+    ajouterInterventionPourUtilisateur(targetUser: Principal, input: InterventionInput): Promise<void>;
     ajouterTicketEssence(ticket: TicketEssence): Promise<void>;
     ajouterTicketResto(ticket: TicketResto): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
@@ -417,6 +418,7 @@ export interface backendInterface {
     supprimerDeFacturation(id: string): Promise<void>;
     supprimerFichier(_id: bigint): Promise<boolean>;
     supprimerIntervention(id: string): Promise<void>;
+    supprimerInterventionDraft(planningItemId: string, interventionId: string): Promise<void>;
     supprimerJournal(id: string): Promise<void>;
     supprimerJournee(id: string): Promise<void>;
     supprimerMediaQuotidien(id: string): Promise<void>;
@@ -554,6 +556,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.ajouterIntervention(await to_candid_InterventionInput_n8(this._uploadFile, this._downloadFile, arg0));
+            return result;
+        }
+    }
+    async ajouterInterventionPourUtilisateur(arg0: Principal, arg1: InterventionInput): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.ajouterInterventionPourUtilisateur(arg0, await to_candid_InterventionInput_n8(this._uploadFile, this._downloadFile, arg1));
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.ajouterInterventionPourUtilisateur(arg0, await to_candid_InterventionInput_n8(this._uploadFile, this._downloadFile, arg1));
             return result;
         }
     }
@@ -1470,6 +1486,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.supprimerIntervention(arg0);
+            return result;
+        }
+    }
+    async supprimerInterventionDraft(arg0: string, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.supprimerInterventionDraft(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.supprimerInterventionDraft(arg0, arg1);
             return result;
         }
     }
