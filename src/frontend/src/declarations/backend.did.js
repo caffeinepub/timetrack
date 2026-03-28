@@ -497,6 +497,7 @@ export const idlService = IDL.Service({
   'supprimerMemo' : IDL.Func([IDL.Text], [], []),
   'supprimerMission' : IDL.Func([IDL.Text], [], []),
   'supprimerPlanningItem' : IDL.Func([IDL.Text], [], []),
+  'validerPlanningItem' : IDL.Func([IDL.Text], [], []),
   'supprimerTicketEssence' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'supprimerTicketResto' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'uploadPhotoDansStoic' : IDL.Func(
@@ -1011,6 +1012,7 @@ export const idlFactory = ({ IDL }) => {
     'supprimerMemo' : IDL.Func([IDL.Text], [], []),
     'supprimerMission' : IDL.Func([IDL.Text], [], []),
     'supprimerPlanningItem' : IDL.Func([IDL.Text], [], []),
+  'validerPlanningItem' : IDL.Func([IDL.Text], [], []),
     'supprimerTicketEssence' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'supprimerTicketResto' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'uploadPhotoDansStoic' : IDL.Func(

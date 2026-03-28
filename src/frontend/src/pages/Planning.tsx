@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { Client, PlanningItem } from "../backend";
+import type { Client, InterventionInput, PlanningItem } from "../backend";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
@@ -94,7 +94,6 @@ interface DayItem {
   nomDestinataire: string;
   statut: string;
   description: string;
-  isIntervention?: boolean;
   createur?: any;
   destinataire?: any;
   dates?: bigint[];
@@ -226,6 +225,7 @@ export default function Planning() {
   const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
   const callerPrincipal = identity?.getPrincipal();
+  const callerPrincipalStr = callerPrincipal?.toString() ?? "";
 
   // Load planning items
   const { data: planningItems = [], isLoading: loadingPlanning } = useQuery<
@@ -235,17 +235,6 @@ export default function Planning() {
     queryFn: async () => {
       if (!actor) return [];
       return actor.obtenirTousPlanningItems();
-    },
-    enabled: !!actor && !isFetching,
-    refetchInterval: 30000,
-  });
-
-  // Load validated interventions
-  const { data: interventions = [] } = useQuery({
-    queryKey: ["allInterventionsFacturation"],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.obtenirToutesInterventionsPourFacturation();
     },
     enabled: !!actor && !isFetching,
     refetchInterval: 30000,
@@ -271,26 +260,6 @@ export default function Planning() {
     enabled: !!actor && !isFetching,
   });
 
-  // Validated interventions as planning-like items
-  const validatedInterventions: DayItem[] = useMemo(() => {
-    return (interventions as any[])
-      .filter(
-        (i) =>
-          i.valide === true || (Array.isArray(i.valide) && i.valide.length > 0),
-      )
-      .map((i) => ({
-        id: `interv-${i.id}`,
-        titre: i.description || "Intervention",
-        clientNom: i.clientNom || "",
-        typeMission: i.estAstreinte ? "depannage" : "controle",
-        nomDestinataire: i.nomUtilisateur || "Utilisateur",
-        statut: "execute",
-        description: i.description || "",
-        isIntervention: true,
-        dates: [i.date],
-      }));
-  }, [interventions]);
-
   // All items combined
   const allItems: DayItem[] = useMemo(() => {
     const fromPlanning: DayItem[] = planningItems.map((p) => {
@@ -303,14 +272,13 @@ export default function Planning() {
         nomDestinataire: p.nomDestinataire,
         statut: p.statut,
         description: desc,
-        isIntervention: false,
         createur: p.createur,
         destinataire: p.destinataire,
         dates: p.dates,
       };
     });
-    return [...fromPlanning, ...validatedInterventions];
-  }, [planningItems, validatedInterventions]);
+    return fromPlanning;
+  }, [planningItems]);
 
   // Apply filters — use principal ID for planning items
   const filteredItems = useMemo(() => {
@@ -382,18 +350,28 @@ export default function Planning() {
   }, [dateMap, selectedDay]);
 
   const isOwner = (item: DayItem) => {
-    if (!callerPrincipal) return false;
-    const cp = callerPrincipal.toString();
+    if (!callerPrincipalStr) return false;
     return (
-      item.createur?.toString() === cp || item.destinataire?.toString() === cp
+      item.createur?.toString() === callerPrincipalStr ||
+      item.destinataire?.toString() === callerPrincipalStr
     );
   };
 
   const handleDelete = async (id: string) => {
     if (!actor) return;
     try {
+      // Delete calendar drafts first
+      const item = planningItems.find((p) => p.id === id);
+      if (item) {
+        try {
+          for (const d of item.dates) {
+            await actor.supprimerIntervention(`${id}-${toDateStr(d)}`);
+          }
+        } catch {}
+      }
       await actor.supprimerPlanningItem(id);
       queryClient.invalidateQueries({ queryKey: ["planningItems"] });
+      queryClient.invalidateQueries({ queryKey: ["journees"] });
       setDeleteConfirm(null);
       setSelectedDay(null);
       toast.success("Mission supprimée");
@@ -405,9 +383,47 @@ export default function Planning() {
   const handleEditDatesSubmit = async () => {
     if (!actor || !showEditDates) return;
     try {
-      const dates = editDates.map(dateToNs);
+      const oldDateStrs = (showEditDates.dates || []).map(toDateStr);
+      const newDateStrs = editDates;
+      const dates = newDateStrs.map(dateToNs);
       await actor.modifierDatesPlanningItem(showEditDates.id, dates);
+      // Sync calendar drafts
+      try {
+        for (const ds of oldDateStrs) {
+          if (!newDateStrs.includes(ds)) {
+            await actor.supprimerIntervention(`${showEditDates.id}-${ds}`);
+          }
+        }
+        for (const ds of newDateStrs) {
+          if (!oldDateStrs.includes(ds)) {
+            const input: InterventionInput = {
+              id: `${showEditDates.id}-${ds}`,
+              date: dateToNs(ds),
+              clientNom: showEditDates.clientNom,
+              clientAdresse: "",
+              description: showEditDates.description || "Mission planifiée",
+              heureMatinDebutH: BigInt(0),
+              heureMatinDebutMin: BigInt(0),
+              heureMatinFinH: BigInt(0),
+              heureMatinFinMin: BigInt(0),
+              heureApremDebutH: BigInt(0),
+              heureApremDebutMin: BigInt(0),
+              heureApremFinH: BigInt(0),
+              heureApremFinMin: BigInt(0),
+              estAstreinte: false,
+              clientAbsent: false,
+              signatureIntervenant: "",
+              signatureClient: "",
+              pieces: [],
+              photos: [],
+              videos: [],
+            };
+            await actor.ajouterIntervention(input);
+          }
+        }
+      } catch {}
       queryClient.invalidateQueries({ queryKey: ["planningItems"] });
+      queryClient.invalidateQueries({ queryKey: ["journees"] });
       setShowEditDates(null);
       toast.success("Dates modifiées");
     } catch {
@@ -435,9 +451,10 @@ export default function Planning() {
     const nomCreateur = callerProfile ? callerProfile[1].name : "";
     const generatedTitre = `${TYPE_LABELS[createForm.typeMission] || createForm.typeMission}${createForm.clientNom ? ` — ${createForm.clientNom}` : ""}`;
     const encodedDesc = createForm.description.trim();
+    const planId = generateId();
     try {
       await actor.creerPlanningItem(
-        generateId(),
+        planId,
         generatedTitre,
         createForm.dates.map(dateToNs),
         targetProfile[0],
@@ -447,7 +464,36 @@ export default function Planning() {
         createForm.typeMission,
         encodedDesc,
       );
+      // Auto-create calendar drafts
+      try {
+        for (const dateStr of createForm.dates) {
+          const input: InterventionInput = {
+            id: `${planId}-${dateStr}`,
+            date: dateToNs(dateStr),
+            clientNom: createForm.clientNom.trim(),
+            clientAdresse: selectedClient?.adresse ?? "",
+            description: createForm.description.trim() || "Mission planifiée",
+            heureMatinDebutH: BigInt(0),
+            heureMatinDebutMin: BigInt(0),
+            heureMatinFinH: BigInt(0),
+            heureMatinFinMin: BigInt(0),
+            heureApremDebutH: BigInt(0),
+            heureApremDebutMin: BigInt(0),
+            heureApremFinH: BigInt(0),
+            heureApremFinMin: BigInt(0),
+            estAstreinte: false,
+            clientAbsent: false,
+            signatureIntervenant: "",
+            signatureClient: "",
+            pieces: [],
+            photos: [],
+            videos: [],
+          };
+          await actor.ajouterIntervention(input);
+        }
+      } catch {}
       queryClient.invalidateQueries({ queryKey: ["planningItems"] });
+      queryClient.invalidateQueries({ queryKey: ["journees"] });
       setShowCreate(false);
       setCreateForm({
         dates: [],
@@ -727,11 +773,6 @@ export default function Planning() {
                         >
                           {item.statut === "execute" ? "Exécuté" : "À réaliser"}
                         </span>
-                        {item.isIntervention && (
-                          <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                            Intervention
-                          </span>
-                        )}
                       </div>
                       {item.clientNom && (
                         <p className="text-xs text-gray-500 mt-1">
@@ -751,29 +792,29 @@ export default function Planning() {
                       )}
                     </div>
 
-                    {!item.isIntervention && isOwner(item) && (
-                      <div className="flex gap-1 flex-shrink-0">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => {
-                            setShowEditDates(item);
-                            setEditDates((item.dates || []).map(toDateStr));
-                          }}
-                          data-ocid={`planning.edit_button.${idx + 1}`}
-                        >
-                          <Clock className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-xs text-red-600 border-red-200 hover:bg-red-50"
-                          onClick={() => setDeleteConfirm(item.id)}
-                          data-ocid={`planning.delete_button.${idx + 1}`}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
+                    {isOwner(item) && (
+                      <div className="flex flex-col gap-1 flex-shrink-0">
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => {
+                              setShowEditDates(item);
+                              setEditDates((item.dates || []).map(toDateStr));
+                            }}
+                          >
+                            <Clock className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                            onClick={() => setDeleteConfirm(item.id)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>

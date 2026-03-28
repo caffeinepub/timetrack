@@ -331,6 +331,7 @@ export interface backendInterface {
     supprimerMemo(id: string): Promise<void>;
     supprimerMission(id: string): Promise<void>;
     supprimerPlanningItem(id: string): Promise<void>;
+    validerPlanningItem(id: string): Promise<void>;
     supprimerTicketEssence(id: string): Promise<boolean>;
     supprimerTicketResto(id: string): Promise<boolean>;
     uploadPhotoDansStoic(filename: string, content: ExternalBlob, mimeType: string, taille: bigint, description: string): Promise<bigint | null>;

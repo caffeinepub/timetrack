@@ -9,6 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Toaster } from "@/components/ui/sonner";
+import { useQuery } from "@tanstack/react-query";
 import React, { useState } from "react";
 import DesktopSideNav from "./components/DesktopSideNav";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -77,6 +78,27 @@ function AppContent() {
   const isAuthenticated = !!identity;
 
   const { actor } = useActor();
+
+  function nsToDateStr(ns: bigint): string {
+    return new Date(Number(ns / BigInt(1_000_000))).toISOString().slice(0, 10);
+  }
+
+  const { data: planningItemsForBadge = [] } = useQuery({
+    queryKey: ["planningItemsForBadge"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.obtenirTousPlanningItems();
+    },
+    enabled: !!actor,
+    refetchInterval: 30000,
+  });
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayMissionCount = (planningItemsForBadge as any[]).filter(
+    (item) =>
+      item.statut === "a_realiser" &&
+      (item.dates as bigint[]).some((d) => nsToDateStr(d) === todayStr),
+  ).length;
 
   const {
     data: userProfile,
@@ -231,7 +253,10 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
-      <Header userName={userProfile?.name} />
+      <Header
+        userName={userProfile?.name}
+        missionsBadgeCount={todayMissionCount}
+      />
 
       <div className="flex flex-1 min-h-0">
         <DesktopSideNav

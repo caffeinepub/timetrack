@@ -6,9 +6,10 @@ import { useSafeTap } from "../hooks/useSafeTap";
 
 interface HeaderProps {
   userName?: string;
+  missionsBadgeCount?: number;
 }
 
-export default function Header({ userName }: HeaderProps) {
+export default function Header({ userName, missionsBadgeCount }: HeaderProps) {
   const { login, clear, loginStatus, identity } = useInternetIdentity();
   const queryClient = useQueryClient();
   const safeTap = useSafeTap();
@@ -78,6 +79,15 @@ export default function Header({ userName }: HeaderProps) {
 
           {/* Right: actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {missionsBadgeCount && missionsBadgeCount > 0 ? (
+              <span
+                className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white flex-shrink-0"
+                style={{ backgroundColor: "#ea580c" }}
+                title={`${missionsBadgeCount} mission(s) à réaliser aujourd'hui`}
+              >
+                {missionsBadgeCount}
+              </span>
+            ) : null}
             <Button
               type="button"
               onClick={handleAuth}

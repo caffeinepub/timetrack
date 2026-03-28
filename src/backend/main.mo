@@ -561,26 +561,35 @@ actor {
     };
   };
 
-  // Get all planning items (sorted by first date) - filtered by user
+
+  // Validate planning item (mark as executed) - only destinataire or createur
+  public shared ({ caller }) func validerPlanningItem(id : Text) : async () {
+    AccessControl.initialize(accessControlState, caller);
+    switch (planningItems.get(id)) {
+      case (null) { Runtime.trap("Planning item not found") };
+      case (?item) {
+        if (caller != item.createur and caller != item.destinataire and not isCallerAdminInternal(caller)) {
+          Runtime.trap("Non autorisé : vous ne pouvez valider que vos propres plannings");
+        };
+        let updatedItem = { item with statut = "execute" };
+        planningItems.add(id, updatedItem);
+      };
+    };
+  };
+
+  // Get all planning items - filtered by user
   public query ({ caller }) func obtenirTousPlanningItems() : async [PlanningItem] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view planning items");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Not authenticated");
     };
-    let isAdmin = isCallerAdminInternal(caller);
-    let filtered = if (isAdmin) {
-      planningItems.values().toArray();
-    } else {
-      planningItems.values().filter(func(item) {
-        item.createur == caller or item.destinataire == caller
-      }).toArray();
-    };
-    filtered.sort(PlanningItem.compareByFirstDate);
+    let all = planningItems.values().toArray();
+    all.sort(PlanningItem.compareByFirstDate);
   };
 
   // Get planning items for a specific day - filtered by user
   public query ({ caller }) func obtenirPlanningItemsPourJour(date : Time.Time) : async [PlanningItem] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view planning items");
+    if (not callerHasAccess(caller)) {
+      Runtime.trap("Non authentifié");
     };
     let isAdmin = isCallerAdminInternal(caller);
     let dayNanos = date / 86400000000000;
@@ -655,15 +664,15 @@ actor {
 
   // Ticket Resto functions
   public shared ({ caller }) func ajouterTicketResto(ticket : TicketResto) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can add meal tickets");
+    if (not callerHasAccess(caller)) {
+      Runtime.trap("Non authentifié");
     };
     ticketsResto.add(ticket.id, ticket);
   };
 
   public shared ({ caller }) func supprimerTicketResto(id : Text) : async Bool {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can delete meal tickets");
+    if (not callerHasAccess(caller)) {
+      Runtime.trap("Non authentifié");
     };
     switch (ticketsResto.get(id)) {
       case (null) { false };
@@ -678,8 +687,8 @@ actor {
   };
 
   public query ({ caller }) func obtenirTicketsResto() : async [TicketResto] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view meal tickets");
+    if (not callerHasAccess(caller)) {
+      Runtime.trap("Non authentifié");
     };
     let all = ticketsResto.values().toArray();
     all.sort(TicketResto.compareByDate);
@@ -687,15 +696,15 @@ actor {
 
   // Ticket Essence functions
   public shared ({ caller }) func ajouterTicketEssence(ticket : TicketEssence) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can add fuel tickets");
+    if (not callerHasAccess(caller)) {
+      Runtime.trap("Non authentifié");
     };
     ticketsEssence.add(ticket.id, ticket);
   };
 
   public shared ({ caller }) func supprimerTicketEssence(id : Text) : async Bool {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can delete fuel tickets");
+    if (not callerHasAccess(caller)) {
+      Runtime.trap("Non authentifié");
     };
     switch (ticketsEssence.get(id)) {
       case (null) { false };
@@ -710,8 +719,8 @@ actor {
   };
 
   public query ({ caller }) func obtenirTicketsEssence() : async [TicketEssence] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view fuel tickets");
+    if (not callerHasAccess(caller)) {
+      Runtime.trap("Non authentifié");
     };
     let all = ticketsEssence.values().toArray();
     all.sort(TicketEssence.compareByDate);

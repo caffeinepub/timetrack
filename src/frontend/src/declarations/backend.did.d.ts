@@ -389,6 +389,7 @@ export interface _SERVICE {
   'supprimerMemo' : ActorMethod<[string], undefined>,
   'supprimerMission' : ActorMethod<[string], undefined>,
   'supprimerPlanningItem' : ActorMethod<[string], undefined>,
+  'validerPlanningItem' : ActorMethod<[string], undefined>,
   'supprimerTicketEssence' : ActorMethod<[string], boolean>,
   'supprimerTicketResto' : ActorMethod<[string], boolean>,
   'uploadPhotoDansStoic' : ActorMethod<

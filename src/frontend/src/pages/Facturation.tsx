@@ -161,6 +161,15 @@ export default function Facturation() {
     enabled: !!actor,
   });
 
+  const { data: planningItems = [] } = useQuery<any[]>({
+    queryKey: ["planningItems"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return (actor as any).obtenirTousPlanningItems();
+    },
+    enabled: !!actor,
+  });
+
   const profileNameMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const [principal, profile] of allProfiles as any[]) {
@@ -222,14 +231,62 @@ export default function Facturation() {
     setFilterStatus("all");
   };
 
+  const autoValiderPlanningPourClient = async (
+    clientNom: string,
+    interventionDate: bigint,
+  ) => {
+    if (!actor || !clientNom) return;
+    const candidates = (planningItems as any[]).filter(
+      (p) =>
+        p.statut === "a_realiser" &&
+        !p.isIntervention &&
+        (p.clientNom || "").toLowerCase().trim() ===
+          clientNom.toLowerCase().trim(),
+    );
+    if (candidates.length === 0) return;
+    const closest = candidates.reduce((best: any, current: any) => {
+      const currentDates: bigint[] =
+        current.dates && current.dates.length > 0 ? current.dates : [BigInt(0)];
+      const bestDates: bigint[] =
+        best.dates && best.dates.length > 0 ? best.dates : [BigInt(0)];
+      const currentClosest = currentDates.reduce((a: bigint, b: bigint) =>
+        Math.abs(Number(a) - Number(interventionDate)) <
+        Math.abs(Number(b) - Number(interventionDate))
+          ? a
+          : b,
+      );
+      const bestClosest = bestDates.reduce((a: bigint, b: bigint) =>
+        Math.abs(Number(a) - Number(interventionDate)) <
+        Math.abs(Number(b) - Number(interventionDate))
+          ? a
+          : b,
+      );
+      return Math.abs(Number(currentClosest) - Number(interventionDate)) <
+        Math.abs(Number(bestClosest) - Number(interventionDate))
+        ? current
+        : best;
+    });
+    try {
+      await (actor as any).validerPlanningItem(closest.id);
+      queryClient.invalidateQueries({ queryKey: ["planningItems"] });
+    } catch (_) {
+      // silent — planning auto-validation is best-effort
+    }
+  };
+
   const validateMutation = useMutation({
     mutationFn: async (id: string) => {
       if (!actor) throw new Error("Non connecté");
       await (actor as any).validerIntervention(id);
+      const inv = (allInterventions as any[]).find((i) => i.id === id);
+      if (inv?.clientNom) {
+        await autoValiderPlanningPourClient(inv.clientNom, inv.date);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["facturationInterventions"] });
       queryClient.invalidateQueries({ queryKey: ["clientsInterventions"] });
+      queryClient.invalidateQueries({ queryKey: ["planningItems"] });
     },
   });
 
@@ -276,11 +333,15 @@ export default function Facturation() {
       const inv = (allInterventions as any[]).find((i) => i.id === id);
       if (inv && !inv.valide && inv.user?.toString() === callerPrincipal) {
         await (actor as any).validerIntervention(id);
+        if (inv.clientNom) {
+          await autoValiderPlanningPourClient(inv.clientNom, inv.date);
+        }
       }
     }
     setSelectedIds(new Set());
     setBulkAction(null);
     queryClient.invalidateQueries({ queryKey: ["facturationInterventions"] });
+    queryClient.invalidateQueries({ queryKey: ["planningItems"] });
   };
 
   const handleBulkDelete = async () => {
