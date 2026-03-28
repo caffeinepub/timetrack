@@ -126,7 +126,12 @@ export default function Dashboard() {
     let astreinteDays = 0;
 
     for (const entry of filteredEntries) {
-      totalNormal += computeNormalHours(entry);
+      const _entryDay1 = new Date(Number(entry.date) / 1_000_000).getDay();
+      totalNormal +=
+        entry.typeOfDay === "astreinte" &&
+        (_entryDay1 === 0 || _entryDay1 === 6)
+          ? 0
+          : computeNormalHours(entry);
       totalAstreinte += computeAstreinteHours(entry);
       totalRepas += Number(entry.heuresRepas);
       totalTrajet += Number(entry.heuresTrajet);
@@ -159,7 +164,12 @@ export default function Dashboard() {
       const label = `${date.getDate()}/${date.getMonth() + 1}`;
       return {
         date: label,
-        normal: computeNormalHours(entry),
+        normal: (() => {
+          const _d = new Date(Number(entry.date) / 1_000_000).getDay();
+          return entry.typeOfDay === "astreinte" && (_d === 0 || _d === 6)
+            ? 0
+            : computeNormalHours(entry);
+        })(),
         astreinte: computeAstreinteHours(entry),
         repas: Number(entry.heuresRepas),
         trajet: Number(entry.heuresTrajet),
@@ -178,7 +188,11 @@ export default function Dashboard() {
       let normal = 0;
       let astreinte = 0;
       for (const entry of monthEntries) {
-        normal += computeNormalHours(entry);
+        const _mDay = new Date(Number(entry.date) / 1_000_000).getDay();
+        normal +=
+          entry.typeOfDay === "astreinte" && (_mDay === 0 || _mDay === 6)
+            ? 0
+            : computeNormalHours(entry);
         astreinte += computeAstreinteHours(entry);
       }
       return { month: month.substring(0, 3), normal, astreinte };
@@ -271,7 +285,12 @@ export default function Dashboard() {
         );
         const type = typeLabel[e.typeOfDay] ?? e.typeOfDay;
         const color = typeColor[e.typeOfDay] ?? "#333";
-        const normal = formatMinutes(computeNormalHours(e));
+        const _rDay = new Date(Number(e.date) / 1_000_000).getDay();
+        const normal = formatMinutes(
+          e.typeOfDay === "astreinte" && (_rDay === 0 || _rDay === 6)
+            ? 0
+            : computeNormalHours(e),
+        );
         const astreinte = formatMinutes(computeAstreinteHours(e));
         return `<tr>
           <td style="padding:5px 8px;border:1px solid #e5e7eb">${date}</td>
@@ -298,7 +317,11 @@ export default function Dashboard() {
     let totalNormal = 0;
     let totalAstreinte = 0;
     for (const e of entries) {
-      totalNormal += computeNormalHours(e);
+      const _pDay = new Date(Number(e.date) / 1_000_000).getDay();
+      totalNormal +=
+        e.typeOfDay === "astreinte" && (_pDay === 0 || _pDay === 6)
+          ? 0
+          : computeNormalHours(e);
       totalAstreinte += computeAstreinteHours(e);
     }
     const genDate = new Date().toLocaleDateString("fr-FR", {

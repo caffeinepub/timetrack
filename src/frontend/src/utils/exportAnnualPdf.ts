@@ -33,7 +33,11 @@ export function exportAnnualPdf(
   let totalIntervention = 0;
 
   for (const entry of yearEntries) {
-    totalNormal += computeNormalHours(entry);
+    const _aDay = new Date(Number(entry.date) / 1_000_000).getDay();
+    totalNormal +=
+      entry.typeOfDay === "astreinte" && (_aDay === 0 || _aDay === 6)
+        ? 0
+        : computeNormalHours(entry);
     totalAstreinte += computeAstreinteHours(entry);
     totalRepas += Number(entry.heuresRepas);
     totalTrajet += Number(entry.heuresTrajet);

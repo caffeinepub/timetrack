@@ -628,10 +628,26 @@ export default function Calendar() {
       const input = {
         id,
         date: dateToTimestamp(selectedDate),
-        startMorning: toMinutes(form.startMorning),
-        endMorning: toMinutes(form.endMorning),
-        startAfternoon: toMinutes(form.startAfternoon),
-        endAfternoon: toMinutes(form.endAfternoon),
+        startMorning:
+          form.typeOfDay === DayType.astreinte &&
+          [0, 6].includes(selectedDate.getDay())
+            ? BigInt(0)
+            : toMinutes(form.startMorning),
+        endMorning:
+          form.typeOfDay === DayType.astreinte &&
+          [0, 6].includes(selectedDate.getDay())
+            ? BigInt(0)
+            : toMinutes(form.endMorning),
+        startAfternoon:
+          form.typeOfDay === DayType.astreinte &&
+          [0, 6].includes(selectedDate.getDay())
+            ? BigInt(0)
+            : toMinutes(form.startAfternoon),
+        endAfternoon:
+          form.typeOfDay === DayType.astreinte &&
+          [0, 6].includes(selectedDate.getDay())
+            ? BigInt(0)
+            : toMinutes(form.endAfternoon),
         heuresRepas: toMinutes(form.heuresRepas),
         heuresTrajet: toMinutes(form.heuresTrajet),
         startAstreinte: form.astreinteSlots[0]?.debut

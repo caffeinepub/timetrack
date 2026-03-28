@@ -109,7 +109,12 @@ function buildEntriesTable(entries: TimeEntry[]): string {
       );
       const type = typeLabel[entry.typeOfDay] ?? entry.typeOfDay;
       const color = typeColor[entry.typeOfDay] ?? "#333";
-      const normal = formatMinutes(computeNormalHours(entry));
+      const _epDay = new Date(Number(entry.date) / 1_000_000).getDay();
+      const normal = formatMinutes(
+        entry.typeOfDay === "astreinte" && (_epDay === 0 || _epDay === 6)
+          ? 0
+          : computeNormalHours(entry),
+      );
       const astreinte = formatMinutes(computeAstreinteHours(entry));
       const intervention = formatMinutes(
         computeInterventionHours(entry.interventionSlots),
