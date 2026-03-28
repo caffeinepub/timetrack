@@ -17,6 +17,7 @@ import {
   Edit2,
   Image as ImageIcon,
   Plus,
+  Search,
   Video,
   X,
 } from "lucide-react";
@@ -34,6 +35,7 @@ import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useDeleteTimeEntry,
+  useGetAllProfiles,
   useGetClients,
   useGetTimeEntries,
   useSaveTimeEntry,
@@ -371,6 +373,13 @@ export default function Calendar() {
   const { mutateAsync: deleteEntry, isPending: isDeleting } =
     useDeleteTimeEntry();
   const { data: clients = [] } = useGetClients();
+  const { data: allProfiles = [] } = useGetAllProfiles();
+
+  const myPrincipal = identity?.getPrincipal().toString() ?? "";
+  const [selectedProfilePrincipal, setSelectedProfilePrincipal] =
+    useState<string>("");
+  const [profileSearch, setProfileSearch] = useState("");
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -384,11 +393,38 @@ export default function Calendar() {
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [form, setForm] = useState<TimeEntryForm>(defaultForm());
 
+  // Default to own profile once identity is loaded
+  useEffect(() => {
+    if (myPrincipal && !selectedProfilePrincipal) {
+      setSelectedProfilePrincipal(myPrincipal);
+    }
+  }, [myPrincipal, selectedProfilePrincipal]);
+
+  const isOwnCalendar =
+    !selectedProfilePrincipal || selectedProfilePrincipal === myPrincipal;
+
+  const selectedProfileName = useMemo(() => {
+    if (!selectedProfilePrincipal || selectedProfilePrincipal === myPrincipal)
+      return null;
+    const found = allProfiles.find(
+      ([p]) => p.toString() === selectedProfilePrincipal,
+    );
+    return found ? (found[1] as any).name || "Utilisateur" : "Utilisateur";
+  }, [selectedProfilePrincipal, myPrincipal, allProfiles]);
+
+  const filteredProfiles = useMemo(() => {
+    return allProfiles.filter(([_p, profile]) => {
+      const name = (profile as any).name || "";
+      return name.toLowerCase().includes(profileSearch.toLowerCase());
+    });
+  }, [allProfiles, profileSearch]);
+
   const userEntries = useMemo(() => {
-    if (!identity) return [];
-    const principal = identity.getPrincipal().toString();
-    return allEntries.filter((e) => e.user.toString() === principal);
-  }, [allEntries, identity]);
+    if (!selectedProfilePrincipal) return [];
+    return allEntries.filter(
+      (e) => e.user.toString() === selectedProfilePrincipal,
+    );
+  }, [allEntries, selectedProfilePrincipal]);
 
   const entriesByDay = useMemo(() => {
     const map = new Map<string, TimeEntry[]>();
@@ -929,6 +965,81 @@ export default function Calendar() {
         </button>
       </div>
 
+      {/* Profile selector */}
+      <div className="relative">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card">
+          <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <input
+            type="text"
+            placeholder="Rechercher un profil..."
+            value={profileSearch}
+            onChange={(e) => setProfileSearch(e.target.value)}
+            onFocus={() => setShowProfileDropdown(true)}
+            className="flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground"
+          />
+        </div>
+        {showProfileDropdown && (
+          <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+            {/* Own profile first */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedProfilePrincipal(myPrincipal);
+                setProfileSearch("");
+                setShowProfileDropdown(false);
+              }}
+              className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-muted transition-colors ${selectedProfilePrincipal === myPrincipal ? "bg-vts-navy text-white" : ""}`}
+            >
+              <span className="flex-1">Mon calendrier</span>
+              <span className="text-xs px-1.5 py-0.5 rounded bg-vts-orange text-white">
+                Moi
+              </span>
+            </button>
+            {filteredProfiles
+              .filter(([p]) => p.toString() !== myPrincipal)
+              .map(([principal, profile]) => (
+                <button
+                  key={principal.toString()}
+                  type="button"
+                  onClick={() => {
+                    setSelectedProfilePrincipal(principal.toString());
+                    setProfileSearch("");
+                    setShowProfileDropdown(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors ${selectedProfilePrincipal === principal.toString() ? "bg-vts-navy text-white" : ""}`}
+                >
+                  {(profile as any).name || "Utilisateur"}
+                </button>
+              ))}
+            {filteredProfiles.filter(([p]) => p.toString() !== myPrincipal)
+              .length === 0 &&
+              filteredProfiles.length <= 1 && (
+                <div className="px-3 py-2 text-sm text-muted-foreground">
+                  Aucun profil trouvé
+                </div>
+              )}
+          </div>
+        )}
+        {showProfileDropdown && (
+          <button
+            type="button"
+            className="fixed inset-0 z-40"
+            onClick={() => setShowProfileDropdown(false)}
+            aria-label="Fermer le sélecteur de profil"
+          />
+        )}
+      </div>
+
+      {/* Read-only banner */}
+      {!isOwnCalendar && selectedProfileName && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-vts-navy text-white text-sm">
+          <span>👁️</span>
+          <span>
+            Calendrier de <strong>{selectedProfileName}</strong> — Lecture seule
+          </span>
+        </div>
+      )}
+
       {/* Day headers */}
       <div className="grid grid-cols-7 gap-1">
         {DAYS_OF_WEEK.map((d) => (
@@ -956,10 +1067,11 @@ export default function Calendar() {
             <button
               key={key}
               type="button"
-              onClick={() => openNewEntry(date)}
+              onClick={() => isOwnCalendar && openNewEntry(date)}
               data-ocid="calendar.day.button"
               className={`
                 relative min-h-[52px] p-1 rounded-lg border text-left transition-all
+                ${isOwnCalendar ? "" : "cursor-default"}
                 ${isToday ? "border-blue-500 bg-blue-50" : "border-border bg-card hover:bg-muted/50"}
                 ${isSelected ? "ring-2 ring-blue-500" : ""}
               `}
@@ -979,7 +1091,7 @@ export default function Calendar() {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        openEditEntry(entry);
+                        if (isOwnCalendar) openEditEntry(entry);
                       }}
                       className={`text-[9px] leading-tight px-1 py-0.5 rounded text-white truncate w-full text-left ${colors.bg}`}
                     >
@@ -1944,7 +2056,7 @@ export default function Calendar() {
           </div>
 
           <DialogFooter className="flex gap-2 mt-4">
-            {editingEntry && (
+            {editingEntry && isOwnCalendar && (
               <Button
                 variant="destructive"
                 size="sm"

@@ -633,3 +633,15 @@ export function useGetToutesInterventionsFact() {
     enabled: !!actor && !isFetching,
   });
 }
+
+export function useGetAllProfiles() {
+  const { actor, isFetching } = useActor();
+  return useQuery<Array<[any, import("../backend").UserProfile]>>({
+    queryKey: ["allProfiles"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return (actor as any).obtenirTousLesProfils();
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
