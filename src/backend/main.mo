@@ -9,10 +9,12 @@ import Order "mo:core/Order";
 import Time "mo:core/Time";
 import Array "mo:core/Array";
 import Iter "mo:core/Iter";
+import Migration "migration";
 import MixinStorage "blob-storage/Mixin";
 import Float "mo:core/Float";
 import Nat "mo:core/Nat";
 
+(with migration = Migration.run)
 actor {
   include MixinStorage();
 
@@ -319,8 +321,8 @@ actor {
   let interventionSupprimeeFacturation = Map.empty<Text, Bool>();
   let memoEntries = Map.empty<Text, MemoEntry>();
 
-  // -------- MISSION SYSTEM --------
-  // New mission type
+  // -------- MISSION SYSTEM (BACKWARD COMPAT) --------
+  // Mission type (legacy, single day)
   public type Mission = {
     id : Text;
     titre : Text;
@@ -348,7 +350,7 @@ actor {
 
   let missions = Map.empty<Text, Mission>();
 
-  // Creer une mission (caller is createur)
+  // Create mission (caller is createur)
   public shared ({ caller }) func creerMission(id : Text, titre : Text, datePrevue : Time.Time, destinataire : Principal, nomDestinataire : Text, nomCreateur : Text, nomClient : Text, typeMission : Text, description : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can create missions");
@@ -370,7 +372,7 @@ actor {
     missions.add(id, mission);
   };
 
-  // Accepter une mission (change statut to acceptee)
+  // Accept mission
   public shared ({ caller }) func accepterMission(id : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can accept missions");
@@ -387,7 +389,7 @@ actor {
     };
   };
 
-  // Rediger vers un autre collegue (change destinataire)
+  // Redirect to other colleague (change destinataire)
   public shared ({ caller }) func redigerMissionVersAutre(id : Text, nouveauDestinataire : Principal, nomNouveauDestinataire : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can redirect missions");
@@ -409,7 +411,7 @@ actor {
     };
   };
 
-  // Supprimer une mission (only createur or destinataire)
+  // Delete mission (only createur or destinataire)
   public shared ({ caller }) func supprimerMission(id : Text) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can delete missions");
@@ -425,7 +427,7 @@ actor {
     };
   };
 
-  // Obtenir missions recues par l'utilisateur
+  // Get missions received by user
   public query ({ caller }) func obtenirMissionsRecues() : async [Mission] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view missions");
@@ -435,7 +437,7 @@ actor {
     filtered.sort(Mission.compareByDatePrevue);
   };
 
-  // Obtenir missions creees par l'utilisateur
+  // Get missions created by user
   public query ({ caller }) func obtenirMissionsCreees() : async [Mission] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view missions");
@@ -445,7 +447,7 @@ actor {
     filtered.sort(Mission.compareByDateCreation);
   };
 
-  // Obtenir toutes les missions acceptees (visible to all authenticated users)
+  // Get all accepted missions
   public query ({ caller }) func obtenirToutesMissionsAcceptees() : async [Mission] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view accepted missions");
@@ -455,7 +457,7 @@ actor {
     filtered.sort(Mission.compareByDatePrevue);
   };
 
-  // Compter le nombre de missions en attente pour l'utilisateur
+  // Count pending missions for user
   public query ({ caller }) func compterMissionsEnAttentePourMoi() : async Nat {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can count pending missions");
@@ -465,7 +467,7 @@ actor {
     ).toArray().size();
   };
 
-  // GET EVERYONE'S (DESTINATAIRE) PENDING MISSIONS (admin only)
+  // Get everyone's pending missions (admin only)
   public query ({ caller }) func getAllPendingMissionsForEveryone() : async [Mission] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can view all pending missions");
@@ -474,7 +476,7 @@ actor {
     pending.sort(Mission.compareByDateCreation);
   };
 
-  // GET ALL MISSIONS FOR CREATORS (ADMIN)
+  // Get all missions for creators (admin)
   public query ({ caller }) func getAllCreatedMissionsForCreators() : async [Mission] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
       Runtime.trap("Unauthorized: Only admins can view all created missions");
@@ -482,9 +484,127 @@ actor {
     missions.values().toArray();
   };
 
-  // -------- NEW TICKET RESTO & ESSENCE MODULES --------
+  // -------- NEW PLANNING ITEM SYSTEM --------
+  public type PlanningItem = {
+    id : Text;
+    titre : Text;
+    dates : [Time.Time];
+    createur : Principal;
+    nomCreateur : Text;
+    destinataire : Principal;
+    nomDestinataire : Text;
+    clientNom : Text;
+    typeMission : Text; // "depannage" | "controle" | "chantier"
+    description : Text;
+    statut : Text; // "a_realiser" | "execute"
+    createdAt : Time.Time;
+  };
 
-  // Ticket Resto (restaurant vouchers/meals)
+  module PlanningItem {
+    public func compareByFirstDate(a : PlanningItem, b : PlanningItem) : Order.Order {
+      if (a.dates.size() == 0 and b.dates.size() == 0) { return #equal };
+      if (a.dates.size() == 0) { return #greater };
+      if (b.dates.size() == 0) { return #less };
+      Int.compare(a.dates[0], b.dates[0]);
+    };
+  };
+
+  let planningItems = Map.empty<Text, PlanningItem>();
+
+  // Create planning item
+  public shared ({ caller }) func creerPlanningItem(id : Text, titre : Text, dates : [Time.Time], destinataire : Principal, nomDestinataire : Text, nomCreateur : Text, clientNom : Text, typeMission : Text, description : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can create your planning items");
+    };
+    let item : PlanningItem = {
+      id;
+      titre;
+      dates;
+      createur = caller;
+      nomCreateur;
+      destinataire;
+      nomDestinataire;
+      clientNom;
+      typeMission;
+      description;
+      statut = "a_realiser";
+      createdAt = Time.now();
+    };
+    planningItems.add(id, item);
+  };
+
+  // Update planning item dates (only createur or destinataire)
+  public shared ({ caller }) func modifierDatesPlanningItem(id : Text, newDates : [Time.Time]) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can modify planning item dates");
+    };
+    switch (planningItems.get(id)) {
+      case (null) { Runtime.trap("Planning item not found") };
+      case (?item) {
+        if (caller != item.createur and caller != item.destinataire and not isCallerAdminInternal(caller)) {
+          Runtime.trap("Unauthorized: Only creator or assignee can edit dates");
+        };
+        let updatedItem = { item with dates = newDates };
+        planningItems.add(id, updatedItem);
+      };
+    };
+  };
+
+  // Delete planning item (only createur or destinataire)
+  public shared ({ caller }) func supprimerPlanningItem(id : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete planning items");
+    };
+    switch (planningItems.get(id)) {
+      case (null) { Runtime.trap("Planning item not found") };
+      case (?item) {
+        if (caller != item.createur and caller != item.destinataire and not isCallerAdminInternal(caller)) {
+          Runtime.trap("Non autorisé : vous ne pouvez supprimer que vos propres plannings");
+        };
+        planningItems.remove(id);
+      };
+    };
+  };
+
+  // Get all planning items (sorted by first date) - filtered by user
+  public query ({ caller }) func obtenirTousPlanningItems() : async [PlanningItem] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view planning items");
+    };
+    let isAdmin = isCallerAdminInternal(caller);
+    let filtered = if (isAdmin) {
+      planningItems.values().toArray();
+    } else {
+      planningItems.values().filter(func(item) {
+        item.createur == caller or item.destinataire == caller
+      }).toArray();
+    };
+    filtered.sort(PlanningItem.compareByFirstDate);
+  };
+
+  // Get planning items for a specific day - filtered by user
+  public query ({ caller }) func obtenirPlanningItemsPourJour(date : Time.Time) : async [PlanningItem] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view planning items");
+    };
+    let isAdmin = isCallerAdminInternal(caller);
+    let dayNanos = date / 86400000000000;
+    planningItems.values().filter(
+      func(item) {
+        let hasDate = item.dates.find(
+          func(itemDate) {
+            let itemDayNanos = itemDate / 86400000000000;
+            itemDayNanos == dayNanos;
+          }
+        ) != null;
+        hasDate and (isAdmin or item.createur == caller or item.destinataire == caller);
+      }
+    ).toArray();
+  };
+
+  // -------- MISC / OTHER MODULES (ticket resto, essence, etc) --------
+
+  // Ticket resto
   public type TicketResto = {
     id : Text;
     date : Time.Time;
@@ -504,7 +624,7 @@ actor {
     };
   };
 
-  // Ticket Essence (fuel)
+  // Ticket essence
   public type TicketEssence = {
     id : Text;
     date : Time.Time;
@@ -1773,4 +1893,3 @@ actor {
     Runtime.trap("Publish restart workflow triggered. This actor is already running the latest version. If a publish failure occurred, redeploying should automatically resolve it. No further action is needed.");
   };
 };
-

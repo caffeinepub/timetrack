@@ -233,6 +233,20 @@ export const MemoEntry = IDL.Record({
   'videos' : IDL.Vec(ExternalBlob),
   'photos' : IDL.Vec(ExternalBlob),
 });
+export const PlanningItem = IDL.Record({
+  'id' : IDL.Text,
+  'statut' : IDL.Text,
+  'titre' : IDL.Text,
+  'typeMission' : IDL.Text,
+  'createur' : IDL.Principal,
+  'createdAt' : Time,
+  'description' : IDL.Text,
+  'nomDestinataire' : IDL.Text,
+  'nomCreateur' : IDL.Text,
+  'destinataire' : IDL.Principal,
+  'clientNom' : IDL.Text,
+  'dates' : IDL.Vec(Time),
+});
 export const VehiculeDefaut = IDL.Record({
   'lastAdBlueMontant' : IDL.Opt(IDL.Float64),
   'immatriculation' : IDL.Text,
@@ -319,6 +333,21 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'creerPlanningItem' : IDL.Func(
+      [
+        IDL.Text,
+        IDL.Text,
+        IDL.Vec(Time),
+        IDL.Principal,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+        IDL.Text,
+      ],
+      [],
+      [],
+    ),
   'enregistrerJournal' : IDL.Func(
       [
         IDL.Text,
@@ -366,6 +395,7 @@ export const idlService = IDL.Service({
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'listerFichiers' : IDL.Func([], [IDL.Vec(Fichier)], ['query']),
   'modifierClient' : IDL.Func([IDL.Text, Client], [], []),
+  'modifierDatesPlanningItem' : IDL.Func([IDL.Text, IDL.Vec(Time)], [], []),
   'modifierIntervention' : IDL.Func([IDL.Text, InterventionInput], [], []),
   'modifierJournal' : IDL.Func(
       [
@@ -416,6 +446,11 @@ export const idlService = IDL.Service({
       [IDL.Vec(ExternalBlob)],
       ['query'],
     ),
+  'obtenirPlanningItemsPourJour' : IDL.Func(
+      [Time],
+      [IDL.Vec(PlanningItem)],
+      ['query'],
+    ),
   'obtenirSignatureIntervenant' : IDL.Func([], [IDL.Opt(IDL.Text)], ['query']),
   'obtenirTicketsEssence' : IDL.Func([], [IDL.Vec(TicketEssence)], ['query']),
   'obtenirTicketsResto' : IDL.Func([], [IDL.Vec(TicketResto)], ['query']),
@@ -424,6 +459,7 @@ export const idlService = IDL.Service({
       [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
       ['query'],
     ),
+  'obtenirTousPlanningItems' : IDL.Func([], [IDL.Vec(PlanningItem)], ['query']),
   'obtenirToutesInterventions' : IDL.Func(
       [],
       [IDL.Vec(InterventionAvecPieces)],
@@ -460,6 +496,7 @@ export const idlService = IDL.Service({
   'supprimerMediaQuotidien' : IDL.Func([IDL.Text], [], []),
   'supprimerMemo' : IDL.Func([IDL.Text], [], []),
   'supprimerMission' : IDL.Func([IDL.Text], [], []),
+  'supprimerPlanningItem' : IDL.Func([IDL.Text], [], []),
   'supprimerTicketEssence' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'supprimerTicketResto' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'uploadPhotoDansStoic' : IDL.Func(
@@ -698,6 +735,20 @@ export const idlFactory = ({ IDL }) => {
     'videos' : IDL.Vec(ExternalBlob),
     'photos' : IDL.Vec(ExternalBlob),
   });
+  const PlanningItem = IDL.Record({
+    'id' : IDL.Text,
+    'statut' : IDL.Text,
+    'titre' : IDL.Text,
+    'typeMission' : IDL.Text,
+    'createur' : IDL.Principal,
+    'createdAt' : Time,
+    'description' : IDL.Text,
+    'nomDestinataire' : IDL.Text,
+    'nomCreateur' : IDL.Text,
+    'destinataire' : IDL.Principal,
+    'clientNom' : IDL.Text,
+    'dates' : IDL.Vec(Time),
+  });
   const VehiculeDefaut = IDL.Record({
     'lastAdBlueMontant' : IDL.Opt(IDL.Float64),
     'immatriculation' : IDL.Text,
@@ -784,6 +835,21 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'creerPlanningItem' : IDL.Func(
+        [
+          IDL.Text,
+          IDL.Text,
+          IDL.Vec(Time),
+          IDL.Principal,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+          IDL.Text,
+        ],
+        [],
+        [],
+      ),
     'enregistrerJournal' : IDL.Func(
         [
           IDL.Text,
@@ -831,6 +897,7 @@ export const idlFactory = ({ IDL }) => {
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'listerFichiers' : IDL.Func([], [IDL.Vec(Fichier)], ['query']),
     'modifierClient' : IDL.Func([IDL.Text, Client], [], []),
+    'modifierDatesPlanningItem' : IDL.Func([IDL.Text, IDL.Vec(Time)], [], []),
     'modifierIntervention' : IDL.Func([IDL.Text, InterventionInput], [], []),
     'modifierJournal' : IDL.Func(
         [
@@ -881,6 +948,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(ExternalBlob)],
         ['query'],
       ),
+    'obtenirPlanningItemsPourJour' : IDL.Func(
+        [Time],
+        [IDL.Vec(PlanningItem)],
+        ['query'],
+      ),
     'obtenirSignatureIntervenant' : IDL.Func(
         [],
         [IDL.Opt(IDL.Text)],
@@ -891,6 +963,11 @@ export const idlFactory = ({ IDL }) => {
     'obtenirTousLesProfils' : IDL.Func(
         [],
         [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
+        ['query'],
+      ),
+    'obtenirTousPlanningItems' : IDL.Func(
+        [],
+        [IDL.Vec(PlanningItem)],
         ['query'],
       ),
     'obtenirToutesInterventions' : IDL.Func(
@@ -933,6 +1010,7 @@ export const idlFactory = ({ IDL }) => {
     'supprimerMediaQuotidien' : IDL.Func([IDL.Text], [], []),
     'supprimerMemo' : IDL.Func([IDL.Text], [], []),
     'supprimerMission' : IDL.Func([IDL.Text], [], []),
+    'supprimerPlanningItem' : IDL.Func([IDL.Text], [], []),
     'supprimerTicketEssence' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'supprimerTicketResto' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'uploadPhotoDansStoic' : IDL.Func(

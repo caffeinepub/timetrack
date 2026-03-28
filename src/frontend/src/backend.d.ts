@@ -28,6 +28,21 @@ export interface Mission {
     destinataire: Principal;
     dateCreation: Time;
 }
+export interface PlanningItem {
+    id: string;
+    statut: string;
+    titre: string;
+    typeMission: string;
+    createur: Principal;
+    createdAt: Time;
+    description: string;
+    nomDestinataire: string;
+    nomCreateur: string;
+    destinataire: Principal;
+    clientNom: string;
+    dates: Array<Time>;
+}
+export type Time = bigint;
 export type MediaType = {
     __kind__: "audio";
     audio: ExternalBlob;
@@ -35,7 +50,6 @@ export type MediaType = {
     __kind__: "photo";
     photo: ExternalBlob;
 };
-export type Time = bigint;
 export interface InterventionSlot {
     endHour: bigint;
     endMinute: bigint;
@@ -63,15 +77,6 @@ export interface InterventionInput {
     videos: Array<ExternalBlob>;
     heureMatinFinMin: bigint;
     photos: Array<ExternalBlob>;
-}
-export interface Client {
-    id: string;
-    nom: string;
-    createdAt: Time;
-    email: string;
-    adresse: string;
-    listeNoire: boolean;
-    telephone: string;
 }
 export interface PieceUtilisee {
     reference: string;
@@ -111,6 +116,15 @@ export interface DailyMediaEntry {
     relatedDay: Time;
     mediaType: MediaType;
 }
+export interface Client {
+    id: string;
+    nom: string;
+    createdAt: Time;
+    email: string;
+    adresse: string;
+    listeNoire: boolean;
+    telephone: string;
+}
 export interface JournalEntry {
     id: string;
     createdAt: Time;
@@ -141,18 +155,20 @@ export interface MemoEntry {
     videos: Array<ExternalBlob>;
     photos: Array<ExternalBlob>;
 }
-export interface PdfReportData {
-    titre: string;
-    enteteTableau: Array<string>;
-    periode: string;
-    totaux: {
-        heuresTrajet: string;
-        heuresTravailNormales: string;
-        heuresAstreinte: string;
-        heuresRepas: string;
-    };
-    exportTimestamp: Time;
-    lignesTableau: Array<Array<string>>;
+export interface TimeEntryInput {
+    id: string;
+    heuresTrajet: bigint;
+    date: Time;
+    description: string;
+    startMorning: bigint;
+    endAstreinte?: bigint;
+    interventionSlots: Array<InterventionSlot>;
+    startAstreinte?: bigint;
+    endMorning: bigint;
+    endAfternoon: bigint;
+    typeOfDay: DayType;
+    heuresRepas: bigint;
+    startAfternoon: bigint;
 }
 export interface Totals {
     heuresTrajet: bigint;
@@ -174,27 +190,6 @@ export interface TicketEssence {
     adBlueMontant?: number;
     typeVehicule: string;
 }
-export interface TimeEntryInput {
-    id: string;
-    heuresTrajet: bigint;
-    date: Time;
-    description: string;
-    startMorning: bigint;
-    endAstreinte?: bigint;
-    interventionSlots: Array<InterventionSlot>;
-    startAstreinte?: bigint;
-    endMorning: bigint;
-    endAfternoon: bigint;
-    typeOfDay: DayType;
-    heuresRepas: bigint;
-    startAfternoon: bigint;
-}
-export interface VehiculeDefaut {
-    lastAdBlueMontant?: number;
-    immatriculation: string;
-    typeVehicule: string;
-    lastAdBluePrixLitre?: number;
-}
 export interface TicketResto {
     id: string;
     userId: Principal;
@@ -204,6 +199,25 @@ export interface TicketResto {
     jourSemaine: string;
     nomUtilisateur: string;
     montant: number;
+}
+export interface VehiculeDefaut {
+    lastAdBlueMontant?: number;
+    immatriculation: string;
+    typeVehicule: string;
+    lastAdBluePrixLitre?: number;
+}
+export interface PdfReportData {
+    titre: string;
+    enteteTableau: Array<string>;
+    periode: string;
+    totaux: {
+        heuresTrajet: string;
+        heuresTravailNormales: string;
+        heuresAstreinte: string;
+        heuresRepas: string;
+    };
+    exportTimestamp: Time;
+    lignesTableau: Array<Array<string>>;
 }
 export interface UserProfile {
     name: string;
@@ -253,6 +267,7 @@ export interface backendInterface {
     compterMissionsEnAttentePourMoi(): Promise<bigint>;
     creerMemo(id: string, authorName: string, content: string, photos: Array<ExternalBlob>, videos: Array<ExternalBlob>): Promise<void>;
     creerMission(id: string, titre: string, datePrevue: Time, destinataire: Principal, nomDestinataire: string, nomCreateur: string, nomClient: string, typeMission: string, description: string): Promise<void>;
+    creerPlanningItem(id: string, titre: string, dates: Array<Time>, destinataire: Principal, nomDestinataire: string, nomCreateur: string, clientNom: string, typeMission: string, description: string): Promise<void>;
     enregistrerJournal(id: string, audioUrl: string, transcription: string, notes: string, photos: Array<ExternalBlob>, dayType: DayType | null): Promise<void>;
     enregistrerJournee(input: TimeEntryInput): Promise<void>;
     enregistrerMediaQuotidien(id: string, mediaType: MediaType, relatedDay: Time): Promise<void>;
@@ -273,6 +288,7 @@ export interface backendInterface {
     isCallerAdmin(): Promise<boolean>;
     listerFichiers(): Promise<Array<Fichier>>;
     modifierClient(id: string, client: Client): Promise<void>;
+    modifierDatesPlanningItem(id: string, newDates: Array<Time>): Promise<void>;
     modifierIntervention(id: string, input: InterventionInput): Promise<void>;
     modifierJournal(id: string, audioUrl: string, transcription: string, notes: string, photos: Array<ExternalBlob>, dayType: DayType | null): Promise<void>;
     modifierJournee(id: string, input: TimeEntryInput): Promise<void>;
@@ -288,10 +304,12 @@ export interface backendInterface {
     obtenirMissionsCreees(): Promise<Array<Mission>>;
     obtenirMissionsRecues(): Promise<Array<Mission>>;
     obtenirPhotosPourJour(date: Time): Promise<Array<ExternalBlob>>;
+    obtenirPlanningItemsPourJour(date: Time): Promise<Array<PlanningItem>>;
     obtenirSignatureIntervenant(): Promise<string | null>;
     obtenirTicketsEssence(): Promise<Array<TicketEssence>>;
     obtenirTicketsResto(): Promise<Array<TicketResto>>;
     obtenirTousLesProfils(): Promise<Array<[Principal, UserProfile]>>;
+    obtenirTousPlanningItems(): Promise<Array<PlanningItem>>;
     obtenirToutesInterventions(): Promise<Array<InterventionAvecPieces>>;
     obtenirToutesInterventionsPourFacturation(): Promise<Array<InterventionAvecPieces>>;
     obtenirToutesMissionsAcceptees(): Promise<Array<Mission>>;
@@ -312,6 +330,7 @@ export interface backendInterface {
     supprimerMediaQuotidien(id: string): Promise<void>;
     supprimerMemo(id: string): Promise<void>;
     supprimerMission(id: string): Promise<void>;
+    supprimerPlanningItem(id: string): Promise<void>;
     supprimerTicketEssence(id: string): Promise<boolean>;
     supprimerTicketResto(id: string): Promise<boolean>;
     uploadPhotoDansStoic(filename: string, content: ExternalBlob, mimeType: string, taille: bigint, description: string): Promise<bigint | null>;

@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { LogIn, LogOut } from "lucide-react";
-import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useSafeTap } from "../hooks/useSafeTap";
 
@@ -11,23 +10,11 @@ interface HeaderProps {
 
 export default function Header({ userName }: HeaderProps) {
   const { login, clear, loginStatus, identity } = useInternetIdentity();
-  const { actor, isFetching } = useActor();
   const queryClient = useQueryClient();
   const safeTap = useSafeTap();
 
   const isAuthenticated = !!identity;
   const disabled = loginStatus === "logging-in";
-
-  const { data: missionBadge = 0 } = useQuery<number>({
-    queryKey: ["missionBadge"],
-    queryFn: async () => {
-      if (!actor) return 0;
-      const count = await actor.compterMissionsEnAttentePourMoi();
-      return Number(count);
-    },
-    enabled: !!actor && !isFetching && isAuthenticated,
-    refetchInterval: 30000,
-  });
 
   const handleAuth = safeTap(async () => {
     if (isAuthenticated) {
@@ -58,7 +45,6 @@ export default function Header({ userName }: HeaderProps) {
         <div className="flex items-center justify-between gap-2 sm:gap-3 min-w-0">
           {/* Left: Logo + Branding */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-            {/* VTS Logo badge — cow image */}
             <div
               className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-inner overflow-hidden"
               style={{
@@ -79,29 +65,12 @@ export default function Header({ userName }: HeaderProps) {
                   Vial Traite Service
                 </h1>
                 {userName && (
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className="text-xs sm:text-sm font-semibold truncate"
-                      style={{ color: "oklch(var(--vts-green))" }}
-                    >
-                      Bonjour {userName}
-                    </span>
-                    {isAuthenticated && missionBadge > 0 && (
-                      <span
-                        className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold flex-shrink-0"
-                        style={{
-                          backgroundColor: "#f97316",
-                          color: "white",
-                          fontSize: "10px",
-                          lineHeight: 1,
-                        }}
-                        title={`${missionBadge} mission${missionBadge > 1 ? "s" : ""} en attente`}
-                        data-ocid="header.mission_badge"
-                      >
-                        {missionBadge > 99 ? "99+" : missionBadge}
-                      </span>
-                    )}
-                  </div>
+                  <span
+                    className="text-xs sm:text-sm font-semibold truncate"
+                    style={{ color: "oklch(var(--vts-green))" }}
+                  >
+                    Bonjour {userName}
+                  </span>
                 )}
               </div>
             </div>

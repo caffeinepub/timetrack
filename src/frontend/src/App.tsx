@@ -23,6 +23,7 @@ import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
 import Facturation from "./pages/Facturation";
 import Memo from "./pages/Memo";
+import Planning from "./pages/Planning";
 import TicketEssencePage from "./pages/TicketEssence";
 import TicketRestoPage from "./pages/TicketResto";
 
@@ -33,7 +34,8 @@ export type Page =
   | "facturation"
   | "clients"
   | "ticket-resto"
-  | "ticket-essence";
+  | "ticket-essence"
+  | "planning";
 
 function GrassDecoration() {
   return (
@@ -260,6 +262,9 @@ function AppContent() {
             className={currentPage === "ticket-essence" ? "block" : "hidden"}
           >
             <TicketEssencePage />
+          </div>
+          <div className={currentPage === "planning" ? "block" : "hidden"}>
+            <Planning />
           </div>
         </main>
       </div>

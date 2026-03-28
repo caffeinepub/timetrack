@@ -1,40 +1,36 @@
-# Vial Traite Service — Système de Missions
+# Vial Traite Service — Planning
 
 ## Current State
-L'application gère les journées de travail, interventions, clients, tickets, mémos. La page Calendrier permet à chaque utilisateur de gérer ses propres journées avec lecture seule pour les autres. Le Header affiche le nom d'utilisateur. Il n'existe pas encore de système de missions.
+- L'application dispose d'un système de missions dans Calendar.tsx (MissionsSection.tsx) avec badge orange dans Header.tsx
+- Le backend a un type `Mission` et des fonctions: creerMission, accepterMission, supprimerMission, compterMissionsEnAttentePourMoi, obtenirMissionsRecues, obtenirMissionsCreees, obtenirToutesMissionsAcceptees, redigerMissionVersAutre, getAllPendingMissionsForEveryone, getAllCreatedMissionsForCreators
+- Navigation: 7 pages (dashboard, calendar, memo, facturation, clients, ticket-resto, ticket-essence)
+- Les interventions validées dans le calendrier sont stockées avec `valide: true` dans InterventionAvecPieces
 
 ## Requested Changes (Diff)
 
 ### Add
-- **Type Mission backend** : id, titre, date prévue, createur (Principal), destinataire (Principal), nomCreateur, nomClient, typeMission (depannage/controle/chantier), description, statut (en_attente/acceptee), dateCreation
-- **Fonctions backend missions** :
-  - `creerMission(input)` : créer une mission pour un autre utilisateur
-  - `accepterMission(id)` : le destinataire accepte la mission
-  - `redigerMissionVersAutre(id, nouveauDestinataire, nomNouveauDestinataire)` : rediriger vers un autre utilisateur
-  - `supprimerMission(id)` : suppression par créateur ou destinataire
-  - `obtenirMissionsRecues()` : missions reçues par l'utilisateur connecté
-  - `obtenirMissionsCreees()` : missions créées par l'utilisateur connecté
-  - `obtenirToutesMissionsAcceptees()` : toutes les missions acceptées (visibles sur tous les calendriers)
-  - `compterMissionsEnAttentePourMoi()` : nombre de missions non-validées pour le badge
-- **Badge orange dans le Header** : à côté du nom de profil, affiche le nombre de missions en attente (non acceptées) pour l'utilisateur connecté
-- **Panel missions dans la page Calendrier** :
-  - Section dédiée "Missions" avec onglets : "Reçues" (mes missions à traiter), "Créées" (missions que j'ai créées)
-  - Bouton "Créer une mission" ouvert dans un formulaire modal
-  - Pour chaque mission reçue en attente : boutons Accepter, Changer la date, Rediriger vers un autre utilisateur
-  - Missions acceptées visibles sur le calendrier de tous en lecture seule (section "Missions" du calendrier)
-  - Bouton Supprimer visible pour le créateur ET le destinataire
+- Nouveau type backend `PlanningItem`: id, titre, date(s), intervenant (Principal), nomIntervenant, nomCreateur, createur (Principal), clientNom, typeMission (depannage/controle/chantier), description, statut (a_realiser/execute), dates: [Time] (multi-jour)
+- Fonctions backend: creerPlanningItem, modifierDatesPlanningItem, supprimerPlanningItem, obtenirTousPlanningItems, obtenirPlanningItemsParJour
+- Nouvelle page `Planning.tsx` dans src/frontend/src/pages/
+- Ajout de la page "planning" dans le type Page de App.tsx
+- Ajout dans MobileBottomNav et DesktopSideNav
 
 ### Modify
-- **Header** : ajouter badge orange mission count à côté du nom utilisateur
-- **Page Calendrier** : ajouter section mission sous le calendrier des journées
-- **backend.d.ts** : ajouter les nouveaux types et fonctions missions
-- **backend.did.js** et **backend.did.d.ts** : synchroniser avec le nouveau backend
+- Backend: supprimer toutes les fonctions et le type Mission (creerMission, accepterMission, redigerMissionVersAutre, supprimerMission, compterMissionsEnAttentePourMoi, obtenirMissionsRecues, obtenirMissionsCreees, obtenirToutesMissionsAcceptees, getAllPendingMissionsForEveryone, getAllCreatedMissionsForCreators)
+- App.tsx: ajouter page "planning", importer Planning
+- Header.tsx: supprimer le badge mission (compterMissionsEnAttentePourMoi)
+- Calendar.tsx: supprimer MissionsSection et le badge mission
+- MobileBottomNav: ajouter Planning, retirer mission
+- DesktopSideNav: ajouter Planning
 
 ### Remove
-- Rien
+- Supprimer MissionsSection.tsx
+- Supprimer tout le code lié aux missions dans Calendar.tsx
+- Supprimer badge mission dans Header.tsx
 
 ## Implementation Plan
-1. Générer le code Motoko avec les nouvelles fonctions missions
-2. Mettre à jour backend.d.ts avec les types et fonctions missions
-3. Modifier Header.tsx pour afficher le badge orange missions
-4. Modifier Calendar.tsx pour intégrer la section missions complète (formulaire création, liste missions reçues/créées, missions acceptées sur calendrier)
+1. Regénérer backend Motoko avec nouveau type PlanningItem (sans Mission)
+2. Les interventions validées dans le calendrier (valide=true) apparaissent automatiquement dans le Planning avec statut "execute" via obtenirTousPlanningItems qui agrège aussi les PlanningItems créés depuis Planning
+3. Créer Planning.tsx: calendrier mensuel, badges du jour (orange=à réaliser aujourd'hui, vert=exécuté aujourd'hui), filtres par intervenant/type/statut, formulaire de création multi-jours, détail par jour au clic, actions destinataire (changer date, ajouter jours, valider, supprimer)
+4. Mettre à jour navigation et App.tsx
+5. Supprimer MissionsSection.tsx et code mission dans Calendar.tsx et Header.tsx

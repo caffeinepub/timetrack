@@ -1,4 +1,5 @@
 import {
+  CalendarCheck,
   CalendarDays,
   Car,
   LayoutDashboard,
@@ -20,6 +21,7 @@ interface MobileBottomNavProps {
 const NAV_ITEMS: { page: Page; label: string; Icon: React.ElementType }[] = [
   { page: "dashboard", label: "Bord", Icon: LayoutDashboard },
   { page: "calendar", label: "Calendrier", Icon: CalendarDays },
+  { page: "planning", label: "Planning", Icon: CalendarCheck },
   { page: "memo", label: "Mémo", Icon: MessageSquare },
   { page: "facturation", label: "Facturation", Icon: Receipt },
   { page: "clients", label: "Clients", Icon: Users },

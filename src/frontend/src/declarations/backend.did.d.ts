@@ -148,6 +148,20 @@ export interface PieceUtilisee {
   'article' : string,
   'quantite' : bigint,
 }
+export interface PlanningItem {
+  'id' : string,
+  'statut' : string,
+  'titre' : string,
+  'typeMission' : string,
+  'createur' : Principal,
+  'createdAt' : Time,
+  'description' : string,
+  'nomDestinataire' : string,
+  'nomCreateur' : string,
+  'destinataire' : Principal,
+  'clientNom' : string,
+  'dates' : Array<Time>,
+}
 export interface TicketEssence {
   'id' : string,
   'userId' : Principal,
@@ -276,6 +290,20 @@ export interface _SERVICE {
     [string, string, Time, Principal, string, string, string, string, string],
     undefined
   >,
+  'creerPlanningItem' : ActorMethod<
+    [
+      string,
+      string,
+      Array<Time>,
+      Principal,
+      string,
+      string,
+      string,
+      string,
+      string,
+    ],
+    undefined
+  >,
   'enregistrerJournal' : ActorMethod<
     [string, string, string, string, Array<ExternalBlob>, [] | [DayType]],
     undefined
@@ -303,6 +331,7 @@ export interface _SERVICE {
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'listerFichiers' : ActorMethod<[], Array<Fichier>>,
   'modifierClient' : ActorMethod<[string, Client], undefined>,
+  'modifierDatesPlanningItem' : ActorMethod<[string, Array<Time>], undefined>,
   'modifierIntervention' : ActorMethod<[string, InterventionInput], undefined>,
   'modifierJournal' : ActorMethod<
     [string, string, string, string, Array<ExternalBlob>, [] | [DayType]],
@@ -327,10 +356,12 @@ export interface _SERVICE {
   'obtenirMissionsCreees' : ActorMethod<[], Array<Mission>>,
   'obtenirMissionsRecues' : ActorMethod<[], Array<Mission>>,
   'obtenirPhotosPourJour' : ActorMethod<[Time], Array<ExternalBlob>>,
+  'obtenirPlanningItemsPourJour' : ActorMethod<[Time], Array<PlanningItem>>,
   'obtenirSignatureIntervenant' : ActorMethod<[], [] | [string]>,
   'obtenirTicketsEssence' : ActorMethod<[], Array<TicketEssence>>,
   'obtenirTicketsResto' : ActorMethod<[], Array<TicketResto>>,
   'obtenirTousLesProfils' : ActorMethod<[], Array<[Principal, UserProfile]>>,
+  'obtenirTousPlanningItems' : ActorMethod<[], Array<PlanningItem>>,
   'obtenirToutesInterventions' : ActorMethod<[], Array<InterventionAvecPieces>>,
   'obtenirToutesInterventionsPourFacturation' : ActorMethod<
     [],
@@ -357,6 +388,7 @@ export interface _SERVICE {
   'supprimerMediaQuotidien' : ActorMethod<[string], undefined>,
   'supprimerMemo' : ActorMethod<[string], undefined>,
   'supprimerMission' : ActorMethod<[string], undefined>,
+  'supprimerPlanningItem' : ActorMethod<[string], undefined>,
   'supprimerTicketEssence' : ActorMethod<[string], boolean>,
   'supprimerTicketResto' : ActorMethod<[string], boolean>,
   'uploadPhotoDansStoic' : ActorMethod<
