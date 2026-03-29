@@ -3,7 +3,7 @@ import type { Page } from "../App";
 import { getSectionAccess } from "../utils/userAccessControl";
 
 export const ADMIN_PRINCIPAL_ID =
-  "gilph-edmid-nr3ic-svhal-6eq2x-ef6kc-ll54b-f6ow2-wc6zo-yf3cx-sae";
+  "cpipl-aryn4-cbti4-rb7e3-csw4p-ppmbj-x2qwf-46tky-paxza-2dcvi-sae";
 
 const ALL_PAGES: Page[] = [
   "dashboard",

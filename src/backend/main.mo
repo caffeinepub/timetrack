@@ -826,7 +826,7 @@ actor {
   let accessControlState = AccessControl.initState();
 
   // Hardcoded admin principal - seul admin autorisé (v140 - recompilation forcée)
-  let HARDCODED_ADMIN : Text = "qqb4l-yz3r5-axq5a-4pvuz-2i2ao-6ssuu-tc6rb-ocqyp-asmgd-jsu2l-6qe";
+  let HARDCODED_ADMIN : Text = "cpipl-aryn4-cbti4-rb7e3-csw4p-ppmbj-x2qwf-46tky-paxza-2dcvi-sae";
 
   // Helper: hardcoded admin always has access regardless of role
   func callerHasAccess(caller : Principal) : Bool {
