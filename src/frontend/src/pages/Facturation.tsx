@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useGetToutesInterventionsFact } from "../hooks/useQueries";
+import { getUsersDisabledForSection } from "../utils/userAccessControl";
 
 function formatHeure(h: bigint | number, m: bigint | number): string {
   const hh = Number(h);
@@ -163,6 +164,13 @@ export default function Facturation({
     },
     enabled: !!actor,
   });
+
+  const _filteredProfilesFact = (allProfiles as any[]).filter(
+    ([principal]: [any, any]) => {
+      const id = principal.toString();
+      return !getUsersDisabledForSection("facturation").includes(id);
+    },
+  );
 
   const profileNameMap = useMemo(() => {
     const map = new Map<string, string>();

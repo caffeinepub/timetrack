@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronUp,
   Shield,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -12,8 +13,11 @@ import { UserRole } from "../backend.d";
 import { useActor } from "../hooks/useActor";
 import {
   type AccessLevel,
+  deleteUserFromLocalStorage,
   getAllUserAccess,
+  getUserAccountStatus,
   setSectionAccess,
+  setUserAccountStatus,
 } from "../utils/userAccessControl";
 
 export const ADMIN_PRINCIPAL_ID =
@@ -77,6 +81,9 @@ export default function Profil() {
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
     {},
   );
+  const [deleteLoading, setDeleteLoading] = useState<Record<string, boolean>>(
+    {},
+  );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: retryCount is used as a manual trigger
   useEffect(() => {
@@ -107,7 +114,7 @@ export default function Profil() {
 
           const newStatus: Record<string, "active" | "disabled"> = {};
           for (const { principalStr } of parsed) {
-            newStatus[principalStr] = "active";
+            newStatus[principalStr] = getUserAccountStatus(principalStr);
           }
           setStatusMap(newStatus);
           setLoading(false);
@@ -145,9 +152,11 @@ export default function Profil() {
         Principal.fromText(principalStr),
         newRole,
       );
+      const newStatus2 = current === "active" ? "disabled" : "active";
+      setUserAccountStatus(principalStr, newStatus2);
       setStatusMap((prev) => ({
         ...prev,
-        [principalStr]: current === "active" ? "disabled" : "active",
+        [principalStr]: newStatus2,
       }));
     } catch (e) {
       console.error(e);
@@ -169,6 +178,30 @@ export default function Profil() {
         [sectionKey]: level,
       },
     }));
+  };
+
+  const handleDeleteProfile = async (principalStr: string) => {
+    if (!actor) return;
+    if (principalStr === ADMIN_PRINCIPAL_ID) return;
+    if (
+      !window.confirm(
+        "Supprimer définitivement ce profil ? Cette action est irréversible.",
+      )
+    )
+      return;
+    setDeleteLoading((prev) => ({ ...prev, [principalStr]: true }));
+    try {
+      await actor.supprimerProfil(Principal.fromText(principalStr));
+      deleteUserFromLocalStorage(principalStr);
+      setProfiles((prev) =>
+        prev.filter((p) => p.principalStr !== principalStr),
+      );
+    } catch (e) {
+      console.error(e);
+      alert("Erreur lors de la suppression du profil.");
+    } finally {
+      setDeleteLoading((prev) => ({ ...prev, [principalStr]: false }));
+    }
   };
 
   const toggleExpand = (principalStr: string) => {
@@ -336,29 +369,47 @@ export default function Profil() {
                 </div>
 
                 {!isAdminUser && (
-                  <button
-                    type="button"
-                    onClick={() => toggleStatus(principalStr)}
-                    disabled={isActioning}
-                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-opacity disabled:opacity-50"
-                    style={{
-                      backgroundColor:
-                        status === "active" ? "#ef4444" : "#22c55e",
-                    }}
-                    data-ocid={`profil.toggle.${idx + 1}`}
-                  >
-                    {isActioning ? (
-                      "..."
-                    ) : status === "active" ? (
-                      <>
-                        <XCircle className="w-3.5 h-3.5" /> Désactiver
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-3.5 h-3.5" /> Activer
-                      </>
-                    )}
-                  </button>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => toggleStatus(principalStr)}
+                      disabled={isActioning}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-opacity disabled:opacity-50"
+                      style={{
+                        backgroundColor:
+                          status === "active" ? "#ef4444" : "#22c55e",
+                      }}
+                      data-ocid={`profil.toggle.${idx + 1}`}
+                    >
+                      {isActioning ? (
+                        "..."
+                      ) : status === "active" ? (
+                        <>
+                          <XCircle className="w-3.5 h-3.5" /> Désactiver
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-3.5 h-3.5" /> Activer
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteProfile(principalStr)}
+                      disabled={!!deleteLoading[principalStr]}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-opacity disabled:opacity-50"
+                      style={{ backgroundColor: "#7f1d1d" }}
+                      data-ocid={`profil.delete.${idx + 1}`}
+                    >
+                      {deleteLoading[principalStr] ? (
+                        "..."
+                      ) : (
+                        <>
+                          <Trash2 className="w-3.5 h-3.5" /> Supprimer
+                        </>
+                      )}
+                    </button>
+                  </div>
                 )}
               </div>
 

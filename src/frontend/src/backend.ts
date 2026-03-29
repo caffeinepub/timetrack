@@ -404,6 +404,7 @@ export interface backendInterface {
     obtenirTicketsEssence(): Promise<Array<TicketEssence>>;
     obtenirTicketsResto(): Promise<Array<TicketResto>>;
     obtenirTousLesProfils(): Promise<Array<[Principal, UserProfile]>>;
+    supprimerProfil(userId: Principal): Promise<undefined>;
     obtenirTousPlanningItems(): Promise<Array<PlanningItem>>;
     obtenirToutesInterventions(): Promise<Array<InterventionAvecPieces>>;
     obtenirToutesInterventionsPourFacturation(): Promise<Array<InterventionAvecPieces>>;
@@ -1305,12 +1306,25 @@ export class Backend implements backendInterface {
                 this.processError(e);
                 throw new Error("unreachable");
             }
-        } else {
+        }
+ else {
             const result = await this.actor.obtenirTousLesProfils();
             return from_candid_vec_n60(this._uploadFile, this._downloadFile, result);
         }
     }
-    async obtenirTousPlanningItems(): Promise<Array<PlanningItem>> {
+    async supprimerProfil(userId: Principal): Promise<undefined> {
+        if (this.processError) {
+            try {
+                await this.actor.supprimerProfil(userId);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            await this.actor.supprimerProfil(userId);
+        }
+    }
+        async obtenirTousPlanningItems(): Promise<Array<PlanningItem>> {
         if (this.processError) {
             try {
                 const result = await this.actor.obtenirTousPlanningItems();

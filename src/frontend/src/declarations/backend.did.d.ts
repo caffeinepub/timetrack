@@ -271,6 +271,7 @@ export interface _SERVICE {
   'setPlanningClientAdresse' : ActorMethod<[string, string], undefined>,
   'ajouterClient' : ActorMethod<[Client], undefined>,
   'ajouterIntervention' : ActorMethod<[InterventionInput], undefined>,
+  'ajouterInterventionPourUtilisateur' : ActorMethod<[Principal, InterventionInput], undefined>,
   'ajouterTicketEssence' : ActorMethod<[TicketEssence], undefined>,
   'ajouterTicketResto' : ActorMethod<[TicketResto], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
@@ -364,6 +365,7 @@ export interface _SERVICE {
   'obtenirTicketsEssence' : ActorMethod<[], Array<TicketEssence>>,
   'obtenirTicketsResto' : ActorMethod<[], Array<TicketResto>>,
   'obtenirTousLesProfils' : ActorMethod<[], Array<[Principal, UserProfile]>>,
+  'supprimerProfil' : ActorMethod<[Principal], undefined>,
   'obtenirTousPlanningItems' : ActorMethod<[], Array<PlanningItem>>,
   'obtenirToutesInterventions' : ActorMethod<[], Array<InterventionAvecPieces>>,
   'obtenirToutesInterventionsPourFacturation' : ActorMethod<

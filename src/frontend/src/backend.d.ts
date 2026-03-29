@@ -311,6 +311,7 @@ export interface backendInterface {
     obtenirTicketsEssence(): Promise<Array<TicketEssence>>;
     obtenirTicketsResto(): Promise<Array<TicketResto>>;
     obtenirTousLesProfils(): Promise<Array<[Principal, UserProfile]>>;
+    supprimerProfil(userId: Principal): Promise<undefined>;
     obtenirTousPlanningItems(): Promise<Array<PlanningItem>>;
     obtenirToutesInterventions(): Promise<Array<InterventionAvecPieces>>;
     obtenirToutesInterventionsPourFacturation(): Promise<Array<InterventionAvecPieces>>;

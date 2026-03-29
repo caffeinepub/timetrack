@@ -39,6 +39,7 @@ import {
   useToggleBlacklist,
   useUpdateClient,
 } from "../hooks/useQueries";
+import { getUsersDisabledForSection } from "../utils/userAccessControl";
 
 const emptyForm = (): Omit<Client, "id" | "createdAt" | "listeNoire"> & {
   telephone2: string;

@@ -287,6 +287,7 @@ export const idlService = IDL.Service({
     'setPlanningClientAdresse' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'ajouterClient' : IDL.Func([Client], [], []),
   'ajouterIntervention' : IDL.Func([InterventionInput], [], []),
+  'ajouterInterventionPourUtilisateur' : IDL.Func([IDL.Principal, InterventionInput], [], []),
   'ajouterTicketEssence' : IDL.Func([TicketEssence], [], []),
   'ajouterTicketResto' : IDL.Func([TicketResto], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
@@ -463,6 +464,7 @@ export const idlService = IDL.Service({
       [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
       ['query'],
     ),
+  'supprimerProfil' : IDL.Func([IDL.Principal], [], []),
   'obtenirTousPlanningItems' : IDL.Func([], [IDL.Vec(PlanningItem)], ['query']),
   'obtenirToutesInterventions' : IDL.Func(
       [],
@@ -794,6 +796,7 @@ export const idlFactory = ({ IDL }) => {
     'setPlanningClientAdresse' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'ajouterClient' : IDL.Func([Client], [], []),
     'ajouterIntervention' : IDL.Func([InterventionInput], [], []),
+    'ajouterInterventionPourUtilisateur' : IDL.Func([IDL.Principal, InterventionInput], [], []),
     'ajouterTicketEssence' : IDL.Func([TicketEssence], [], []),
     'ajouterTicketResto' : IDL.Func([TicketResto], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),

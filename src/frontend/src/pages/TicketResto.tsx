@@ -23,6 +23,7 @@ import { useMemo, useState } from "react";
 import type { TicketResto as TR } from "../backend";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { getUsersDisabledForSection } from "../utils/userAccessControl";
 
 const JOURS = [
   "Lundi",

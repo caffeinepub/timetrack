@@ -1,6 +1,7 @@
 export type AccessLevel = "full" | "readonly" | "disabled";
 
 const STORAGE_KEY = "vts_section_access";
+const STATUS_KEY = "vts_user_status";
 
 function loadAll(): Record<string, Record<string, AccessLevel>> {
   try {
@@ -44,4 +45,63 @@ export function getAllUserAccess(
 ): Record<string, AccessLevel> {
   const all = loadAll();
   return all[principalId] ?? {};
+}
+
+// --- Account-level disabled status ---
+
+function loadStatusAll(): Record<string, "active" | "disabled"> {
+  try {
+    const raw = localStorage.getItem(STATUS_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Record<string, "active" | "disabled">;
+  } catch {
+    return {};
+  }
+}
+
+export function getUserAccountStatus(
+  principalId: string,
+): "active" | "disabled" {
+  return loadStatusAll()[principalId] ?? "active";
+}
+
+export function setUserAccountStatus(
+  principalId: string,
+  status: "active" | "disabled",
+): void {
+  try {
+    const data = loadStatusAll();
+    data[principalId] = status;
+    localStorage.setItem(STATUS_KEY, JSON.stringify(data));
+  } catch {
+    // ignore
+  }
+}
+
+export function getDisabledUserIds(): string[] {
+  const data = loadStatusAll();
+  return Object.entries(data)
+    .filter(([, v]) => v === "disabled")
+    .map(([k]) => k);
+}
+
+export function getUsersDisabledForSection(sectionKey: string): string[] {
+  const all = loadAll();
+  return Object.entries(all)
+    .filter(([, sections]) => sections[sectionKey] === "disabled")
+    .map(([principalId]) => principalId);
+}
+
+export function deleteUserFromLocalStorage(principalId: string): void {
+  try {
+    const allAccess = loadAll();
+    delete allAccess[principalId];
+    saveAll(allAccess);
+
+    const statusData = loadStatusAll();
+    delete statusData[principalId];
+    localStorage.setItem(STATUS_KEY, JSON.stringify(statusData));
+  } catch {
+    // ignore
+  }
 }

@@ -38,6 +38,10 @@ import type { Client, InterventionInput, PlanningItem } from "../backend";
 import { PlanningInterventionModal } from "../components/PlanningInterventionModal";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import {
+  getDisabledUserIds,
+  getUsersDisabledForSection,
+} from "../utils/userAccessControl";
 
 const MONTHS = [
   "Janvier",
@@ -243,14 +247,21 @@ export default function Planning({
     refetchInterval: 30000,
   });
 
-  // Load profiles for destinataire selector
-  const { data: profiles = [] } = useQuery({
+  // Load profiles for destinataire selector (exclude disabled users)
+  const { data: allProfilesRaw = [] } = useQuery({
     queryKey: ["allProfiles"],
     queryFn: async () => {
       if (!actor) return [];
       return actor.obtenirTousLesProfils();
     },
     enabled: !!actor && !isFetching,
+  });
+  const profiles = (allProfilesRaw as [any, any][]).filter(([principal]) => {
+    const id = principal.toString();
+    return (
+      !getDisabledUserIds().includes(id) &&
+      !getUsersDisabledForSection("planning").includes(id)
+    );
   });
 
   // Load clients for autocomplete
@@ -1132,22 +1143,56 @@ export default function Planning({
 
                         {item.destinataire?.toString() ===
                           callerPrincipalStr && (
-                          <Button
-                            size="sm"
-                            className="h-7 px-2 text-xs text-white font-semibold"
-                            style={{
-                              backgroundColor:
-                                item.statut === "execute"
-                                  ? "#16a34a"
-                                  : "#f97316",
-                            }}
-                            onClick={() => setShowInterventionModal(item)}
-                            data-ocid={`planning.accept_button.${idx + 1}`}
-                          >
-                            {item.statut === "execute"
-                              ? "✏️ Modifier la fiche"
-                              : "📋 Remplir la fiche"}
-                          </Button>
+                          <>
+                            {item.statut === "a_realiser" && (
+                              <Button
+                                size="sm"
+                                className="h-7 px-2 text-xs text-white font-semibold"
+                                style={{ backgroundColor: "#f97316" }}
+                                onClick={async () => {
+                                  if (!actor) return;
+                                  try {
+                                    await actor.accepterPlanningItem(item.id);
+                                    queryClient.invalidateQueries({
+                                      queryKey: ["planningItems"],
+                                    });
+                                    const { toast } = await import("sonner");
+                                    toast.success("Mission acceptée");
+                                  } catch (e: any) {
+                                    const { toast } = await import("sonner");
+                                    toast.error(
+                                      `Erreur : ${e?.message ?? String(e)}`,
+                                    );
+                                  }
+                                }}
+                                data-ocid={`planning.accept_button.${idx + 1}`}
+                              >
+                                ✓ Accepter
+                              </Button>
+                            )}
+                            {item.statut === "en_cours" && (
+                              <Button
+                                size="sm"
+                                className="h-7 px-2 text-xs text-white font-semibold"
+                                style={{ backgroundColor: "#2563eb" }}
+                                onClick={() => setShowInterventionModal(item)}
+                                data-ocid={`planning.fiche_button.${idx + 1}`}
+                              >
+                                📋 Fiche intervention
+                              </Button>
+                            )}
+                            {item.statut === "execute" && (
+                              <Button
+                                size="sm"
+                                className="h-7 px-2 text-xs text-white font-semibold"
+                                style={{ backgroundColor: "#16a34a" }}
+                                onClick={() => setShowInterventionModal(item)}
+                                data-ocid={`planning.modifier_fiche_button.${idx + 1}`}
+                              >
+                                ✏️ Modifier la fiche
+                              </Button>
+                            )}
+                          </>
                         )}
                         {isOwner(item) && (
                           <div className="flex flex-col gap-1 flex-shrink-0">
@@ -1986,26 +2031,78 @@ function VueSemaine({
                                       })()}
                                       {item.destinataire?.toString() ===
                                         callerPrincipalStr && (
-                                        <div className="mt-1">
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              onRemplirFiche(item);
-                                            }}
-                                            className="text-xs text-white px-1.5 py-0.5 rounded font-medium"
-                                            style={{
-                                              backgroundColor:
-                                                item.statut === "execute"
-                                                  ? "#16a34a"
-                                                  : "#f97316",
-                                            }}
-                                            data-ocid={`planning.semaine.accept_button.${mIdx + 1}`}
-                                          >
-                                            {item.statut === "execute"
-                                              ? "✏️ Fiche"
-                                              : "📋 Fiche"}
-                                          </button>
+                                        <div className="mt-1 flex flex-col gap-0.5">
+                                          {item.statut === "a_realiser" && (
+                                            <button
+                                              type="button"
+                                              onClick={async (e) => {
+                                                e.stopPropagation();
+                                                if (!actor) return;
+                                                try {
+                                                  await actor.accepterPlanningItem(
+                                                    item.id,
+                                                  );
+                                                  queryClient.invalidateQueries(
+                                                    {
+                                                      queryKey: [
+                                                        "planningItems",
+                                                      ],
+                                                    },
+                                                  );
+                                                  const { toast } =
+                                                    await import("sonner");
+                                                  toast.success(
+                                                    "Mission acceptée",
+                                                  );
+                                                } catch (err: any) {
+                                                  const { toast } =
+                                                    await import("sonner");
+                                                  toast.error(
+                                                    `Erreur : ${err?.message ?? String(err)}`,
+                                                  );
+                                                }
+                                              }}
+                                              className="text-xs text-white px-1.5 py-0.5 rounded font-medium"
+                                              style={{
+                                                backgroundColor: "#f97316",
+                                              }}
+                                              data-ocid={`planning.semaine.accept_button.${mIdx + 1}`}
+                                            >
+                                              ✓ Accepter
+                                            </button>
+                                          )}
+                                          {item.statut === "en_cours" && (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                onRemplirFiche(item);
+                                              }}
+                                              className="text-xs text-white px-1.5 py-0.5 rounded font-medium"
+                                              style={{
+                                                backgroundColor: "#2563eb",
+                                              }}
+                                              data-ocid={`planning.semaine.fiche_button.${mIdx + 1}`}
+                                            >
+                                              📋 Fiche
+                                            </button>
+                                          )}
+                                          {item.statut === "execute" && (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                onRemplirFiche(item);
+                                              }}
+                                              className="text-xs text-white px-1.5 py-0.5 rounded font-medium"
+                                              style={{
+                                                backgroundColor: "#16a34a",
+                                              }}
+                                              data-ocid={`planning.semaine.modifier_button.${mIdx + 1}`}
+                                            >
+                                              ✏️ Fiche
+                                            </button>
+                                          )}
                                         </div>
                                       )}
                                     </button>

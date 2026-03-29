@@ -15,6 +15,7 @@ import { useMemo, useState } from "react";
 import type { TicketEssence as TE, VehiculeDefaut } from "../backend";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { getUsersDisabledForSection } from "../utils/userAccessControl";
 
 function formatDate(timestamp: bigint): string {
   return new Date(Number(timestamp) / 1_000_000).toLocaleDateString("fr-FR", {

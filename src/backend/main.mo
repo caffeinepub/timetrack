@@ -1407,6 +1407,18 @@ actor {
     userProfiles.entries().toArray()
   };
 
+  // Admin: permanently delete a user profile
+  public shared ({ caller }) func supprimerProfil(userId : Principal) : async () {
+    if (not isCallerAdminInternal(caller)) {
+      Runtime.trap("Unauthorized: Only admin can delete profiles");
+    };
+    if (userId.toText() == HARDCODED_ADMIN) {
+      Runtime.trap("Cannot delete admin profile");
+    };
+    ignore userProfiles.remove(userId);
+  };
+
+
 
 
   // Admin-only function to view user work entries

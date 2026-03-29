@@ -31,7 +31,7 @@ import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useDeleteTimeEntry,
-  useGetAllProfiles,
+  useGetActiveProfiles,
   useGetTimeEntries,
   useSaveTimeEntry,
   useUpdateTimeEntry,
@@ -240,7 +240,7 @@ export default function Calendar({ readOnly = false }: { readOnly?: boolean }) {
   useUpdateTimeEntry();
   const { mutateAsync: deleteEntry, isPending: isDeleting } =
     useDeleteTimeEntry();
-  const { data: allProfiles = [] } = useGetAllProfiles();
+  const { data: allProfiles = [] } = useGetActiveProfiles("calendar");
 
   const myPrincipal = identity?.getPrincipal().toString() ?? "";
   const [selectedProfilePrincipal, setSelectedProfilePrincipal] =

@@ -10,6 +10,10 @@ import type {
   TimeEntryInput,
   UserProfile,
 } from "../backend";
+import {
+  getDisabledUserIds,
+  getUsersDisabledForSection,
+} from "../utils/userAccessControl";
 import { useActor } from "./useActor";
 import { useInternetIdentity } from "./useInternetIdentity";
 
@@ -644,4 +648,17 @@ export function useGetAllProfiles() {
     },
     enabled: !!actor && !isFetching,
   });
+}
+
+export function useGetActiveProfiles(sectionKey?: string) {
+  const result = useGetAllProfiles();
+  const disabledAccountIds = getDisabledUserIds();
+  const disabledSectionIds = sectionKey
+    ? getUsersDisabledForSection(sectionKey)
+    : [];
+  const filtered = (result.data ?? []).filter(([principal]: [any, any]) => {
+    const id = principal.toString();
+    return !disabledAccountIds.includes(id) && !disabledSectionIds.includes(id);
+  });
+  return { ...result, data: filtered };
 }
