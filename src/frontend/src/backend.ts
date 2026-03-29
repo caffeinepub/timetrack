@@ -345,6 +345,7 @@ export interface backendInterface {
     _caffeineStorageUpdateGatewayPrincipals(): Promise<void>;
     accepterMission(id: string): Promise<void>;
     accepterPlanningItem(id: string): Promise<void>;
+    accepterEtCreerEbauche(planningId: string, ebaucheId: string, clientAdresse: string): Promise<void>;
     ajouterClient(client: Client): Promise<void>;
     ajouterIntervention(input: InterventionInput): Promise<void>;
     ajouterInterventionPourUtilisateur(targetUser: Principal, input: InterventionInput): Promise<void>;
@@ -543,6 +544,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.accepterPlanningItem(arg0);
+            return result;
+        }
+    }
+    async accepterEtCreerEbauche(arg0: string, arg1: string, arg2: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.accepterEtCreerEbauche(arg0, arg1, arg2);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.accepterEtCreerEbauche(arg0, arg1, arg2);
             return result;
         }
     }

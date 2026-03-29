@@ -406,11 +406,7 @@ export default function Planning({
       const ebaucheId = `ebauche-${item.id}-${Date.now()}`;
       const clientAdresse = item.clientAdresse ?? "";
       // Option A: backend creates ébauche with direct missionId link
-      await (actor as any).accepterEtCreerEbauche(
-        item.id,
-        ebaucheId,
-        clientAdresse,
-      );
+      await actor.accepterEtCreerEbauche(item.id, ebaucheId, clientAdresse);
       // Also store in localStorage as fallback for Calendar pre-fill
       const draft = {
         missionId: item.id,
