@@ -370,6 +370,7 @@ export interface _SERVICE {
     [],
     Array<InterventionAvecPieces>
   >,
+  'obtenirToutesInterventionsValideesClient' : ActorMethod<[], Array<InterventionAvecPieces>>,
   'obtenirToutesMissionsAcceptees' : ActorMethod<[], Array<Mission>>,
   'obtenirVehiculeDefaut' : ActorMethod<[], [] | [VehiculeDefaut]>,
   'rechercherFichiers' : ActorMethod<[string], Array<Fichier>>,
@@ -386,6 +387,7 @@ export interface _SERVICE {
   'supprimerDeFacturation' : ActorMethod<[string], undefined>,
   'supprimerFichier' : ActorMethod<[bigint], boolean>,
   'supprimerIntervention' : ActorMethod<[string], undefined>,
+  'supprimerInterventionDuDossierClient' : ActorMethod<[string], undefined>,
   'supprimerJournal' : ActorMethod<[string], undefined>,
   'supprimerJournee' : ActorMethod<[string], undefined>,
   'supprimerMediaQuotidien' : ActorMethod<[string], undefined>,

@@ -319,6 +319,8 @@ actor {
   let interventionValidees = Map.empty<Text, Bool>();
   let interventionEstAstreinte = Map.empty<Text, Bool>();
   let interventionSupprimeeFacturation = Map.empty<Text, Bool>();
+  let interventionArchiveeClient = Map.empty<Text, Bool>();
+  let interventionSupprimeeClient = Map.empty<Text, Bool>();
   // Option A: direct link intervention -> planning mission ID
   let interventionMissionId = Map.empty<Text, Text>();
   // Client address per planning item (separate for backward compat)
@@ -1128,6 +1130,7 @@ actor {
       };
     };
     interventionValidees.add(id, true);
+    interventionArchiveeClient.add(id, true);
     // Option A: auto-validate linked planning mission if any
     switch (interventionMissionId.get(id)) {
       case (?missionId) {
@@ -1158,6 +1161,41 @@ actor {
     // Soft delete: hide from facturation only, keep in calendar and client file
     interventionSupprimeeFacturation.add(id, true);
   };
+  public shared ({ caller }) func supprimerInterventionDuDossierClient(id : Text) : async () {
+    if (not (callerHasAccess(caller))) {
+      Runtime.trap("Unauthorized");
+    };
+    switch (interventions.get(id)) {
+      case (null) {};
+      case (?existing) {
+        if (existing.user != caller and not isCallerAdminInternal(caller)) {
+          Runtime.trap("Non autorise : seul le createur peut supprimer cette intervention du dossier client");
+        };
+      };
+    };
+    interventionSupprimeeClient.add(id, true);
+  };
+
+  public query ({ caller }) func obtenirToutesInterventionsValideesClient() : async [InterventionAvecPieces] {
+    if (not (callerHasAccess(caller))) {
+      Runtime.trap("Unauthorized");
+    };
+    let filtered = interventions.values().filter(func(i : Intervention) : Bool {
+      let archivee = switch (interventionArchiveeClient.get(i.id)) {
+        case (?v) { v };
+        case (null) { false };
+      };
+      let supprimeeClient = switch (interventionSupprimeeClient.get(i.id)) {
+        case (?v) { v };
+        case (null) { false };
+      };
+      archivee and not supprimeeClient
+    }).map(interventionAvecPieces).toArray();
+    filtered.sort(func(a : InterventionAvecPieces, b : InterventionAvecPieces) : Order.Order {
+      Int.compare(b.date, a.date)
+    });
+  };
+
 
   public query func estInterventionValidee(id : Text) : async Bool {
     switch (interventionValidees.get(id)) {

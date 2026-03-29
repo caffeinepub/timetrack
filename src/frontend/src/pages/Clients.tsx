@@ -487,7 +487,7 @@ function ClientInterventions({
                   onClick={async () => {
                     if (!deleteConfirmInterv || !actor) return;
                     try {
-                      await (actor as any).supprimerIntervention(
+                      await (actor as any).supprimerInterventionDuDossierClient(
                         deleteConfirmInterv,
                       );
                       onInterventionDeleted();
@@ -536,7 +536,7 @@ export default function Clients() {
     queryFn: async () => {
       if (!actor) return [];
       // Use facturation endpoint which returns ALL users' interventions
-      return (actor as any).obtenirToutesInterventionsPourFacturation();
+      return (actor as any).obtenirToutesInterventionsValideesClient();
     },
     enabled: !!actor && !actorFetching,
   });
