@@ -15,46 +15,33 @@ import {
   ChevronRight,
   Clock,
   Edit2,
-  Image as ImageIcon,
   Plus,
   Search,
-  Video,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { DayType, ExternalBlob, type TimeEntry } from "../backend";
+import { DayType, type TimeEntry } from "../backend";
 import {
   DayTypeCheckboxGroup,
   getDayTypeColors,
 } from "../components/DayTypeCheckboxGroup";
-import MediaViewer, { type MediaItem } from "../components/MediaViewer";
-import { SignaturePad } from "../components/SignaturePad";
 import { VoiceInput } from "../components/VoiceInput";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useDeleteTimeEntry,
   useGetAllProfiles,
-  useGetClients,
   useGetTimeEntries,
   useSaveTimeEntry,
   useUpdateTimeEntry,
 } from "../hooks/useQueries";
 import {
   computeAstreinteHours,
-  computeInterventionHours,
   computeNormalHours,
   formatHours,
   formatMinutes,
 } from "../utils/timeFormatting";
-
-function getBlobUrl(blob: any): string {
-  if (!blob) return "";
-  if (typeof blob.getDirectURL === "function") return blob.getDirectURL();
-  if (typeof blob.directURL === "string") return blob.directURL;
-  return "";
-}
 
 const DAYS_OF_WEEK = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const MONTHS = [
@@ -184,37 +171,6 @@ function DurationHMInput({ value, onChange, maxH = 24 }: DurationHMInputProps) {
   );
 }
 
-interface PieceLigne {
-  reference: string;
-  article: string;
-  quantite: string;
-}
-
-interface InterventionSlotForm {
-  // Fiche fields
-  ficheId: string;
-  clientNom: string;
-  clientAdresse: string;
-  matinDebutH: string;
-  matinDebutMin: string;
-  matinFinH: string;
-  matinFinMin: string;
-  apremDebutH: string;
-  apremDebutMin: string;
-  apremFinH: string;
-  apremFinMin: string;
-  ficheDescription: string;
-  signatureClient: string;
-  signatureIntervenant: string;
-  piecesLignes: PieceLigne[];
-  photos: ExternalBlob[];
-  photoUrls: string[];
-  videos: ExternalBlob[];
-  videoUrls: string[];
-  estAstreinte: boolean;
-  clientAbsent: boolean;
-}
-
 interface TimeEntryForm {
   startMorning: string;
   endMorning: string;
@@ -225,32 +181,7 @@ interface TimeEntryForm {
   astreinteSlots: { debut: string; fin: string }[];
   typeOfDay: DayType;
   description: string;
-  interventionSlots: InterventionSlotForm[];
 }
-
-const defaultSlot = (): InterventionSlotForm => ({
-  ficheId: "",
-  clientNom: "",
-  clientAdresse: "",
-  matinDebutH: "",
-  matinDebutMin: "",
-  matinFinH: "",
-  matinFinMin: "",
-  apremDebutH: "",
-  apremDebutMin: "",
-  apremFinH: "",
-  apremFinMin: "",
-  ficheDescription: "",
-  signatureClient: "",
-  signatureIntervenant: "",
-  piecesLignes: [],
-  photos: [],
-  photoUrls: [],
-  videos: [],
-  videoUrls: [],
-  estAstreinte: false,
-  clientAbsent: false,
-});
 
 const defaultForm = (): TimeEntryForm => ({
   startMorning: hmToDecimal("8", "0"),
@@ -262,7 +193,6 @@ const defaultForm = (): TimeEntryForm => ({
   astreinteSlots: [],
   typeOfDay: DayType.work,
   description: "",
-  interventionSlots: [],
 });
 
 function getMonthDays(year: number, month: number): (Date | null)[] {
@@ -301,69 +231,7 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
-// Client autocomplete dropdown component
-interface ClientAutocompleteProps {
-  value: string;
-  onChange: (nom: string, adresse?: string) => void;
-  clients: import("../backend").Client[];
-}
-
-function ClientAutocomplete({
-  value,
-  onChange,
-  clients,
-}: ClientAutocompleteProps) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const filtered =
-    value.length > 0
-      ? clients.filter(
-          (c) =>
-            c.nom.toLowerCase().includes(value.toLowerCase()) && !c.listeNoire,
-        )
-      : [];
-
-  return (
-    <div ref={containerRef} className="relative">
-      <Input
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-        placeholder="Nom du client"
-        className="text-sm"
-      />
-      {open && filtered.length > 0 && (
-        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto">
-          {filtered.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors"
-              onMouseDown={() => {
-                onChange(c.nom, c.adresse);
-                setOpen(false);
-              }}
-            >
-              <span className="font-medium">{c.nom}</span>
-              {c.adresse && (
-                <span className="text-xs text-muted-foreground ml-2">
-                  {c.adresse}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function Calendar() {
+export default function Calendar({ readOnly = false }: { readOnly?: boolean }) {
   const { identity } = useInternetIdentity();
   const { actor } = useActor();
   const queryClient = useQueryClient();
@@ -372,7 +240,6 @@ export default function Calendar() {
   useUpdateTimeEntry();
   const { mutateAsync: deleteEntry, isPending: isDeleting } =
     useDeleteTimeEntry();
-  const { data: clients = [] } = useGetClients();
   const { data: allProfiles = [] } = useGetAllProfiles();
 
   const myPrincipal = identity?.getPrincipal().toString() ?? "";
@@ -386,10 +253,7 @@ export default function Calendar() {
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [mediaViewer, setMediaViewer] = useState<{
-    items: MediaItem[];
-    index: number;
-  } | null>(null);
+
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [form, setForm] = useState<TimeEntryForm>(defaultForm());
 
@@ -399,56 +263,6 @@ export default function Calendar() {
       setSelectedProfilePrincipal(myPrincipal);
     }
   }, [myPrincipal, selectedProfilePrincipal]);
-
-  // Check for mission draft from Planning page
-  useEffect(() => {
-    const raw = localStorage.getItem("calendarMissionDraft");
-    if (!raw || !myPrincipal) return;
-    try {
-      const draft = JSON.parse(raw);
-      // Only consume when own calendar is shown
-      const targetDate = draft.date ? new Date(draft.date) : null;
-      if (!targetDate) return;
-      localStorage.removeItem("calendarMissionDraft");
-      // Navigate calendar to the right month
-      setViewYear(targetDate.getFullYear());
-      setViewMonth(targetDate.getMonth());
-      // Pre-fill a new entry form with client name and address
-      setSelectedDate(targetDate);
-      setEditingEntry(null);
-      setForm({
-        ...defaultForm(),
-        interventionSlots: [
-          {
-            ficheId: "",
-            clientNom: draft.clientNom ?? "",
-            clientAdresse: draft.clientAdresse ?? "",
-            matinDebutH: "",
-            matinDebutMin: "",
-            matinFinH: "",
-            matinFinMin: "",
-            apremDebutH: "",
-            apremDebutMin: "",
-            apremFinH: "",
-            apremFinMin: "",
-            ficheDescription: draft.description ?? "",
-            signatureClient: "",
-            signatureIntervenant: "",
-            piecesLignes: [],
-            photos: [],
-            photoUrls: [],
-            videos: [],
-            videoUrls: [],
-            estAstreinte: false,
-            clientAbsent: false,
-          },
-        ],
-      });
-      setDialogOpen(true);
-    } catch (_) {
-      localStorage.removeItem("calendarMissionDraft");
-    }
-  }, [myPrincipal]);
 
   const isOwnCalendar =
     !selectedProfilePrincipal || selectedProfilePrincipal === myPrincipal;
@@ -518,14 +332,9 @@ export default function Calendar() {
     return String(Number(minutes) / 60);
   };
 
-  const openEditEntry = async (entry: TimeEntry) => {
+  const openEditEntry = (entry: TimeEntry) => {
     setSelectedDate(timestampToDate(entry.date));
     setEditingEntry(entry);
-    const baseSlots: InterventionSlotForm[] = entry.interventionSlots.map(
-      (_s) => ({
-        ...defaultSlot(),
-      }),
-    );
     setForm({
       startMorning: fromMinutes(entry.startMorning),
       endMorning: fromMinutes(entry.endMorning),
@@ -554,59 +363,8 @@ export default function Calendar() {
       })(),
       typeOfDay: entry.typeOfDay as DayType,
       description: entry.description,
-      interventionSlots: baseSlots,
     });
     setDialogOpen(true);
-    // Load saved interventions for this day
-    if (actor && baseSlots.length > 0) {
-      try {
-        const interventions = await (actor as any).obtenirInterventionsPourJour(
-          entry.date,
-        );
-        // Build slots directly from backend records (do NOT map by index — backend order is not guaranteed)
-        if (interventions.length > 0) {
-          setForm((f) => ({
-            ...f,
-            interventionSlots: interventions.map((intv: any) => ({
-              ...defaultSlot(),
-              ficheId: intv.id,
-              clientNom: intv.clientNom,
-              clientAdresse: intv.clientAdresse,
-              matinDebutH: String(Number(intv.heureMatinDebutH)),
-              matinDebutMin: String(Number(intv.heureMatinDebutMin)),
-              matinFinH: String(Number(intv.heureMatinFinH)),
-              matinFinMin: String(Number(intv.heureMatinFinMin)),
-              apremDebutH: String(Number(intv.heureApremDebutH)),
-              apremDebutMin: String(Number(intv.heureApremDebutMin)),
-              apremFinH: String(Number(intv.heureApremFinH)),
-              apremFinMin: String(Number(intv.heureApremFinMin)),
-              ficheDescription: intv.description,
-              signatureClient: intv.signatureClient,
-              signatureIntervenant: intv.signatureIntervenant,
-              piecesLignes: Array.isArray(intv.pieces)
-                ? intv.pieces.map((p: any) => ({
-                    reference: p.reference ?? "",
-                    article: p.article ?? "",
-                    quantite: String(Number(p.quantite ?? 0)),
-                  }))
-                : [],
-              photos: Array.isArray(intv.photos) ? intv.photos : [],
-              photoUrls: Array.isArray(intv.photos)
-                ? intv.photos.map((p: any) => getBlobUrl(p))
-                : [],
-              videos: Array.isArray(intv.videos) ? intv.videos : [],
-              videoUrls: Array.isArray(intv.videos)
-                ? intv.videos.map((v: any) => getBlobUrl(v))
-                : [],
-              estAstreinte: (intv as any).estAstreinte === true,
-              clientAbsent: (intv as any).clientAbsent === true,
-            })),
-          }));
-        }
-      } catch (_e) {
-        // ignore — interventions may not exist yet
-      }
-    }
   };
 
   const toMinutes = (decimal: string): bigint => {
@@ -671,74 +429,11 @@ export default function Calendar() {
           }
           return desc;
         })(),
-        interventionSlots: form.interventionSlots.map((_s) => ({
-          startHour: BigInt(0),
-          startMinute: BigInt(0),
-          endHour: BigInt(0),
-          endMinute: BigInt(0),
-        })),
+        interventionSlots: [],
       };
 
       // Use actor directly (bypass React Query) for reliable upsert
       await actor.enregistrerJournee(input);
-
-      // Save fiche interventions for each slot
-      const dateTs = dateToTimestamp(selectedDate);
-      const updatedSlots = [...form.interventionSlots];
-      for (
-        let slotIdx = 0;
-        slotIdx < form.interventionSlots.length;
-        slotIdx++
-      ) {
-        const slot = form.interventionSlots[slotIdx];
-        const hasContent =
-          slot.clientNom ||
-          slot.ficheDescription ||
-          slot.signatureClient ||
-          slot.signatureIntervenant ||
-          slot.ficheId ||
-          slot.piecesLignes.length > 0;
-        if (!hasContent) continue;
-        // Generate a stable ID for new interventions so they can be updated later
-        const newId =
-          slot.ficheId ||
-          `intv-${Date.now()}-${slotIdx}-${Math.random().toString(36).slice(2)}`;
-        const interventionInput = {
-          id: newId,
-          date: dateTs,
-          clientNom: slot.clientNom,
-          clientAdresse: slot.clientAdresse,
-          heureMatinDebutH: BigInt(Number(slot.matinDebutH) || 0),
-          heureMatinDebutMin: BigInt(Number(slot.matinDebutMin) || 0),
-          heureMatinFinH: BigInt(Number(slot.matinFinH) || 0),
-          heureMatinFinMin: BigInt(Number(slot.matinFinMin) || 0),
-          heureApremDebutH: BigInt(Number(slot.apremDebutH) || 0),
-          heureApremDebutMin: BigInt(Number(slot.apremDebutMin) || 0),
-          heureApremFinH: BigInt(Number(slot.apremFinH) || 0),
-          heureApremFinMin: BigInt(Number(slot.apremFinMin) || 0),
-          description: slot.ficheDescription,
-          signatureClient: slot.signatureClient,
-          signatureIntervenant: slot.signatureIntervenant,
-          pieces: slot.piecesLignes.map((l) => ({
-            reference: l.reference,
-            article: l.article,
-            quantite: BigInt(Number(l.quantite) || 0),
-          })),
-          photos: slot.photos,
-          videos: slot.videos,
-          estAstreinte: slot.estAstreinte ?? false,
-          clientAbsent: slot.clientAbsent ?? false,
-        };
-        if (slot.ficheId) {
-          await actor.modifierIntervention(slot.ficheId, interventionInput);
-        } else {
-          await actor.ajouterIntervention(interventionInput);
-          // Persist the new ID so subsequent saves use modifierIntervention instead of creating duplicates
-          updatedSlots[slotIdx] = { ...updatedSlots[slotIdx], ficheId: newId };
-        }
-      }
-      // Update form state with the new ficheIds so re-saves are idempotent
-      setForm((f) => ({ ...f, interventionSlots: updatedSlots }));
 
       // Refresh the entries list after saving
       queryClient.invalidateQueries({ queryKey: ["timeEntries"] });
@@ -786,190 +481,6 @@ export default function Calendar() {
     }
   };
 
-  const addSlotPhoto = async (slotIdx: number, files: FileList | null) => {
-    if (!files) return;
-    const newBlobs: ExternalBlob[] = [];
-    const newUrls: string[] = [];
-    for (const file of Array.from(files)) {
-      if (!file.type.startsWith("image/")) continue;
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        newBlobs.push(ExternalBlob.fromBytes(new Uint8Array(arrayBuffer)));
-        newUrls.push(URL.createObjectURL(file));
-      } catch {
-        // ignore
-      }
-    }
-    setForm((f) => ({
-      ...f,
-      interventionSlots: f.interventionSlots.map((s, i) =>
-        i === slotIdx
-          ? {
-              ...s,
-              photos: [...s.photos, ...newBlobs],
-              photoUrls: [...s.photoUrls, ...newUrls],
-            }
-          : s,
-      ),
-    }));
-  };
-
-  const addSlotVideo = async (slotIdx: number, files: FileList | null) => {
-    if (!files) return;
-    const newBlobs: ExternalBlob[] = [];
-    const newUrls: string[] = [];
-    for (const file of Array.from(files)) {
-      if (!file.type.startsWith("video/")) continue;
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        newBlobs.push(ExternalBlob.fromBytes(new Uint8Array(arrayBuffer)));
-        newUrls.push(URL.createObjectURL(file));
-      } catch {
-        // ignore
-      }
-    }
-    setForm((f) => ({
-      ...f,
-      interventionSlots: f.interventionSlots.map((s, i) =>
-        i === slotIdx
-          ? {
-              ...s,
-              videos: [...s.videos, ...newBlobs],
-              videoUrls: [...s.videoUrls, ...newUrls],
-            }
-          : s,
-      ),
-    }));
-  };
-
-  const removeSlotPhoto = (slotIdx: number, photoIdx: number) => {
-    setForm((f) => ({
-      ...f,
-      interventionSlots: f.interventionSlots.map((s, i) =>
-        i === slotIdx
-          ? {
-              ...s,
-              photos: s.photos.filter((_, pi) => pi !== photoIdx),
-              photoUrls: s.photoUrls.filter((_, pi) => pi !== photoIdx),
-            }
-          : s,
-      ),
-    }));
-  };
-
-  const removeSlotVideo = (slotIdx: number, videoIdx: number) => {
-    setForm((f) => ({
-      ...f,
-      interventionSlots: f.interventionSlots.map((s, i) =>
-        i === slotIdx
-          ? {
-              ...s,
-              videos: s.videos.filter((_, vi) => vi !== videoIdx),
-              videoUrls: s.videoUrls.filter((_, vi) => vi !== videoIdx),
-            }
-          : s,
-      ),
-    }));
-  };
-
-  const addInterventionSlot = async () => {
-    const slot = defaultSlot();
-    // Auto-load saved intervenant signature
-    if (actor) {
-      try {
-        const sig = await actor.obtenirSignatureIntervenant();
-        if (sig) slot.signatureIntervenant = sig;
-      } catch (_) {
-        /* ignore */
-      }
-    }
-    setForm((f) => ({
-      ...f,
-      interventionSlots: [...f.interventionSlots, slot],
-    }));
-  };
-
-  const removeInterventionSlot = async (idx: number) => {
-    const slot = form.interventionSlots[idx];
-    // Delete from backend if the slot has been saved
-    if (slot?.ficheId && actor) {
-      try {
-        await (actor as any).supprimerIntervention(slot.ficheId);
-      } catch (_e) {
-        // ignore backend deletion errors
-      }
-    }
-    setForm((f) => ({
-      ...f,
-      interventionSlots: f.interventionSlots.filter((_, i) => i !== idx),
-    }));
-  };
-
-  const updateSlot = (
-    idx: number,
-    field: keyof Omit<InterventionSlotForm, "piecesLignes">,
-    value: string | boolean,
-  ) => {
-    setForm((f) => ({
-      ...f,
-      interventionSlots: f.interventionSlots.map((s, i) =>
-        i === idx ? { ...s, [field]: value } : s,
-      ),
-    }));
-  };
-
-  const addPieceLigne = (slotIdx: number) => {
-    setForm((f) => ({
-      ...f,
-      interventionSlots: f.interventionSlots.map((s, i) =>
-        i === slotIdx
-          ? {
-              ...s,
-              piecesLignes: [
-                ...s.piecesLignes,
-                { reference: "", article: "", quantite: "" },
-              ],
-            }
-          : s,
-      ),
-    }));
-  };
-
-  const removePieceLigne = (slotIdx: number, ligneIdx: number) => {
-    setForm((f) => ({
-      ...f,
-      interventionSlots: f.interventionSlots.map((s, i) =>
-        i === slotIdx
-          ? {
-              ...s,
-              piecesLignes: s.piecesLignes.filter((_, li) => li !== ligneIdx),
-            }
-          : s,
-      ),
-    }));
-  };
-
-  const updatePieceLigne = (
-    slotIdx: number,
-    ligneIdx: number,
-    field: keyof PieceLigne,
-    value: string,
-  ) => {
-    setForm((f) => ({
-      ...f,
-      interventionSlots: f.interventionSlots.map((s, i) =>
-        i === slotIdx
-          ? {
-              ...s,
-              piecesLignes: s.piecesLignes.map((l, li) =>
-                li === ligneIdx ? { ...l, [field]: value } : l,
-              ),
-            }
-          : s,
-      ),
-    }));
-  };
-
   const getDayKey = (date: Date) =>
     `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 
@@ -1006,8 +517,23 @@ export default function Calendar() {
     return acc + dur;
   }, 0);
 
+  const readOnlyBanner = readOnly ? (
+    <div
+      className="mb-4 px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium"
+      style={{
+        backgroundColor: "rgba(59,130,246,0.12)",
+        color: "#60a5fa",
+        border: "1px solid rgba(59,130,246,0.25)",
+      }}
+    >
+      <span>👁</span>
+      <span>Mode lecture seule — modifications désactivées</span>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-4 pb-6">
+      {readOnlyBanner}
       {/* Month navigation */}
       <div className="flex items-center justify-between">
         <button
@@ -1211,9 +737,6 @@ export default function Calendar() {
               const d = timestampToDate(entry.date);
               const normal = computeNormalHours(entry);
               const astreinte = computeAstreinteHours(entry);
-              const intervention = computeInterventionHours(
-                entry.interventionSlots,
-              );
               const colors = getDayTypeColors(entry.typeOfDay);
               return (
                 <div
@@ -1247,11 +770,6 @@ export default function Calendar() {
                         {astreinte > 0 && (
                           <span className="text-xs text-orange-500">
                             {formatMinutes(astreinte)} astreinte
-                          </span>
-                        )}
-                        {intervention > 0 && (
-                          <span className="text-xs text-foreground">
-                            {formatMinutes(intervention)} intervention
                           </span>
                         )}
                         {Number(entry.heuresRepas) > 0 && (
@@ -1528,572 +1046,6 @@ export default function Calendar() {
               </div>
             )}
 
-            {/* Intervention slots */}
-            {(form.typeOfDay === DayType.astreinte ||
-              form.typeOfDay === DayType.work) && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm font-medium">Interventions</Label>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={addInterventionSlot}
-                    type="button"
-                    data-ocid="calendar.add_intervention.button"
-                  >
-                    <Plus className="w-3 h-3 mr-1" /> Ajouter
-                  </Button>
-                </div>
-                {form.interventionSlots.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Aucune intervention
-                  </p>
-                )}
-                {form.interventionSlots.map((slot, idx) => (
-                  <div
-                    key={`slot-${String(idx)}`}
-                    className="mb-3 border border-orange-200 rounded-lg overflow-hidden"
-                  >
-                    {/* Slot header */}
-                    <div className="flex items-center justify-between p-2 bg-orange-50">
-                      <div className="flex items-center gap-2">
-                        {form.typeOfDay !== DayType.work && (
-                          <span className="text-xs font-bold text-orange-700 uppercase bg-orange-100 px-1.5 py-0.5 rounded">
-                            ASTREINTE
-                          </span>
-                        )}
-                        <span className="text-xs font-semibold text-orange-700">
-                          Intervention N°{idx + 1}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeInterventionSlot(idx)}
-                        data-ocid="calendar.remove_intervention.button"
-                        className="p-1 text-destructive hover:bg-destructive/10 rounded"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {/* Fiche client inline section — always visible */}
-                    <div className="p-3 bg-blue-50/60 border-t border-blue-100 space-y-3">
-                      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
-                        Fiche client
-                      </p>
-
-                      {/* Astreinte checkbox — only for non-work days */}
-                      {form.typeOfDay !== DayType.work && (
-                        <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded px-2 py-1.5">
-                          <input
-                            type="checkbox"
-                            id="estAstreinte-slot"
-                            checked={slot.estAstreinte ?? false}
-                            onChange={(e) =>
-                              updateSlot(idx, "estAstreinte", e.target.checked)
-                            }
-                            className="w-4 h-4 accent-orange-500"
-                          />
-                          <label
-                            htmlFor="estAstreinte-slot"
-                            className="text-xs font-semibold text-orange-700 cursor-pointer select-none"
-                          >
-                            Intervention d&apos;astreinte
-                          </label>
-                          {slot.estAstreinte && (
-                            <span className="ml-auto text-xs bg-orange-500 text-white px-1.5 py-0.5 rounded-full font-bold">
-                              ASTREINTE
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Client nom autocomplete */}
-                      <div>
-                        <Label className="text-xs text-muted-foreground mb-1 block">
-                          Nom client
-                        </Label>
-                        <ClientAutocomplete
-                          value={slot.clientNom}
-                          onChange={(nom, adresse) => {
-                            updateSlot(idx, "clientNom", nom);
-                            if (adresse !== undefined)
-                              updateSlot(idx, "clientAdresse", adresse);
-                          }}
-                          clients={clients}
-                        />
-                      </div>
-
-                      {/* Adresse */}
-                      <div>
-                        <Label className="text-xs text-muted-foreground mb-1 block">
-                          Adresse
-                        </Label>
-                        <Input
-                          value={slot.clientAdresse}
-                          onChange={(e) =>
-                            updateSlot(idx, "clientAdresse", e.target.value)
-                          }
-                          placeholder="Adresse du client"
-                          className="text-sm"
-                        />
-                      </div>
-
-                      {/* Horaires matin / après-midi */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-xs text-muted-foreground mb-1 block">
-                            Matin début
-                          </Label>
-                          <div className="flex gap-1">
-                            <Input
-                              type="number"
-                              min="0"
-                              max="23"
-                              placeholder="HH"
-                              value={slot.matinDebutH}
-                              onChange={(e) =>
-                                updateSlot(idx, "matinDebutH", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                            <span className="self-center text-xs text-muted-foreground font-semibold">
-                              h
-                            </span>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="59"
-                              placeholder="MM"
-                              value={slot.matinDebutMin}
-                              onChange={(e) =>
-                                updateSlot(idx, "matinDebutMin", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground mb-1 block">
-                            Matin fin
-                          </Label>
-                          <div className="flex gap-1">
-                            <Input
-                              type="number"
-                              min="0"
-                              max="23"
-                              placeholder="HH"
-                              value={slot.matinFinH}
-                              onChange={(e) =>
-                                updateSlot(idx, "matinFinH", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                            <span className="self-center text-xs text-muted-foreground font-semibold">
-                              h
-                            </span>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="59"
-                              placeholder="MM"
-                              value={slot.matinFinMin}
-                              onChange={(e) =>
-                                updateSlot(idx, "matinFinMin", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground mb-1 block">
-                            Après-midi début
-                          </Label>
-                          <div className="flex gap-1">
-                            <Input
-                              type="number"
-                              min="0"
-                              max="23"
-                              placeholder="HH"
-                              value={slot.apremDebutH}
-                              onChange={(e) =>
-                                updateSlot(idx, "apremDebutH", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                            <span className="self-center text-xs text-muted-foreground font-semibold">
-                              h
-                            </span>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="59"
-                              placeholder="MM"
-                              value={slot.apremDebutMin}
-                              onChange={(e) =>
-                                updateSlot(idx, "apremDebutMin", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground mb-1 block">
-                            Après-midi fin
-                          </Label>
-                          <div className="flex gap-1">
-                            <Input
-                              type="number"
-                              min="0"
-                              max="23"
-                              placeholder="HH"
-                              value={slot.apremFinH}
-                              onChange={(e) =>
-                                updateSlot(idx, "apremFinH", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                            <span className="self-center text-xs text-muted-foreground font-semibold">
-                              h
-                            </span>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="59"
-                              placeholder="MM"
-                              value={slot.apremFinMin}
-                              onChange={(e) =>
-                                updateSlot(idx, "apremFinMin", e.target.value)
-                              }
-                              className="w-12 text-center px-1 text-sm"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Description */}
-                      <div>
-                        <Label className="text-xs text-muted-foreground mb-1 block">
-                          Description
-                        </Label>
-                        <div className="flex items-start gap-1">
-                          <Textarea
-                            value={slot.ficheDescription}
-                            onChange={(e) =>
-                              updateSlot(
-                                idx,
-                                "ficheDescription",
-                                e.target.value,
-                              )
-                            }
-                            placeholder="Description de l'intervention..."
-                            rows={2}
-                            className="text-sm flex-1"
-                            data-ocid="calendar.fiche_description.textarea"
-                          />
-                          <VoiceInput
-                            value={slot.ficheDescription}
-                            onChange={(val) =>
-                              updateSlot(idx, "ficheDescription", val)
-                            }
-                            className="mt-1"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Pièces utilisées */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <Label className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
-                            Pièces utilisées
-                          </Label>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            type="button"
-                            onClick={() => addPieceLigne(idx)}
-                            data-ocid="calendar.add_piece.button"
-                            className="h-6 px-2 text-xs"
-                          >
-                            <Plus className="w-3 h-3 mr-1" /> Ajouter
-                          </Button>
-                        </div>
-                        {slot.piecesLignes.length === 0 && (
-                          <p
-                            className="text-xs text-muted-foreground"
-                            data-ocid="calendar.pieces.empty_state"
-                          >
-                            Aucune pièce
-                          </p>
-                        )}
-                        {slot.piecesLignes.map((ligne, ligneIdx) => (
-                          <div
-                            key={`piece-${String(idx)}-${String(ligneIdx)}`}
-                            className="flex items-center gap-1 mb-2"
-                            data-ocid={`calendar.pieces.item.${ligneIdx + 1}`}
-                          >
-                            <Input
-                              placeholder="Référence"
-                              value={ligne.reference}
-                              onChange={(e) =>
-                                updatePieceLigne(
-                                  idx,
-                                  ligneIdx,
-                                  "reference",
-                                  e.target.value,
-                                )
-                              }
-                              className="text-xs flex-1 min-w-0"
-                            />
-                            <Input
-                              placeholder="Article"
-                              value={ligne.article}
-                              onChange={(e) =>
-                                updatePieceLigne(
-                                  idx,
-                                  ligneIdx,
-                                  "article",
-                                  e.target.value,
-                                )
-                              }
-                              className="text-xs flex-1 min-w-0"
-                            />
-                            <Input
-                              type="number"
-                              placeholder="Qté"
-                              value={ligne.quantite}
-                              onChange={(e) =>
-                                updatePieceLigne(
-                                  idx,
-                                  ligneIdx,
-                                  "quantite",
-                                  e.target.value,
-                                )
-                              }
-                              className="text-xs w-14 text-center px-1"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removePieceLigne(idx, ligneIdx)}
-                              data-ocid="calendar.pieces.delete_button"
-                              className="p-1 text-destructive hover:bg-destructive/10 rounded flex-shrink-0"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Photos & Vidéos */}
-                      <div>
-                        <Label className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2 block">
-                          Photos &amp; Vidéos
-                        </Label>
-                        {/* Thumbnails */}
-                        {(slot.photoUrls.length > 0 ||
-                          slot.videoUrls.length > 0) && (
-                          <div className="flex flex-wrap gap-2 mb-2">
-                            {slot.photoUrls.map((url, pi) => (
-                              <div
-                                key={`photo-slot-${pi}-${url}`}
-                                className="relative w-16 h-16 rounded overflow-hidden border border-border"
-                              >
-                                <button
-                                  type="button"
-                                  className="w-full h-full"
-                                  onClick={() => {
-                                    const items: MediaItem[] = [
-                                      ...slot.photoUrls.map((u) => ({
-                                        type: "photo" as const,
-                                        url: u,
-                                      })),
-                                      ...slot.videoUrls.map((u) => ({
-                                        type: "video" as const,
-                                        url: u,
-                                      })),
-                                    ];
-                                    setMediaViewer({ items, index: pi });
-                                  }}
-                                >
-                                  <img
-                                    src={url}
-                                    alt=""
-                                    className="w-full h-full object-cover"
-                                  />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeSlotPhoto(idx, pi)}
-                                  className="absolute top-0 right-0 p-0.5 bg-black/60 text-white rounded-bl"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ))}
-                            {slot.videoUrls.map((url, vi) => (
-                              <div
-                                key={`video-slot-${vi}-${url}`}
-                                className="relative w-20 h-16 rounded overflow-hidden border border-border bg-muted flex items-center justify-center"
-                              >
-                                <button
-                                  type="button"
-                                  className="w-full h-full flex items-center justify-center"
-                                  onClick={() => {
-                                    const items: MediaItem[] = [
-                                      ...slot.photoUrls.map((u) => ({
-                                        type: "photo" as const,
-                                        url: u,
-                                      })),
-                                      ...slot.videoUrls.map((u) => ({
-                                        type: "video" as const,
-                                        url: u,
-                                      })),
-                                    ];
-                                    setMediaViewer({
-                                      items,
-                                      index: slot.photoUrls.length + vi,
-                                    });
-                                  }}
-                                >
-                                  <Video className="w-6 h-6 text-muted-foreground" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeSlotVideo(idx, vi)}
-                                  className="absolute top-0 right-0 p-0.5 bg-black/60 text-white rounded-bl"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        <div className="flex gap-2">
-                          <label className="cursor-pointer">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              multiple
-                              className="hidden"
-                              onChange={(e) =>
-                                addSlotPhoto(idx, e.target.files)
-                              }
-                            />
-                            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border bg-background hover:bg-muted transition-colors">
-                              <ImageIcon className="w-3 h-3" /> Photo
-                            </span>
-                          </label>
-                          <label className="cursor-pointer">
-                            <input
-                              type="file"
-                              accept="video/*"
-                              multiple
-                              className="hidden"
-                              onChange={(e) =>
-                                addSlotVideo(idx, e.target.files)
-                              }
-                            />
-                            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border border-border bg-background hover:bg-muted transition-colors">
-                              <Video className="w-3 h-3" /> Vidéo
-                            </span>
-                          </label>
-                        </div>
-                      </div>
-
-                      {/* Signatures */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">
-                            Signature client
-                          </span>
-                          <label className="flex items-center gap-2 cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              checked={slot.clientAbsent ?? false}
-                              onChange={(e) => {
-                                updateSlot(
-                                  idx,
-                                  "clientAbsent",
-                                  e.target.checked,
-                                );
-                                if (e.target.checked)
-                                  updateSlot(idx, "signatureClient", "");
-                              }}
-                              className="w-4 h-4 accent-orange-500"
-                            />
-                            <span className="flex items-center gap-1 text-xs text-orange-700 font-medium">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                aria-label="Client absent"
-                                role="img"
-                              >
-                                <title>Client absent</title>
-                                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                                <circle cx="9" cy="7" r="4" />
-                                <line x1="17" y1="8" x2="23" y2="14" />
-                                <line x1="23" y1="8" x2="17" y2="14" />
-                              </svg>
-                              Client absent
-                            </span>
-                          </label>
-                        </div>
-                        {(slot.clientAbsent ?? false) ? (
-                          <div className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 py-4">
-                            <span className="text-xs font-semibold text-orange-600">
-                              Client absent — pas de signature
-                            </span>
-                          </div>
-                        ) : (
-                          <SignaturePad
-                            label=""
-                            value={slot.signatureClient}
-                            onChange={(v) =>
-                              updateSlot(idx, "signatureClient", v)
-                            }
-                          />
-                        )}
-                      </div>
-                      <SignaturePad
-                        label="Signature intervenant"
-                        value={slot.signatureIntervenant}
-                        onChange={(v) => {
-                          updateSlot(idx, "signatureIntervenant", v);
-                          if (actor && v) {
-                            actor
-                              .sauvegarderSignatureIntervenant(v)
-                              .catch(() => {});
-                          }
-                        }}
-                      />
-                      <div
-                        style={{
-                          marginTop: "20px",
-                          paddingTop: "10px",
-                          borderTop: "1px solid #e5e7eb",
-                          textAlign: "center",
-                          fontSize: "11px",
-                          color: "#9ca3af",
-                        }}
-                      >
-                        Z.I. du Martinet — 15300 Murat
-                        <br />
-                        <br />
-                        04 71 20 12 22
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
             {/* Description */}
             <div>
               <Label className="text-sm font-medium mb-1 block">
@@ -2169,13 +1121,6 @@ export default function Calendar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {mediaViewer && (
-        <MediaViewer
-          media={mediaViewer.items}
-          initialIndex={mediaViewer.index}
-          onClose={() => setMediaViewer(null)}
-        />
-      )}
     </div>
   );
 }

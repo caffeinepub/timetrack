@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   MessageSquare,
   Receipt,
+  Shield,
   Users,
   UtensilsCrossed,
 } from "lucide-react";
@@ -14,6 +15,8 @@ import type { Page } from "../App";
 interface DesktopSideNavProps {
   currentPage: Page;
   onNavigate: (page: Page) => void;
+  visiblePages?: Page[];
+  isAdmin?: boolean;
 }
 
 const NAV_ITEMS: { page: Page; label: string; Icon: React.ElementType }[] = [
@@ -30,7 +33,13 @@ const NAV_ITEMS: { page: Page; label: string; Icon: React.ElementType }[] = [
 export default function DesktopSideNav({
   currentPage,
   onNavigate,
+  visiblePages,
+  isAdmin = false,
 }: DesktopSideNavProps) {
+  const filteredItems = visiblePages
+    ? NAV_ITEMS.filter((item) => visiblePages.includes(item.page))
+    : NAV_ITEMS;
+
   return (
     <aside
       className="hidden md:flex flex-col w-52 flex-shrink-0 sticky top-[68px] self-start h-[calc(100vh-68px)] overflow-y-auto"
@@ -40,7 +49,7 @@ export default function DesktopSideNav({
       }}
     >
       <nav className="flex flex-col gap-1 p-3 pt-4">
-        {NAV_ITEMS.map(({ page, label, Icon }) => {
+        {filteredItems.map(({ page, label, Icon }) => {
           const isActive = currentPage === page;
           return (
             <button
@@ -69,6 +78,41 @@ export default function DesktopSideNav({
             </button>
           );
         })}
+
+        {isAdmin && (
+          <>
+            <div
+              className="my-2 h-px"
+              style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
+            />
+            <button
+              type="button"
+              onClick={() => onNavigate("profil")}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all text-left w-full"
+              style={{
+                backgroundColor:
+                  currentPage === "profil"
+                    ? "rgba(234,88,12,0.15)"
+                    : "transparent",
+                color:
+                  currentPage === "profil"
+                    ? "#ea580c"
+                    : "rgba(255,255,255,0.65)",
+                borderLeft:
+                  currentPage === "profil"
+                    ? "3px solid #ea580c"
+                    : "3px solid transparent",
+              }}
+              data-ocid="nav.profil.link"
+            >
+              <Shield
+                className="w-5 h-5 flex-shrink-0"
+                strokeWidth={currentPage === "profil" ? 2.4 : 1.7}
+              />
+              <span>Administration</span>
+            </button>
+          </>
+        )}
       </nav>
     </aside>
   );

@@ -52,7 +52,9 @@ const MONTHS = [
   "Décembre",
 ];
 
-export default function Dashboard() {
+export default function Dashboard({
+  readOnly = false,
+}: { readOnly?: boolean }) {
   const { identity } = useInternetIdentity();
   const { data: allEntries = [], isLoading } = useGetTimeEntries();
 
@@ -241,8 +243,23 @@ export default function Dashboard() {
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const readOnlyBanner = readOnly ? (
+        <div
+          className="mb-4 px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium"
+          style={{
+            backgroundColor: "rgba(59,130,246,0.12)",
+            color: "#60a5fa",
+            border: "1px solid rgba(59,130,246,0.25)",
+          }}
+        >
+          <span>👁</span>
+          <span>Mode lecture seule — modifications désactivées</span>
+        </div>
+      ) : null;
+
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-lg text-sm">
+          {readOnlyBanner}
           <p className="font-semibold text-foreground mb-1">{label}</p>
           {payload.map((p: any) => (
             <p key={p.name} style={{ color: p.color }}>

@@ -126,7 +126,9 @@ function exportMultiplePdf(interventions: any[]) {
 
 type StatusFilter = "all" | "validated" | "pending";
 
-export default function Facturation() {
+export default function Facturation({
+  readOnly = false,
+}: { readOnly?: boolean }) {
   const { actor } = useActor();
   const queryClient = useQueryClient();
 
@@ -156,6 +158,7 @@ export default function Facturation() {
     queryKey: ["allProfilesFact"],
     queryFn: async () => {
       if (!actor) return [];
+
       return (actor as any).obtenirTousLesProfils();
     },
     enabled: !!actor,
@@ -381,8 +384,23 @@ export default function Facturation() {
     );
   }
 
+  const readOnlyBanner = readOnly ? (
+    <div
+      className="mb-4 px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium"
+      style={{
+        backgroundColor: "rgba(59,130,246,0.12)",
+        color: "#60a5fa",
+        border: "1px solid rgba(59,130,246,0.25)",
+      }}
+    >
+      <span>👁</span>
+      <span>Mode lecture seule — modifications désactivées</span>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-4 pb-6">
+      {readOnlyBanner}
       <div className="flex items-center justify-between">
         <h2
           className="text-lg font-semibold"

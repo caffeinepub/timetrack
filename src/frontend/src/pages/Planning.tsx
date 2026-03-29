@@ -35,6 +35,7 @@ import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Page } from "../App";
 import type { Client, InterventionInput, PlanningItem } from "../backend";
+import { PlanningInterventionModal } from "../components/PlanningInterventionModal";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
@@ -195,8 +196,9 @@ function ClientInfoCard({ client }: { client: Client }) {
 }
 
 export default function Planning({
-  onNavigate,
-}: { onNavigate?: (page: Page) => void }) {
+  onNavigate: _onNavigate,
+  readOnly = false,
+}: { onNavigate?: (page: Page) => void; readOnly?: boolean }) {
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
 
@@ -210,6 +212,8 @@ export default function Planning({
   const [editMissionDescription, setEditMissionDescription] = useState("");
   const [editMissionDates, setEditMissionDates] = useState<string[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [showInterventionModal, setShowInterventionModal] =
+    useState<DayItem | null>(null);
   const [activeTab, setActiveTab] = useState<"semaine" | "mois">("semaine");
 
   // Filters
@@ -358,6 +362,7 @@ export default function Planning({
 
   const isOwner = (item: DayItem) => {
     if (!callerPrincipalStr) return false;
+
     return (
       item.createur?.toString() === callerPrincipalStr ||
       item.destinataire?.toString() === callerPrincipalStr
@@ -387,75 +392,6 @@ export default function Planning({
       toast.success("Mission supprimée");
     } catch {
       toast.error("Erreur lors de la suppression");
-    }
-  };
-
-  const handleAccept = async (item: DayItem) => {
-    if (!actor || !callerPrincipal) return;
-    try {
-      // 1. Accept the mission (changes status to "en_cours")
-      await actor.accepterPlanningItem(item.id);
-
-      // 2. Create one intervention per date in the destinataire's calendar
-      const clientAdresse = item.clientAdresse ?? "";
-      for (const d of item.dates || []) {
-        const dateStr = toDateStr(d);
-        const ebaucheId = `ebauche-${item.id}-${dateStr}`;
-        const input: InterventionInput = {
-          id: ebaucheId,
-          date: d,
-          clientNom: item.clientNom,
-          clientAdresse,
-          description: item.description || "Mission planifiée",
-          heureMatinDebutH: BigInt(0),
-          heureMatinDebutMin: BigInt(0),
-          heureMatinFinH: BigInt(0),
-          heureMatinFinMin: BigInt(0),
-          heureApremDebutH: BigInt(0),
-          heureApremDebutMin: BigInt(0),
-          heureApremFinH: BigInt(0),
-          heureApremFinMin: BigInt(0),
-          estAstreinte: false,
-          clientAbsent: false,
-          signatureIntervenant: "",
-          signatureClient: "",
-          pieces: [],
-          photos: [],
-          videos: [],
-        };
-        await actor.ajouterInterventionPourUtilisateur(
-          item.destinataire,
-          input,
-        );
-      }
-
-      // 3. Store in localStorage for Calendar pre-fill
-      const firstDateStr =
-        item.dates && item.dates.length > 0
-          ? toDateStr(item.dates[0])
-          : new Date().toISOString().slice(0, 10);
-      localStorage.setItem(
-        "calendarMissionDraft",
-        JSON.stringify({
-          missionId: item.id,
-          clientNom: item.clientNom,
-          clientAdresse,
-          description: item.description ?? "",
-          date: firstDateStr,
-          allDates: (item.dates || []).map(toDateStr),
-        }),
-      );
-      queryClient.invalidateQueries({ queryKey: ["planningItems"] });
-      queryClient.invalidateQueries({ queryKey: ["journees"] });
-      toast.success(
-        "Mission acceptée — interventions créées dans votre Calendrier",
-      );
-      if (onNavigate) onNavigate("calendar");
-    } catch (e: any) {
-      const msg = e?.message ?? String(e);
-      toast.error(
-        `Erreur lors de l'acceptation de la mission${msg ? `: ${msg}` : ""}`,
-      );
     }
   };
 
@@ -608,8 +544,23 @@ export default function Planning({
     }
   };
 
+  const readOnlyBanner = readOnly ? (
+    <div
+      className="mb-4 px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium"
+      style={{
+        backgroundColor: "rgba(59,130,246,0.12)",
+        color: "#60a5fa",
+        border: "1px solid rgba(59,130,246,0.25)",
+      }}
+    >
+      <span>👁</span>
+      <span>Mode lecture seule — modifications désactivées</span>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-4">
+      {readOnlyBanner}
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1
@@ -728,6 +679,239 @@ export default function Planning({
             <SelectItem value="execute">Exécuté</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      {/* PDF Export buttons */}
+      <div className="flex gap-2 flex-wrap">
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 text-xs gap-1 border-orange-300 text-orange-700 hover:bg-orange-50"
+          onClick={async () => {
+            try {
+              // Load jsPDF from CDN if not available
+              if (!(window as any).jspdf) {
+                await new Promise<void>((resolve, reject) => {
+                  const s = document.createElement("script");
+                  s.src =
+                    "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+                  s.onload = () => resolve();
+                  s.onerror = () => reject(new Error("Failed to load jsPDF"));
+                  document.head.appendChild(s);
+                });
+              }
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const jsPDF = (window as any).jspdf?.jsPDF;
+              if (!jsPDF) throw new Error("jsPDF not available");
+              const doc = new jsPDF();
+              const today = new Date();
+              const todayStr2 = today.toISOString().slice(0, 10);
+              const dayItems = dateMap.get(selectedDay ?? todayStr2) || [];
+              const exportDate = selectedDay ?? todayStr2;
+              const filterName =
+                filterUserPrincipal !== "all"
+                  ? ((profiles as [any, any][]).find(
+                      ([p]) => p.toString() === filterUserPrincipal,
+                    )?.[1]?.name ?? "Tous")
+                  : "Tous";
+              doc.setFontSize(14);
+              doc.setFont("helvetica", "bold");
+              doc.text("Vial Traite Service — Planning", 105, 18, {
+                align: "center",
+              });
+              doc.setFontSize(10);
+              doc.setFont("helvetica", "normal");
+              doc.text(
+                `Date : ${new Date(`${exportDate}T12:00:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`,
+                14,
+                28,
+              );
+              doc.text(`Intervenant : ${filterName}`, 14, 35);
+              doc.setDrawColor(200, 200, 200);
+              doc.line(14, 40, 196, 40);
+              let y = 48;
+              if (dayItems.length === 0) {
+                doc.setFontSize(10);
+                doc.text("Aucune mission ce jour.", 14, y);
+              } else {
+                for (const item of dayItems) {
+                  doc.setFontSize(10);
+                  doc.setFont("helvetica", "bold");
+                  doc.text(
+                    `${item.clientNom || "Sans client"} — ${item.typeMission === "depannage" ? "Dépannage" : item.typeMission === "controle" ? "Contrôle" : "Chantier"}`,
+                    14,
+                    y,
+                  );
+                  y += 6;
+                  doc.setFont("helvetica", "normal");
+                  doc.text(
+                    `Statut : ${item.statut === "execute" ? "Exécuté" : item.statut === "en_cours" ? "En cours" : "À réaliser"}`,
+                    18,
+                    y,
+                  );
+                  y += 5;
+                  doc.text(`Intervenant : ${item.nomDestinataire}`, 18, y);
+                  y += 5;
+                  if (item.description) {
+                    const lines = doc.splitTextToSize(
+                      `Description : ${item.description}`,
+                      170,
+                    );
+                    doc.text(lines, 18, y);
+                    y += lines.length * 5;
+                  }
+                  y += 4;
+                  if (y > 270) {
+                    doc.addPage();
+                    y = 20;
+                  }
+                }
+              }
+              doc.setFontSize(9);
+              doc.setTextColor(150, 150, 150);
+              doc.text(
+                "Z.I. du Martinet — 15300 Murat  |  04 71 20 12 22",
+                105,
+                285,
+                { align: "center" },
+              );
+              doc.save(`planning-jour-${exportDate}.pdf`);
+            } catch {
+              toast.error("Erreur lors de l'export PDF");
+            }
+          }}
+          data-ocid="planning.pdf_jour.button"
+        >
+          📄 PDF Jour
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 text-xs gap-1 border-blue-300 text-blue-700 hover:bg-blue-50"
+          onClick={async () => {
+            try {
+              // Load jsPDF from CDN if not available
+              if (!(window as any).jspdf) {
+                await new Promise<void>((resolve, reject) => {
+                  const s = document.createElement("script");
+                  s.src =
+                    "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+                  s.onload = () => resolve();
+                  s.onerror = () => reject(new Error("Failed to load jsPDF"));
+                  document.head.appendChild(s);
+                });
+              }
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const jsPDF = (window as any).jspdf?.jsPDF;
+              if (!jsPDF) throw new Error("jsPDF not available");
+              const doc = new jsPDF();
+              const today = new Date();
+              const getMonday2 = (d: Date) => {
+                const day = d.getDay();
+                const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+                return new Date(d.getFullYear(), d.getMonth(), diff);
+              };
+              const monday = getMonday2(today);
+              const weekDays2 = Array.from({ length: 5 }, (_, i) => {
+                const d = new Date(monday);
+                d.setDate(monday.getDate() + i);
+                return d;
+              });
+              const filterName =
+                filterUserPrincipal !== "all"
+                  ? ((profiles as [any, any][]).find(
+                      ([p]) => p.toString() === filterUserPrincipal,
+                    )?.[1]?.name ?? "Tous")
+                  : "Tous";
+              const weekStr = `${weekDays2[0].toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} — ${weekDays2[4].toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}`;
+              doc.setFontSize(14);
+              doc.setFont("helvetica", "bold");
+              doc.text("Vial Traite Service — Planning Semaine", 105, 18, {
+                align: "center",
+              });
+              doc.setFontSize(10);
+              doc.setFont("helvetica", "normal");
+              doc.text(`Semaine : ${weekStr}`, 14, 28);
+              doc.text(`Intervenant : ${filterName}`, 14, 35);
+              doc.setDrawColor(200, 200, 200);
+              doc.line(14, 40, 196, 40);
+              let y = 48;
+              for (const day of weekDays2) {
+                const ds = day.toISOString().slice(0, 10);
+                const dayMissions = dateMap.get(ds) || [];
+                doc.setFontSize(11);
+                doc.setFont("helvetica", "bold");
+                doc.text(
+                  day.toLocaleDateString("fr-FR", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  }),
+                  14,
+                  y,
+                );
+                y += 6;
+                if (dayMissions.length === 0) {
+                  doc.setFontSize(9);
+                  doc.setFont("helvetica", "italic");
+                  doc.text("Aucune mission", 18, y);
+                  y += 5;
+                } else {
+                  for (const item of dayMissions) {
+                    doc.setFontSize(9);
+                    doc.setFont("helvetica", "bold");
+                    doc.text(
+                      `• ${item.clientNom || "Sans client"} (${item.typeMission === "depannage" ? "Dépannage" : item.typeMission === "controle" ? "Contrôle" : "Chantier"}) — ${item.nomDestinataire}`,
+                      18,
+                      y,
+                    );
+                    y += 5;
+                    doc.setFont("helvetica", "normal");
+                    doc.text(
+                      `  Statut : ${item.statut === "execute" ? "Exécuté" : item.statut === "en_cours" ? "En cours" : "À réaliser"}`,
+                      18,
+                      y,
+                    );
+                    y += 4;
+                    if (y > 270) {
+                      doc.addPage();
+                      y = 20;
+                    }
+                  }
+                }
+                y += 4;
+                doc.setDrawColor(230, 230, 230);
+                doc.line(14, y, 196, y);
+                y += 5;
+                if (y > 265) {
+                  doc.addPage();
+                  y = 20;
+                }
+              }
+              doc.setFontSize(9);
+              doc.setTextColor(150, 150, 150);
+              doc.text(
+                "Z.I. du Martinet — 15300 Murat  |  04 71 20 12 22",
+                105,
+                285,
+                { align: "center" },
+              );
+              const weekNum = Math.ceil(
+                (monday.getTime() -
+                  new Date(monday.getFullYear(), 0, 1).getTime()) /
+                  604800000,
+              );
+              doc.save(
+                `planning-semaine-${monday.getFullYear()}-S${weekNum}.pdf`,
+              );
+            } catch {
+              toast.error("Erreur lors de l'export PDF");
+            }
+          }}
+          data-ocid="planning.pdf_semaine.button"
+        >
+          📄 PDF Semaine
+        </Button>
       </div>
 
       {activeTab === "mois" && (
@@ -946,18 +1130,25 @@ export default function Planning({
                           )}
                         </div>
 
-                        {item.destinataire?.toString() === callerPrincipalStr &&
-                          item.statut === "a_realiser" && (
-                            <Button
-                              size="sm"
-                              className="h-7 px-2 text-xs text-white font-semibold"
-                              style={{ backgroundColor: "#16a34a" }}
-                              onClick={() => handleAccept(item)}
-                              data-ocid={`planning.accept_button.${idx + 1}`}
-                            >
-                              ✓ Accepter
-                            </Button>
-                          )}
+                        {item.destinataire?.toString() ===
+                          callerPrincipalStr && (
+                          <Button
+                            size="sm"
+                            className="h-7 px-2 text-xs text-white font-semibold"
+                            style={{
+                              backgroundColor:
+                                item.statut === "execute"
+                                  ? "#16a34a"
+                                  : "#f97316",
+                            }}
+                            onClick={() => setShowInterventionModal(item)}
+                            data-ocid={`planning.accept_button.${idx + 1}`}
+                          >
+                            {item.statut === "execute"
+                              ? "✏️ Modifier la fiche"
+                              : "📋 Remplir la fiche"}
+                          </Button>
+                        )}
                         {isOwner(item) && (
                           <div className="flex flex-col gap-1 flex-shrink-0">
                             <div className="flex gap-1">
@@ -1024,7 +1215,8 @@ export default function Planning({
           queryClient={queryClient}
           callerPrincipal={callerPrincipal}
           handleDelete={handleDelete}
-          handleAccept={handleAccept}
+          onRemplirFiche={(item) => setShowInterventionModal(item)}
+          filterUserPrincipal={filterUserPrincipal}
         />
       )}
 
@@ -1183,6 +1375,26 @@ export default function Planning({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {showInterventionModal && (
+        <PlanningInterventionModal
+          open={!!showInterventionModal}
+          onClose={() => setShowInterventionModal(null)}
+          missionId={showInterventionModal.id}
+          destinatairePrincipal={showInterventionModal.destinataire}
+          interventionId={
+            showInterventionModal.statut === "execute" ? "lookup" : undefined
+          }
+          prefill={{
+            clientNom: showInterventionModal.clientNom,
+            clientAdresse: showInterventionModal.clientAdresse ?? "",
+            description: showInterventionModal.description ?? "",
+            date:
+              showInterventionModal.dates?.[0] ??
+              BigInt(Date.now()) * BigInt(1_000_000),
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1197,7 +1409,8 @@ interface VueSemaineProps {
   queryClient: any;
   callerPrincipal: any;
   handleDelete: (id: string) => Promise<void>;
-  handleAccept: (item: DayItem) => Promise<void>;
+  onRemplirFiche: (item: DayItem) => void;
+  filterUserPrincipal?: string;
 }
 
 function VueSemaine({
@@ -1209,7 +1422,8 @@ function VueSemaine({
   queryClient,
   callerPrincipal,
   handleDelete,
-  handleAccept,
+  onRemplirFiche,
+  filterUserPrincipal = "all",
 }: VueSemaineProps) {
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
@@ -1444,401 +1658,413 @@ function VueSemaine({
                 </td>
               </tr>
             ) : (
-              profiles.map(([principal, profile], rowIdx) => {
-                const principalStr = principal.toString();
-                return (
-                  <tr key={principalStr} className="border-t border-gray-100">
-                    <td
-                      className="px-3 py-2 font-semibold text-sm border-r border-gray-200 bg-gray-50 align-top"
-                      style={{ color: "#0f1e4a" }}
-                      data-ocid={`planning.semaine.row.${rowIdx + 1}`}
-                    >
-                      {profile.name || "Utilisateur"}
-                    </td>
-                    {weekDays.map((d) => {
-                      const ds = d.toISOString().slice(0, 10);
-                      const isToday = ds === todayStr;
-                      const cellItems = getCellItems(principalStr, ds);
-                      const isActive =
-                        activeCell?.userPrincipal === principalStr &&
-                        activeCell?.dateStr === ds;
-                      const isEditing =
-                        editItem !== null &&
-                        cellItems.some((it) => it.id === editItem?.id);
+              profiles
+                .filter(
+                  ([principal]) =>
+                    filterUserPrincipal === "all" ||
+                    principal.toString() === filterUserPrincipal,
+                )
+                .map(([principal, profile], rowIdx) => {
+                  const principalStr = principal.toString();
+                  return (
+                    <tr key={principalStr} className="border-t border-gray-100">
+                      <td
+                        className="px-3 py-2 font-semibold text-sm border-r border-gray-200 bg-gray-50 align-top"
+                        style={{ color: "#0f1e4a" }}
+                        data-ocid={`planning.semaine.row.${rowIdx + 1}`}
+                      >
+                        {profile.name || "Utilisateur"}
+                      </td>
+                      {weekDays.map((d) => {
+                        const ds = d.toISOString().slice(0, 10);
+                        const isToday = ds === todayStr;
+                        const cellItems = getCellItems(principalStr, ds);
+                        const isActive =
+                          activeCell?.userPrincipal === principalStr &&
+                          activeCell?.dateStr === ds;
+                        const isEditing =
+                          editItem !== null &&
+                          cellItems.some((it) => it.id === editItem?.id);
 
-                      return (
-                        <td
-                          key={ds}
-                          className={[
-                            "px-2 py-2 align-top border-r border-gray-100 last:border-r-0 min-w-[130px]",
-                            isToday ? "bg-orange-50" : "bg-white",
-                          ].join(" ")}
-                          style={{ verticalAlign: "top" }}
-                        >
-                          {/* Inline create form */}
-                          {isActive && !isEditing && (
-                            <div className="bg-white border border-orange-200 rounded-lg p-2 shadow-md space-y-2">
-                              <div>
-                                <span className="text-xs text-gray-500 block mb-0.5">
-                                  Client
-                                </span>
-                                <ClientAutocomplete
-                                  value={createForm.clientNom}
-                                  clients={clients}
-                                  onSelect={(c) => {
-                                    setSelectedClient(c);
-                                    setCreateForm((f) => ({
-                                      ...f,
-                                      clientNom: c.nom,
-                                    }));
-                                  }}
-                                  onManual={(name) => {
-                                    setSelectedClient(null);
-                                    setCreateForm((f) => ({
-                                      ...f,
-                                      clientNom: name,
-                                    }));
-                                  }}
-                                />
-                                {selectedClient && (
-                                  <ClientInfoCard client={selectedClient} />
-                                )}
-                              </div>
-                              <div>
-                                <span className="text-xs text-gray-500 block mb-0.5">
-                                  Type
-                                </span>
-                                <select
-                                  className="w-full text-xs border border-gray-200 rounded px-2 py-1.5"
-                                  value={createForm.typeMission}
-                                  onChange={(e) =>
-                                    setCreateForm((f) => ({
-                                      ...f,
-                                      typeMission: e.target.value,
-                                    }))
-                                  }
-                                >
-                                  <option value="depannage">Dépannage</option>
-                                  <option value="controle">Contrôle</option>
-                                  <option value="chantier">Chantier</option>
-                                </select>
-                              </div>
-                              <div>
-                                <span className="text-xs text-gray-500 block mb-0.5">
-                                  Description
-                                </span>
-                                <textarea
-                                  className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 resize-none"
-                                  rows={2}
-                                  value={createForm.description}
-                                  onChange={(e) =>
-                                    setCreateForm((f) => ({
-                                      ...f,
-                                      description: e.target.value,
-                                    }))
-                                  }
-                                  placeholder="Description..."
-                                />
-                              </div>
-                              <div className="flex gap-1">
-                                <button
-                                  type="button"
-                                  disabled={saving}
-                                  onClick={() => handleCreate(principalStr, ds)}
-                                  className="flex-1 text-xs text-white font-semibold py-1.5 rounded"
-                                  style={{ backgroundColor: "#ea580c" }}
-                                  data-ocid="planning.semaine.create_button"
-                                >
-                                  {saving ? "..." : "Créer"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveCell(null);
-                                    setCreateForm({
-                                      clientNom: "",
-                                      typeMission: "depannage",
-                                      description: "",
-                                    });
-                                    setSelectedClient(null);
-                                  }}
-                                  className="flex-1 text-xs text-gray-600 border border-gray-200 py-1.5 rounded hover:bg-gray-50"
-                                  data-ocid="planning.semaine.cancel_button"
-                                >
-                                  Annuler
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Missions list */}
-                          {cellItems.map((item, mIdx) => {
-                            const isEditingThis = editItem?.id === item.id;
-                            return (
-                              <div
-                                key={item.id}
-                                data-ocid={`planning.semaine.item.${mIdx + 1}`}
-                              >
-                                {isEditingThis ? (
-                                  <div className="bg-white border border-blue-200 rounded-lg p-2 shadow-md space-y-2 mb-1">
-                                    <div>
-                                      <span className="text-xs text-gray-500 block mb-0.5">
-                                        Client
-                                      </span>
-                                      <ClientAutocomplete
-                                        value={editForm.clientNom}
-                                        clients={clients}
-                                        onSelect={(c) => {
-                                          setEditClient(c);
-                                          setEditForm((f) => ({
-                                            ...f,
-                                            clientNom: c.nom,
-                                          }));
-                                        }}
-                                        onManual={(name) => {
-                                          setEditClient(null);
-                                          setEditForm((f) => ({
-                                            ...f,
-                                            clientNom: name,
-                                          }));
-                                        }}
-                                      />
-                                      {editClient && (
-                                        <ClientInfoCard client={editClient} />
-                                      )}
-                                    </div>
-                                    <div>
-                                      <span className="text-xs text-gray-500 block mb-0.5">
-                                        Type
-                                      </span>
-                                      <select
-                                        className="w-full text-xs border border-gray-200 rounded px-2 py-1.5"
-                                        value={editForm.typeMission}
-                                        onChange={(e) =>
-                                          setEditForm((f) => ({
-                                            ...f,
-                                            typeMission: e.target.value,
-                                          }))
-                                        }
-                                      >
-                                        <option value="depannage">
-                                          Dépannage
-                                        </option>
-                                        <option value="controle">
-                                          Contrôle
-                                        </option>
-                                        <option value="chantier">
-                                          Chantier
-                                        </option>
-                                      </select>
-                                    </div>
-                                    <div>
-                                      <span className="text-xs text-gray-500 block mb-0.5">
-                                        Description
-                                      </span>
-                                      <textarea
-                                        className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 resize-none"
-                                        rows={2}
-                                        value={editForm.description}
-                                        onChange={(e) =>
-                                          setEditForm((f) => ({
-                                            ...f,
-                                            description: e.target.value,
-                                          }))
-                                        }
-                                      />
-                                    </div>
-                                    <div className="flex gap-1">
-                                      <button
-                                        type="button"
-                                        disabled={saving}
-                                        onClick={handleEdit}
-                                        className="flex-1 text-xs text-white font-semibold py-1.5 rounded"
-                                        style={{ backgroundColor: "#0f1e4a" }}
-                                        data-ocid="planning.semaine.save_button"
-                                      >
-                                        {saving ? "..." : "Sauvegarder"}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => setEditItem(null)}
-                                        className="flex-1 text-xs text-gray-600 border border-gray-200 py-1.5 rounded hover:bg-gray-50"
-                                        data-ocid="planning.semaine.edit_cancel_button"
-                                      >
-                                        Annuler
-                                      </button>
-                                    </div>
-                                    {isOwner(item) && (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setDeleteConfirm(item.id)
-                                        }
-                                        className="w-full text-xs text-red-600 border border-red-200 py-1.5 rounded hover:bg-red-50"
-                                        data-ocid={`planning.semaine.delete_button.${mIdx + 1}`}
-                                      >
-                                        Supprimer
-                                      </button>
-                                    )}
-                                  </div>
-                                ) : (
+                        return (
+                          <td
+                            key={ds}
+                            className={[
+                              "px-2 py-2 align-top border-r border-gray-100 last:border-r-0 min-w-[130px]",
+                              isToday ? "bg-orange-50" : "bg-white",
+                            ].join(" ")}
+                            style={{ verticalAlign: "top" }}
+                          >
+                            {/* Inline create form */}
+                            {isActive && !isEditing && (
+                              <div className="bg-white border border-orange-200 rounded-lg p-2 shadow-md space-y-2">
+                                <div>
+                                  <span className="text-xs text-gray-500 block mb-0.5">
+                                    Client
+                                  </span>
+                                  <ClientAutocomplete
+                                    value={createForm.clientNom}
+                                    clients={clients}
+                                    onSelect={(c) => {
+                                      setSelectedClient(c);
+                                      setCreateForm((f) => ({
+                                        ...f,
+                                        clientNom: c.nom,
+                                      }));
+                                    }}
+                                    onManual={(name) => {
+                                      setSelectedClient(null);
+                                      setCreateForm((f) => ({
+                                        ...f,
+                                        clientNom: name,
+                                      }));
+                                    }}
+                                  />
+                                  {selectedClient && (
+                                    <ClientInfoCard client={selectedClient} />
+                                  )}
+                                </div>
+                                <div>
+                                  <span className="text-xs text-gray-500 block mb-0.5">
+                                    Type
+                                  </span>
+                                  <select
+                                    className="w-full text-xs border border-gray-200 rounded px-2 py-1.5"
+                                    value={createForm.typeMission}
+                                    onChange={(e) =>
+                                      setCreateForm((f) => ({
+                                        ...f,
+                                        typeMission: e.target.value,
+                                      }))
+                                    }
+                                  >
+                                    <option value="depannage">Dépannage</option>
+                                    <option value="controle">Contrôle</option>
+                                    <option value="chantier">Chantier</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <span className="text-xs text-gray-500 block mb-0.5">
+                                    Description
+                                  </span>
+                                  <textarea
+                                    className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 resize-none"
+                                    rows={2}
+                                    value={createForm.description}
+                                    onChange={(e) =>
+                                      setCreateForm((f) => ({
+                                        ...f,
+                                        description: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="Description..."
+                                  />
+                                </div>
+                                <div className="flex gap-1">
                                   <button
                                     type="button"
-                                    className="w-full text-left rounded-lg px-2 py-1.5 mb-1 hover:opacity-80 transition-opacity border"
-                                    style={{
-                                      borderColor:
-                                        item.statut === "execute"
-                                          ? "#16a34a"
-                                          : item.statut === "en_cours"
-                                            ? "#2563eb"
-                                            : "#ea580c",
-                                      backgroundColor:
-                                        item.statut === "execute"
-                                          ? "#f0fdf4"
-                                          : item.statut === "en_cours"
-                                            ? "#eff6ff"
-                                            : "#fff7ed",
-                                    }}
+                                    disabled={saving}
+                                    onClick={() =>
+                                      handleCreate(principalStr, ds)
+                                    }
+                                    className="flex-1 text-xs text-white font-semibold py-1.5 rounded"
+                                    style={{ backgroundColor: "#ea580c" }}
+                                    data-ocid="planning.semaine.create_button"
+                                  >
+                                    {saving ? "..." : "Créer"}
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => {
                                       setActiveCell(null);
-                                      setEditItem(item);
-                                      setEditForm({
-                                        clientNom: item.clientNom,
-                                        typeMission: item.typeMission,
-                                        description: item.description,
+                                      setCreateForm({
+                                        clientNom: "",
+                                        typeMission: "depannage",
+                                        description: "",
                                       });
-                                      setEditClient(null);
+                                      setSelectedClient(null);
                                     }}
-                                    data-ocid={`planning.semaine.mission.${mIdx + 1}`}
+                                    className="flex-1 text-xs text-gray-600 border border-gray-200 py-1.5 rounded hover:bg-gray-50"
+                                    data-ocid="planning.semaine.cancel_button"
                                   >
-                                    <div className="flex items-center gap-1 mb-0.5">
-                                      <span
-                                        className="w-2 h-2 rounded-full flex-shrink-0"
-                                        style={{
-                                          backgroundColor:
-                                            item.statut === "execute"
-                                              ? "#16a34a"
-                                              : item.statut === "en_cours"
-                                                ? "#2563eb"
-                                                : "#ea580c",
-                                        }}
-                                      />
-                                      <span
-                                        className="text-xs font-semibold truncate"
-                                        style={{
-                                          color: "#0f1e4a",
-                                          maxWidth: "90px",
-                                        }}
-                                      >
-                                        {item.clientNom || "Sans client"}
-                                      </span>
-                                    </div>
-                                    <span className="text-xs text-gray-500">
-                                      {TYPE_LABELS[item.typeMission]?.slice(
-                                        0,
-                                        4,
-                                      ) || item.typeMission.slice(0, 4)}
-                                      .
-                                    </span>
-                                    {(() => {
-                                      const mc = clients.find(
-                                        (c) =>
-                                          c.nom.toLowerCase().trim() ===
-                                          item.clientNom.toLowerCase().trim(),
-                                      );
-                                      return mc?.telephone ? (
-                                        <a
-                                          href={`tel:${mc.telephone}`}
-                                          className="flex items-center gap-0.5 text-xs text-blue-600 hover:text-blue-800"
-                                          onClick={(e) => e.stopPropagation()}
+                                    Annuler
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Missions list */}
+                            {cellItems.map((item, mIdx) => {
+                              const isEditingThis = editItem?.id === item.id;
+                              return (
+                                <div
+                                  key={item.id}
+                                  data-ocid={`planning.semaine.item.${mIdx + 1}`}
+                                >
+                                  {isEditingThis ? (
+                                    <div className="bg-white border border-blue-200 rounded-lg p-2 shadow-md space-y-2 mb-1">
+                                      <div>
+                                        <span className="text-xs text-gray-500 block mb-0.5">
+                                          Client
+                                        </span>
+                                        <ClientAutocomplete
+                                          value={editForm.clientNom}
+                                          clients={clients}
+                                          onSelect={(c) => {
+                                            setEditClient(c);
+                                            setEditForm((f) => ({
+                                              ...f,
+                                              clientNom: c.nom,
+                                            }));
+                                          }}
+                                          onManual={(name) => {
+                                            setEditClient(null);
+                                            setEditForm((f) => ({
+                                              ...f,
+                                              clientNom: name,
+                                            }));
+                                          }}
+                                        />
+                                        {editClient && (
+                                          <ClientInfoCard client={editClient} />
+                                        )}
+                                      </div>
+                                      <div>
+                                        <span className="text-xs text-gray-500 block mb-0.5">
+                                          Type
+                                        </span>
+                                        <select
+                                          className="w-full text-xs border border-gray-200 rounded px-2 py-1.5"
+                                          value={editForm.typeMission}
+                                          onChange={(e) =>
+                                            setEditForm((f) => ({
+                                              ...f,
+                                              typeMission: e.target.value,
+                                            }))
+                                          }
                                         >
-                                          <Phone className="w-3 h-3" />
-                                          <span
-                                            className="truncate"
-                                            style={{ maxWidth: "80px" }}
+                                          <option value="depannage">
+                                            Dépannage
+                                          </option>
+                                          <option value="controle">
+                                            Contrôle
+                                          </option>
+                                          <option value="chantier">
+                                            Chantier
+                                          </option>
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <span className="text-xs text-gray-500 block mb-0.5">
+                                          Description
+                                        </span>
+                                        <textarea
+                                          className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 resize-none"
+                                          rows={2}
+                                          value={editForm.description}
+                                          onChange={(e) =>
+                                            setEditForm((f) => ({
+                                              ...f,
+                                              description: e.target.value,
+                                            }))
+                                          }
+                                        />
+                                      </div>
+                                      <div className="flex gap-1">
+                                        <button
+                                          type="button"
+                                          disabled={saving}
+                                          onClick={handleEdit}
+                                          className="flex-1 text-xs text-white font-semibold py-1.5 rounded"
+                                          style={{ backgroundColor: "#0f1e4a" }}
+                                          data-ocid="planning.semaine.save_button"
+                                        >
+                                          {saving ? "..." : "Sauvegarder"}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditItem(null)}
+                                          className="flex-1 text-xs text-gray-600 border border-gray-200 py-1.5 rounded hover:bg-gray-50"
+                                          data-ocid="planning.semaine.edit_cancel_button"
+                                        >
+                                          Annuler
+                                        </button>
+                                      </div>
+                                      {isOwner(item) && (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setDeleteConfirm(item.id)
+                                          }
+                                          className="w-full text-xs text-red-600 border border-red-200 py-1.5 rounded hover:bg-red-50"
+                                          data-ocid={`planning.semaine.delete_button.${mIdx + 1}`}
+                                        >
+                                          Supprimer
+                                        </button>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="w-full text-left rounded-lg px-2 py-1.5 mb-1 hover:opacity-80 transition-opacity border"
+                                      style={{
+                                        borderColor:
+                                          item.statut === "execute"
+                                            ? "#16a34a"
+                                            : item.statut === "en_cours"
+                                              ? "#2563eb"
+                                              : "#ea580c",
+                                        backgroundColor:
+                                          item.statut === "execute"
+                                            ? "#f0fdf4"
+                                            : item.statut === "en_cours"
+                                              ? "#eff6ff"
+                                              : "#fff7ed",
+                                      }}
+                                      onClick={() => {
+                                        setActiveCell(null);
+                                        setEditItem(item);
+                                        setEditForm({
+                                          clientNom: item.clientNom,
+                                          typeMission: item.typeMission,
+                                          description: item.description,
+                                        });
+                                        setEditClient(null);
+                                      }}
+                                      data-ocid={`planning.semaine.mission.${mIdx + 1}`}
+                                    >
+                                      <div className="flex items-center gap-1 mb-0.5">
+                                        <span
+                                          className="w-2 h-2 rounded-full flex-shrink-0"
+                                          style={{
+                                            backgroundColor:
+                                              item.statut === "execute"
+                                                ? "#16a34a"
+                                                : item.statut === "en_cours"
+                                                  ? "#2563eb"
+                                                  : "#ea580c",
+                                          }}
+                                        />
+                                        <span
+                                          className="text-xs font-semibold truncate"
+                                          style={{
+                                            color: "#0f1e4a",
+                                            maxWidth: "90px",
+                                          }}
+                                        >
+                                          {item.clientNom || "Sans client"}
+                                        </span>
+                                      </div>
+                                      <span className="text-xs text-gray-500">
+                                        {TYPE_LABELS[item.typeMission]?.slice(
+                                          0,
+                                          4,
+                                        ) || item.typeMission.slice(0, 4)}
+                                        .
+                                      </span>
+                                      {(() => {
+                                        const mc = clients.find(
+                                          (c) =>
+                                            c.nom.toLowerCase().trim() ===
+                                            item.clientNom.toLowerCase().trim(),
+                                        );
+                                        return mc?.telephone ? (
+                                          <a
+                                            href={`tel:${mc.telephone}`}
+                                            className="flex items-center gap-0.5 text-xs text-blue-600 hover:text-blue-800"
+                                            onClick={(e) => e.stopPropagation()}
                                           >
-                                            {mc.telephone}
-                                          </span>
-                                        </a>
-                                      ) : null;
-                                    })()}
-                                    {item.destinataire?.toString() ===
-                                      callerPrincipalStr &&
-                                      item.statut === "a_realiser" && (
+                                            <Phone className="w-3 h-3" />
+                                            <span
+                                              className="truncate"
+                                              style={{ maxWidth: "80px" }}
+                                            >
+                                              {mc.telephone}
+                                            </span>
+                                          </a>
+                                        ) : null;
+                                      })()}
+                                      {item.destinataire?.toString() ===
+                                        callerPrincipalStr && (
                                         <div className="mt-1">
                                           <button
                                             type="button"
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              handleAccept(item);
+                                              onRemplirFiche(item);
                                             }}
                                             className="text-xs text-white px-1.5 py-0.5 rounded font-medium"
                                             style={{
-                                              backgroundColor: "#16a34a",
+                                              backgroundColor:
+                                                item.statut === "execute"
+                                                  ? "#16a34a"
+                                                  : "#f97316",
                                             }}
                                             data-ocid={`planning.semaine.accept_button.${mIdx + 1}`}
                                           >
-                                            ✓ Accepter
+                                            {item.statut === "execute"
+                                              ? "✏️ Fiche"
+                                              : "📋 Fiche"}
                                           </button>
                                         </div>
                                       )}
-                                  </button>
-                                )}
-                              </div>
-                            );
-                          })}
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
 
-                          {/* Empty cell click area */}
-                          {!isActive && cellItems.length === 0 && (
-                            <button
-                              type="button"
-                              className="w-full h-10 flex items-center justify-center rounded text-gray-300 hover:text-gray-500 hover:bg-gray-50 transition-colors text-lg"
-                              onClick={() => {
-                                setEditItem(null);
-                                setActiveCell({
-                                  userPrincipal: principalStr,
-                                  dateStr: ds,
-                                });
-                                setCreateForm({
-                                  clientNom: "",
-                                  typeMission: "depannage",
-                                  description: "",
-                                });
-                                setSelectedClient(null);
-                              }}
-                              data-ocid={`planning.semaine.add_button.${rowIdx + 1}`}
-                            >
-                              +
-                            </button>
-                          )}
-                          {!isActive && cellItems.length > 0 && (
-                            <button
-                              type="button"
-                              className="w-full mt-1 flex items-center justify-center rounded text-gray-300 hover:text-gray-500 hover:bg-gray-50 transition-colors text-sm py-0.5"
-                              onClick={() => {
-                                setEditItem(null);
-                                setActiveCell({
-                                  userPrincipal: principalStr,
-                                  dateStr: ds,
-                                });
-                                setCreateForm({
-                                  clientNom: "",
-                                  typeMission: "depannage",
-                                  description: "",
-                                });
-                                setSelectedClient(null);
-                              }}
-                              data-ocid={`planning.semaine.add_more_button.${rowIdx + 1}`}
-                            >
-                              +
-                            </button>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })
+                            {/* Empty cell click area */}
+                            {!isActive && cellItems.length === 0 && (
+                              <button
+                                type="button"
+                                className="w-full h-10 flex items-center justify-center rounded text-gray-300 hover:text-gray-500 hover:bg-gray-50 transition-colors text-lg"
+                                onClick={() => {
+                                  setEditItem(null);
+                                  setActiveCell({
+                                    userPrincipal: principalStr,
+                                    dateStr: ds,
+                                  });
+                                  setCreateForm({
+                                    clientNom: "",
+                                    typeMission: "depannage",
+                                    description: "",
+                                  });
+                                  setSelectedClient(null);
+                                }}
+                                data-ocid={`planning.semaine.add_button.${rowIdx + 1}`}
+                              >
+                                +
+                              </button>
+                            )}
+                            {!isActive && cellItems.length > 0 && (
+                              <button
+                                type="button"
+                                className="w-full mt-1 flex items-center justify-center rounded text-gray-300 hover:text-gray-500 hover:bg-gray-50 transition-colors text-sm py-0.5"
+                                onClick={() => {
+                                  setEditItem(null);
+                                  setActiveCell({
+                                    userPrincipal: principalStr,
+                                    dateStr: ds,
+                                  });
+                                  setCreateForm({
+                                    clientNom: "",
+                                    typeMission: "depannage",
+                                    description: "",
+                                  });
+                                  setSelectedClient(null);
+                                }}
+                                data-ocid={`planning.semaine.add_more_button.${rowIdx + 1}`}
+                              >
+                                +
+                              </button>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })
             )}
           </tbody>
         </table>

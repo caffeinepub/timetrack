@@ -507,7 +507,7 @@ function ClientInterventions({
   );
 }
 
-export default function Clients() {
+export default function Clients({ readOnly = false }: { readOnly?: boolean }) {
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
@@ -537,6 +537,7 @@ export default function Clients() {
     queryKey: ["clientsInterventions"],
     queryFn: async () => {
       if (!actor) return [];
+
       return (actor as any).obtenirToutesInterventionsValideesClient();
     },
     enabled: !!actor && !actorFetching,
@@ -644,8 +645,23 @@ export default function Clients() {
 
   const isSaving = addClient.isPending || updateClient.isPending;
 
+  const readOnlyBanner = readOnly ? (
+    <div
+      className="mb-4 px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium"
+      style={{
+        backgroundColor: "rgba(59,130,246,0.12)",
+        color: "#60a5fa",
+        border: "1px solid rgba(59,130,246,0.25)",
+      }}
+    >
+      <span>👁</span>
+      <span>Mode lecture seule — modifications désactivées</span>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-4">
+      {readOnlyBanner}
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <h1

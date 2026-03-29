@@ -548,6 +548,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async validerPlanningItem(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.validerPlanningItem(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.validerPlanningItem(arg0);
+            return result;
+        }
+    }
     async accepterEtCreerEbauche(arg0: string, arg1: string, arg2: string): Promise<void> {
         if (this.processError) {
             try {

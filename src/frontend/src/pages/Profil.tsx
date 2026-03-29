@@ -1,44 +1,34 @@
 import { Principal } from "@icp-sdk/core/principal";
-import { ChevronDown, ChevronUp, Shield } from "lucide-react";
+import {
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  Shield,
+  XCircle,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import type { UserProfile } from "../backend.d";
 import { UserRole } from "../backend.d";
 import { useActor } from "../hooks/useActor";
+import {
+  type AccessLevel,
+  getAllUserAccess,
+  setSectionAccess,
+} from "../utils/userAccessControl";
 
-const ADMIN_PRINCIPAL_ID =
-  "qqb4l-yz3r5-axq5a-4pvuz-2i2ao-6ssuu-tc6rb-ocqyp-asmgd-jsu2l-6qe";
+export const ADMIN_PRINCIPAL_ID =
+  "gilph-edmid-nr3ic-svhal-6eq2x-ef6kc-ll54b-f6ow2-wc6zo-yf3cx-sae";
 
 const ALL_SECTIONS = [
   { key: "dashboard", label: "Bord" },
   { key: "calendar", label: "Calendrier" },
-  { key: "memo", label: "M\u00e9mo" },
+  { key: "planning", label: "Planning" },
+  { key: "memo", label: "Mémo" },
   { key: "facturation", label: "Facturation" },
   { key: "clients", label: "Clients" },
   { key: "ticket-resto", label: "Ticket Resto" },
   { key: "ticket-essence", label: "Ticket Essence" },
 ];
-
-export function getBlockedSections(principalId: string): string[] {
-  try {
-    const raw = localStorage.getItem("admin_section_restrictions");
-    if (!raw) return [];
-    const data = JSON.parse(raw) as Record<string, string[]>;
-    return data[principalId] || [];
-  } catch {
-    return [];
-  }
-}
-
-function setBlockedSections(principalId: string, blocked: string[]) {
-  try {
-    const raw = localStorage.getItem("admin_section_restrictions");
-    const data = raw ? (JSON.parse(raw) as Record<string, string[]>) : {};
-    data[principalId] = blocked;
-    localStorage.setItem("admin_section_restrictions", JSON.stringify(data));
-  } catch {
-    // ignore
-  }
-}
 
 interface ProfileWithPrincipal {
   principalStr: string;
@@ -55,6 +45,19 @@ function extractErrorMessage(e: unknown): string {
   }
 }
 
+const LEVEL_CONFIG: Record<
+  AccessLevel,
+  { label: string; color: string; bg: string }
+> = {
+  full: { label: "Complet", color: "#16a34a", bg: "rgba(22,163,74,0.15)" },
+  readonly: { label: "Lecture", color: "#3b82f6", bg: "rgba(59,130,246,0.15)" },
+  disabled: {
+    label: "Désactivé",
+    color: "#ef4444",
+    bg: "rgba(239,68,68,0.15)",
+  },
+};
+
 export default function Profil() {
   const { actor, isFetching } = useActor();
   const [profiles, setProfiles] = useState<ProfileWithPrincipal[]>([]);
@@ -68,7 +71,9 @@ export default function Profil() {
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
   >({});
-  const [blockedMap, setBlockedMap] = useState<Record<string, string[]>>({});
+  const [accessMap, setAccessMap] = useState<
+    Record<string, Record<string, AccessLevel>>
+  >({});
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
     {},
   );
@@ -94,11 +99,11 @@ export default function Profil() {
           }));
           setProfiles(parsed);
 
-          const newBlockedMap: Record<string, string[]> = {};
+          const newAccessMap: Record<string, Record<string, AccessLevel>> = {};
           for (const { principalStr } of parsed) {
-            newBlockedMap[principalStr] = getBlockedSections(principalStr);
+            newAccessMap[principalStr] = getAllUserAccess(principalStr);
           }
-          setBlockedMap(newBlockedMap);
+          setAccessMap(newAccessMap);
 
           const newStatus: Record<string, "active" | "disabled"> = {};
           for (const { principalStr } of parsed) {
@@ -115,8 +120,7 @@ export default function Profil() {
 
       if (!cancelled) {
         console.error("Failed to load profiles:", lastError);
-        const detail = extractErrorMessage(lastError);
-        setErrorDetail(detail);
+        setErrorDetail(extractErrorMessage(lastError));
         setError("Erreur lors du chargement des profils.");
         setLoading(false);
       }
@@ -128,9 +132,7 @@ export default function Profil() {
     };
   }, [actor, isFetching, retryCount]);
 
-  const handleRetry = () => {
-    setRetryCount((c) => c + 1);
-  };
+  const handleRetry = () => setRetryCount((c) => c + 1);
 
   const toggleStatus = async (principalStr: string) => {
     if (!actor) return;
@@ -154,16 +156,19 @@ export default function Profil() {
     }
   };
 
-  const toggleSection = (principalStr: string, sectionKey: string) => {
-    const current = blockedMap[principalStr] || [];
-    let updated: string[];
-    if (current.includes(sectionKey)) {
-      updated = current.filter((s) => s !== sectionKey);
-    } else {
-      updated = [...current, sectionKey];
-    }
-    setBlockedMap((prev) => ({ ...prev, [principalStr]: updated }));
-    setBlockedSections(principalStr, updated);
+  const handleSectionLevel = (
+    principalStr: string,
+    sectionKey: string,
+    level: AccessLevel,
+  ) => {
+    setSectionAccess(principalStr, sectionKey, level);
+    setAccessMap((prev) => ({
+      ...prev,
+      [principalStr]: {
+        ...(prev[principalStr] ?? {}),
+        [sectionKey]: level,
+      },
+    }));
   };
 
   const toggleExpand = (principalStr: string) => {
@@ -188,12 +193,31 @@ export default function Profil() {
         </div>
         <div>
           <h1 className="text-xl font-bold text-white">
-            Section Profil \u2014 Administration
+            Section Profil — Administration
           </h1>
           <p className="text-sm" style={{ color: "oklch(var(--vts-green))" }}>
-            Gestion des acc\u00e8s utilisateurs
+            Gestion des accès utilisateurs
           </p>
         </div>
+      </div>
+
+      {/* Legend */}
+      <div
+        className="rounded-xl p-3 flex flex-wrap gap-3"
+        style={{ background: "oklch(var(--navy-dark))" }}
+      >
+        {Object.entries(LEVEL_CONFIG).map(([level, cfg]) => (
+          <div key={level} className="flex items-center gap-1.5">
+            <span
+              className="w-3 h-3 rounded-full inline-block"
+              style={{ backgroundColor: cfg.color }}
+            />
+            <span className="text-white/70 text-xs">{cfg.label}</span>
+          </div>
+        ))}
+        <span className="text-white/40 text-xs ml-auto">
+          Cliquez sur les boutons pour changer le niveau d'accès
+        </span>
       </div>
 
       {loading && (
@@ -232,7 +256,7 @@ export default function Profil() {
             style={{ backgroundColor: "#ea580c" }}
             data-ocid="profil.primary_button"
           >
-            R\u00e9essayer
+            Réessayer
           </button>
         </div>
       )}
@@ -243,16 +267,16 @@ export default function Profil() {
           style={{ background: "oklch(var(--navy-dark))" }}
           data-ocid="profil.empty_state"
         >
-          Aucun profil utilisateur enregistr\u00e9.
+          Aucun profil utilisateur enregistré.
         </div>
       )}
 
       {!loading &&
         profiles.map(({ principalStr, profile }, idx) => {
-          const isAdmin = principalStr === ADMIN_PRINCIPAL_ID;
+          const isAdminUser = principalStr === ADMIN_PRINCIPAL_ID;
           const status = statusMap[principalStr] || "active";
           const isExpanded = !!expandedSections[principalStr];
-          const blocked = blockedMap[principalStr] || [];
+          const userAccess = accessMap[principalStr] ?? {};
           const isActioning = !!actionLoading[principalStr];
 
           return (
@@ -262,12 +286,13 @@ export default function Profil() {
               style={{ background: "oklch(var(--navy-dark))" }}
               data-ocid={`profil.item.${idx + 1}`}
             >
+              {/* User header row */}
               <div className="p-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div
                     className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white flex-shrink-0 text-sm"
                     style={{
-                      backgroundColor: isAdmin
+                      backgroundColor: isAdminUser
                         ? "#ea580c"
                         : "oklch(var(--vts-green) / 0.6)",
                     }}
@@ -279,7 +304,7 @@ export default function Profil() {
                       <span className="text-white font-semibold text-sm truncate">
                         {profile.name || "Sans nom"}
                       </span>
-                      {isAdmin && (
+                      {isAdminUser && (
                         <span
                           className="text-[10px] font-bold px-1.5 py-0.5 rounded"
                           style={{ backgroundColor: "#ea580c", color: "white" }}
@@ -287,15 +312,17 @@ export default function Profil() {
                           ADMIN
                         </span>
                       )}
-                      <span
-                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                          status === "active"
-                            ? "bg-green-500/20 text-green-400"
-                            : "bg-red-500/20 text-red-400"
-                        }`}
-                      >
-                        {status === "active" ? "Actif" : "D\u00e9sactiv\u00e9"}
-                      </span>
+                      {!isAdminUser && (
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            status === "active"
+                              ? "bg-green-500/20 text-green-400"
+                              : "bg-red-500/20 text-red-400"
+                          }`}
+                        >
+                          {status === "active" ? "Actif" : "Désactivé"}
+                        </span>
+                      )}
                     </div>
                     {profile.email && (
                       <p className="text-white/50 text-xs truncate mt-0.5">
@@ -308,23 +335,29 @@ export default function Profil() {
                   </div>
                 </div>
 
-                {!isAdmin && (
+                {!isAdminUser && (
                   <button
                     type="button"
                     onClick={() => toggleStatus(principalStr)}
                     disabled={isActioning}
-                    className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-opacity disabled:opacity-50"
+                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-opacity disabled:opacity-50"
                     style={{
                       backgroundColor:
                         status === "active" ? "#ef4444" : "#22c55e",
                     }}
                     data-ocid={`profil.toggle.${idx + 1}`}
                   >
-                    {isActioning
-                      ? "..."
-                      : status === "active"
-                        ? "D\u00e9sactiver"
-                        : "Activer"}
+                    {isActioning ? (
+                      "..."
+                    ) : status === "active" ? (
+                      <>
+                        <XCircle className="w-3.5 h-3.5" /> Désactiver
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-3.5 h-3.5" /> Activer
+                      </>
+                    )}
                   </button>
                 )}
               </div>
@@ -334,45 +367,89 @@ export default function Profil() {
                 style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
               />
 
-              <button
-                type="button"
-                onClick={() => toggleExpand(principalStr)}
-                className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-white/70 hover:text-white transition-colors"
-                data-ocid={`profil.panel.${idx + 1}`}
-              >
-                <span style={{ color: "oklch(var(--vts-green))" }}>
-                  G\u00e9rer les sections
-                </span>
-                {isExpanded ? (
-                  <ChevronUp className="w-4 h-4" />
-                ) : (
-                  <ChevronDown className="w-4 h-4" />
-                )}
-              </button>
+              {!isAdminUser && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => toggleExpand(principalStr)}
+                    className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold transition-colors hover:bg-white/5"
+                    data-ocid={`profil.panel.${idx + 1}`}
+                  >
+                    <span style={{ color: "oklch(var(--vts-green))" }}>
+                      Gérer les accès par section
+                    </span>
+                    {isExpanded ? (
+                      <ChevronUp className="w-4 h-4 text-white/50" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-white/50" />
+                    )}
+                  </button>
 
-              {isExpanded && (
-                <div className="px-4 pb-4 grid grid-cols-2 gap-2">
-                  {ALL_SECTIONS.map((section) => {
-                    const isBlocked = blocked.includes(section.key);
-                    return (
-                      <label
-                        key={section.key}
-                        className="flex items-center gap-2 cursor-pointer select-none"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={!isBlocked}
-                          onChange={() =>
-                            toggleSection(principalStr, section.key)
-                          }
-                          className="w-4 h-4 rounded accent-orange-500"
-                        />
-                        <span className="text-white/75 text-xs">
-                          {section.label}
-                        </span>
-                      </label>
-                    );
-                  })}
+                  {isExpanded && (
+                    <div className="px-4 pb-4 space-y-2">
+                      {ALL_SECTIONS.map((section) => {
+                        const currentLevel: AccessLevel =
+                          userAccess[section.key] ?? "full";
+                        return (
+                          <div
+                            key={section.key}
+                            className="flex items-center justify-between gap-2 py-1"
+                          >
+                            <span className="text-white/80 text-sm font-medium">
+                              {section.label}
+                            </span>
+                            <div className="flex gap-1">
+                              {(
+                                Object.entries(LEVEL_CONFIG) as [
+                                  AccessLevel,
+                                  (typeof LEVEL_CONFIG)[AccessLevel],
+                                ][]
+                              ).map(([level, cfg]) => (
+                                <button
+                                  key={level}
+                                  type="button"
+                                  onClick={() =>
+                                    handleSectionLevel(
+                                      principalStr,
+                                      section.key,
+                                      level,
+                                    )
+                                  }
+                                  className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all"
+                                  style={{
+                                    backgroundColor:
+                                      currentLevel === level
+                                        ? cfg.color
+                                        : "rgba(255,255,255,0.07)",
+                                    color:
+                                      currentLevel === level
+                                        ? "white"
+                                        : "rgba(255,255,255,0.45)",
+                                    border:
+                                      currentLevel === level
+                                        ? `1px solid ${cfg.color}`
+                                        : "1px solid rgba(255,255,255,0.1)",
+                                  }}
+                                  data-ocid={`profil.${section.key}.button`}
+                                >
+                                  {cfg.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {isAdminUser && (
+                <div className="px-4 py-3">
+                  <span className="text-white/30 text-xs">
+                    L'administrateur a toujours accès complet à toutes les
+                    sections.
+                  </span>
                 </div>
               )}
             </div>

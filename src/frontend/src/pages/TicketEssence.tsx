@@ -104,7 +104,9 @@ interface VehiculeStats {
   nbTickets: number;
 }
 
-export default function TicketEssencePage() {
+export default function TicketEssencePage({
+  readOnly = false,
+}: { readOnly?: boolean }) {
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
@@ -294,8 +296,23 @@ export default function TicketEssencePage() {
     setForm((prev) => ({ ...prev, [field]: value }));
 
   if (isLoading) {
+    const readOnlyBanner = readOnly ? (
+      <div
+        className="mb-4 px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium"
+        style={{
+          backgroundColor: "rgba(59,130,246,0.12)",
+          color: "#60a5fa",
+          border: "1px solid rgba(59,130,246,0.25)",
+        }}
+      >
+        <span>👁</span>
+        <span>Mode lecture seule — modifications désactivées</span>
+      </div>
+    ) : null;
+
     return (
       <div className="flex items-center justify-center h-64">
+        {readOnlyBanner}
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );

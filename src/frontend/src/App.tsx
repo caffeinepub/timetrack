@@ -16,6 +16,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import Footer from "./components/Footer";
 import Header from "./components/Header";
 import MobileBottomNav from "./components/MobileBottomNav";
+import { ADMIN_PRINCIPAL_ID, useAccessControl } from "./hooks/useAccessControl";
 import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useGetCallerUserProfile } from "./hooks/useQueries";
@@ -25,6 +26,7 @@ import Dashboard from "./pages/Dashboard";
 import Facturation from "./pages/Facturation";
 import Memo from "./pages/Memo";
 import Planning from "./pages/Planning";
+import Profil from "./pages/Profil";
 import TicketEssencePage from "./pages/TicketEssence";
 import TicketRestoPage from "./pages/TicketResto";
 
@@ -36,7 +38,8 @@ export type Page =
   | "clients"
   | "ticket-resto"
   | "ticket-essence"
-  | "planning";
+  | "planning"
+  | "profil";
 
 function GrassDecoration() {
   return (
@@ -76,6 +79,10 @@ function AppContent() {
   const { identity, isInitializing, login, isLoggingIn } =
     useInternetIdentity();
   const isAuthenticated = !!identity;
+
+  const principalId = identity?.getPrincipal().toText() ?? null;
+  const isAdmin = principalId === ADMIN_PRINCIPAL_ID;
+  const { isSectionReadOnly, visiblePages } = useAccessControl(principalId);
 
   const { actor } = useActor();
 
@@ -262,41 +269,56 @@ function AppContent() {
         <DesktopSideNav
           currentPage={currentPage}
           onNavigate={handleTabChange}
+          visiblePages={visiblePages}
+          isAdmin={isAdmin}
         />
 
         <main className="flex-1 min-w-0 px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8 overflow-x-hidden">
           <div className={currentPage === "dashboard" ? "block" : "hidden"}>
-            <Dashboard />
+            <Dashboard readOnly={isSectionReadOnly("dashboard")} />
           </div>
           <div className={currentPage === "calendar" ? "block" : "hidden"}>
-            <Calendar />
+            <Calendar readOnly={isSectionReadOnly("calendar")} />
           </div>
           <div className={currentPage === "memo" ? "block" : "hidden"}>
-            <Memo />
+            <Memo readOnly={isSectionReadOnly("memo")} />
           </div>
           <div className={currentPage === "facturation" ? "block" : "hidden"}>
-            <Facturation />
+            <Facturation readOnly={isSectionReadOnly("facturation")} />
           </div>
           <div className={currentPage === "clients" ? "block" : "hidden"}>
-            <Clients />
+            <Clients readOnly={isSectionReadOnly("clients")} />
           </div>
           <div className={currentPage === "ticket-resto" ? "block" : "hidden"}>
-            <TicketRestoPage />
+            <TicketRestoPage readOnly={isSectionReadOnly("ticket-resto")} />
           </div>
           <div
             className={currentPage === "ticket-essence" ? "block" : "hidden"}
           >
-            <TicketEssencePage />
+            <TicketEssencePage readOnly={isSectionReadOnly("ticket-essence")} />
           </div>
           <div className={currentPage === "planning" ? "block" : "hidden"}>
-            <Planning onNavigate={handleTabChange} />
+            <Planning
+              onNavigate={handleTabChange}
+              readOnly={isSectionReadOnly("planning")}
+            />
           </div>
+          {currentPage === "profil" && isAdmin && (
+            <div>
+              <Profil />
+            </div>
+          )}
         </main>
       </div>
 
       <Footer />
 
-      <MobileBottomNav currentPage={currentPage} onNavigate={handleTabChange} />
+      <MobileBottomNav
+        currentPage={currentPage}
+        onNavigate={handleTabChange}
+        visiblePages={visiblePages}
+        isAdmin={isAdmin}
+      />
 
       <Dialog open={showProfileSetup} onOpenChange={() => {}}>
         <DialogContent

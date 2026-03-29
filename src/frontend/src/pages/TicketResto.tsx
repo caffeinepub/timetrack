@@ -153,7 +153,9 @@ function exportWeekPdf(
   setTimeout(() => win.print(), 500);
 }
 
-export default function TicketRestoPage() {
+export default function TicketRestoPage({
+  readOnly = false,
+}: { readOnly?: boolean }) {
   const { actor, isFetching: actorFetching } = useActor();
   const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
@@ -325,8 +327,23 @@ export default function TicketRestoPage() {
   const hasFilters = filterName || filterDateFrom || filterDateTo;
 
   if (isLoading) {
+    const readOnlyBanner = readOnly ? (
+      <div
+        className="mb-4 px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium"
+        style={{
+          backgroundColor: "rgba(59,130,246,0.12)",
+          color: "#60a5fa",
+          border: "1px solid rgba(59,130,246,0.25)",
+        }}
+      >
+        <span>👁</span>
+        <span>Mode lecture seule — modifications désactivées</span>
+      </div>
+    ) : null;
+
     return (
       <div className="flex items-center justify-center h-64">
+        {readOnlyBanner}
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
