@@ -366,6 +366,7 @@ export const idlService = IDL.Service({
   'enregistrerJournee' : IDL.Func([TimeEntryInput], [], []),
   'enregistrerMediaQuotidien' : IDL.Func([IDL.Text, MediaType, Time], [], []),
   'estInterventionValidee' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
+  'obtenirToutesInterventionsValideesClient' : IDL.Func([], [IDL.Vec(InterventionAvecPieces)], ['query']),
   'genererDonneesRapportPdf' : IDL.Func(
       [
         IDL.Variant({
@@ -872,6 +873,7 @@ export const idlFactory = ({ IDL }) => {
     'enregistrerJournee' : IDL.Func([TimeEntryInput], [], []),
     'enregistrerMediaQuotidien' : IDL.Func([IDL.Text, MediaType, Time], [], []),
     'estInterventionValidee' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
+    'obtenirToutesInterventionsValideesClient' : IDL.Func([], [IDL.Vec(InterventionAvecPieces)], ['query']),
     'genererDonneesRapportPdf' : IDL.Func(
         [
           IDL.Variant({
