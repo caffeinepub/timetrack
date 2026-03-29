@@ -526,6 +526,9 @@ export default function Clients() {
   const toggleBlacklist = useToggleBlacklist();
 
   const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<"clients" | "blacklist">(
+    "clients",
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm());
@@ -535,7 +538,6 @@ export default function Clients() {
     queryKey: ["clientsInterventions"],
     queryFn: async () => {
       if (!actor) return [];
-      // Use facturation endpoint which returns ALL users' interventions
       return (actor as any).obtenirToutesInterventionsValideesClient();
     },
     enabled: !!actor && !actorFetching,
@@ -571,9 +573,9 @@ export default function Clients() {
     );
   });
 
-  const sorted = [...filtered].sort((a, b) =>
-    a.listeNoire === b.listeNoire ? 0 : a.listeNoire ? -1 : 1,
-  );
+  const clientsTab = filtered.filter((c) => !c.listeNoire);
+  const blacklistTab = filtered.filter((c) => c.listeNoire);
+  const displayedClients = activeTab === "clients" ? clientsTab : blacklistTab;
 
   const openAdd = () => {
     setEditingId(null);
@@ -597,7 +599,6 @@ export default function Clients() {
   const handleSubmit = async () => {
     if (!form.nom.trim()) return;
     const now = BigInt(Date.now()) * 1_000_000n;
-    // Duplicate detection by name + address
     const duplicate = clients.find(
       (c) =>
         c.id !== editingId &&
@@ -683,6 +684,61 @@ export default function Clients() {
         />
       </div>
 
+      {/* Tabs */}
+      <div
+        className="flex rounded-lg overflow-hidden border border-border"
+        data-ocid="clients.tab"
+      >
+        <button
+          type="button"
+          onClick={() => setActiveTab("clients")}
+          className={[
+            "flex-1 py-2 text-sm font-medium transition-colors",
+            activeTab === "clients"
+              ? "bg-[oklch(var(--navy))] text-white"
+              : "bg-card text-muted-foreground hover:bg-muted",
+          ].join(" ")}
+        >
+          Clients
+          {clientsTab.length > 0 && (
+            <span
+              className={[
+                "ml-1.5 text-xs px-1.5 py-0.5 rounded-full",
+                activeTab === "clients"
+                  ? "bg-white/20 text-white"
+                  : "bg-muted-foreground/20 text-muted-foreground",
+              ].join(" ")}
+            >
+              {clientsTab.length}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("blacklist")}
+          className={[
+            "flex-1 py-2 text-sm font-medium transition-colors border-l border-border",
+            activeTab === "blacklist"
+              ? "bg-destructive text-white"
+              : "bg-card text-muted-foreground hover:bg-destructive/10",
+          ].join(" ")}
+        >
+          ⛔ Blacklist
+          {blacklistTab.length > 0 && (
+            <span
+              className={[
+                "ml-1.5 text-xs px-1.5 py-0.5 rounded-full",
+                activeTab === "blacklist"
+                  ? "bg-white/20 text-white"
+                  : "bg-destructive/20 text-destructive",
+              ].join(" ")}
+            >
+              {blacklistTab.length}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Loading */}
       {clientsError && (
         <div className="text-center py-8 text-red-500 text-sm">
@@ -699,21 +755,25 @@ export default function Clients() {
       )}
 
       {/* Empty */}
-      {!isLoading && sorted.length === 0 && (
+      {!isLoading && displayedClients.length === 0 && (
         <div
           className="flex flex-col items-center justify-center py-16 text-muted-foreground"
           data-ocid="clients.empty_state"
         >
           <UserX className="w-12 h-12 mb-3 opacity-40" />
           <p className="text-sm">
-            {search ? "Aucun résultat" : "Aucun client enregistré"}
+            {search
+              ? "Aucun résultat"
+              : activeTab === "clients"
+                ? "Aucun client enregistré"
+                : "Aucun client en liste noire"}
           </p>
         </div>
       )}
 
       {/* Client list */}
       <div className="space-y-3">
-        {sorted.map((client, idx) => (
+        {displayedClients.map((client, idx) => (
           <Card
             key={client.id}
             className={[
@@ -819,9 +879,11 @@ export default function Clients() {
                   onClick={() => toggleBlacklist.mutate(client.id)}
                   data-ocid={`clients.toggle.${idx + 1}`}
                 >
-                  {client.listeNoire
+                  {activeTab === "blacklist"
                     ? "Retirer de la liste noire"
-                    : "Mettre en liste noire"}
+                    : client.listeNoire
+                      ? "Retirer de la liste noire"
+                      : "Mettre en liste noire"}
                 </Button>
 
                 <Button
