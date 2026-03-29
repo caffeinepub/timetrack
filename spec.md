@@ -1,39 +1,30 @@
 # Vial Traite Service
 
 ## Current State
-- Page Planning avec vue semaine hebdomadaire et vue calendrier mensuel
-- Missions créées dans le tableau, statuts : a_realiser, en_cours, execute
-- PlanningInterventionModal pour remplir la fiche intervention depuis le Planning
-- La fonction `ajouterInterventionPourUtilisateur` est dans main.mo et backend.ts mais ABSENTE du fichier declarations/backend.did.js (IDL), causant l'erreur "this actor.ajouterinterventionpourutilisateur is not a function"
+- Planning page has a week table view (VueSemaine) with inline create/edit forms
+- Creating a mission in VueSemaine has a 'Sauvegarder' button
+- Missions have various action buttons (Accepter, Fiche intervention, etc.)
+- PlanningInterventionModal handles filling and validating intervention fiches
+- When validated in PlanningInterventionModal, calls ajouterInterventionPourUtilisateur + validerIntervention + validerPlanningItem
 
 ## Requested Changes (Diff)
 
 ### Add
-- Bouton "Accepter" dans la cellule mission pour le destinataire uniquement, visible quand statut = a_realiser. Clic → appelle accepterPlanningItem → statut passe en en_cours
-- Bouton "Ajouter" dans la carte mission (édition) pour copier la mission sur plusieurs jours supplémentaires (DateMultiPicker existant)
-- Dans PlanningInterventionModal : section "Pièces" avec ajout de plusieurs lignes (article, référence, quantité)
-- Dans PlanningInterventionModal : upload photos/vidéos depuis album/fichiers, affichage en grille avec zoom plein écran, inclusion dans PDF
-- Dans PlanningInterventionModal : dictée vocale (bouton micro) sur champ description + spellcheck FR
+- In VueSemaine inline create form: DateMultiPicker to select multiple days
+- 'Ajouter' button on existing missions in both week and month views to copy mission to other days
+- 'Modifier' button on existing missions (both week table and month calendar view) to edit all mission fields inline
 
 ### Modify
-- declarations/backend.did.js : ajouter ajouterInterventionPourUtilisateur dans les deux sections (idlFactory et service)
-- declarations/backend.did.d.ts : ajouter ajouterInterventionPourUtilisateur dans l'interface _SERVICE
-- PlanningInterventionModal : description démarre VIDE (pas pré-remplie depuis la mission)
-- Planning.tsx vue semaine : bouton fiche intervention visible uniquement quand statut = en_cours ou execute (pas a_realiser)
+- Replace 'Sauvegarder' button in VueSemaine create form with 'Ajouter' that allows selecting multiple days via DateMultiPicker (already exists in the file at bottom). The form submits and creates the mission on all selected days.
+- Ensure PlanningInterventionModal.tsx handleSave() correctly: after validating fiche intervention, the mission passes to 'execute' status AND the intervention appears in Facturation. The current code already calls ajouterInterventionPourUtilisateur + validerIntervention + validerPlanningItem. Verify this chain is correct and fix any broken calls.
+- In month view mission cards: show 'Modifier' button for isOwner (creator or destinataire)
 
 ### Remove
-- Rien à supprimer
+- Nothing
 
 ## Implementation Plan
-1. Fix IDL declarations (backend.did.js et backend.did.d.ts) pour ajouter ajouterInterventionPourUtilisateur
-2. Mettre à jour PlanningInterventionModal.tsx :
-   - description = '' par défaut (ignorer prefill.description)
-   - Ajouter section Pièces (state array, lignes article/ref/qté, bouton ajout)
-   - Ajouter upload photos/vidéos via input file, stockage base64, affichage grille + lightbox
-   - Ajouter bouton micro dictée vocale sur champ description (réutiliser VoiceInput existant)
-   - Passer pieces et photos/videos dans buildInput
-   - Dans handleSave: valider l'intervention avec les pièces et médias
-3. Mettre à jour Planning.tsx :
-   - Dans vue calendrier et vue semaine : afficher bouton "✓ Accepter" quand destinataire = caller ET statut = a_realiser
-   - Bouton fiche visible seulement pour en_cours et execute
-   - Dans l'édition d'une mission (showEditMission), ajouter un DateMultiPicker pour ajouter des jours supplémentaires
+1. In VueSemaine inline create form: add DateMultiPicker for extra days, change button label from 'Sauvegarder' to 'Ajouter', in handleCreate() iterate over selected dates and call creerPlanningItem for each day
+2. Add 'Modifier' button visible on existing missions in VueSemaine cells - clicking opens the existing editForm panel
+3. Add 'Ajouter sur d'autres jours' button on existing missions (both views) - opens a date picker and calls creerPlanningItem with same data for selected days
+4. In month view: ensure 'Modifier' button is available for creator/destinataire
+5. Verify PlanningInterventionModal handleSave() flow for validation to Facturation - ensure ajouterInterventionPourUtilisateur and validerIntervention are called correctly (not via 'as any' if possible)

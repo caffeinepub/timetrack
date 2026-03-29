@@ -367,10 +367,11 @@ export function PlanningInterventionModal({
         queryClient.invalidateQueries({
           queryKey: ["facturationInterventions"],
         });
+        queryClient.invalidateQueries({ queryKey: ["clientsInterventions"] });
         queryClient.invalidateQueries({ queryKey: ["journees"] });
 
         const { toast } = await import("sonner");
-        toast.success("Intervention validée et envoyée en Facturation");
+        toast.success("Intervention validée et envoyée en Facturation ✓");
         onClose();
       }
     } catch (e: any) {

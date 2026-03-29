@@ -25,6 +25,7 @@ import {
   ChevronRight,
   Clock,
   MapPin,
+  Pencil,
   Phone,
   Plus,
   Trash2,
@@ -1500,6 +1501,9 @@ function VueSemaine({
   const [editClient, setEditClient] = useState<Client | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [createExtraDates, setCreateExtraDates] = useState<string[]>([]);
+  const [showAddDaysFor, setShowAddDaysFor] = useState<string | null>(null);
+  const [addDaysSelection, setAddDaysSelection] = useState<string[]>([]);
 
   const weekDays = Array.from({ length: 5 }, (_, i) => {
     const d = new Date(weekStart);
@@ -1574,26 +1578,30 @@ function VueSemaine({
       const nomCreateur = callerProfile ? callerProfile[1].name : "";
       const typeMission = createForm.typeMission;
       const generatedTitre = `${TYPE_LABELS[typeMission] || typeMission}${createForm.clientNom ? ` — ${createForm.clientNom}` : ""}`;
-      const planId = generateId();
-      const dateNs = dateToNs(dateStr);
-      await actor.creerPlanningItem(
-        planId,
-        generatedTitre,
-        [dateNs],
-        targetProfile[0],
-        nomDestinataire,
-        nomCreateur,
-        createForm.clientNom.trim(),
-        typeMission,
-        createForm.description.trim(),
-      );
-      if (selectedClient?.adresse) {
-        try {
-          await (actor as any).setPlanningClientAdresse(
-            planId,
-            selectedClient.adresse,
-          );
-        } catch {}
+      // Collect all dates: clicked date + extra dates
+      const allDates = Array.from(new Set([dateStr, ...createExtraDates]));
+      for (const dStr of allDates) {
+        const did = generateId();
+        const dNs = dateToNs(dStr);
+        await actor.creerPlanningItem(
+          did,
+          generatedTitre,
+          [dNs],
+          targetProfile[0],
+          nomDestinataire,
+          nomCreateur,
+          createForm.clientNom.trim(),
+          typeMission,
+          createForm.description.trim(),
+        );
+        if (selectedClient?.adresse) {
+          try {
+            await (actor as any).setPlanningClientAdresse(
+              did,
+              selectedClient.adresse,
+            );
+          } catch {}
+        }
       }
       queryClient.invalidateQueries({ queryKey: ["planningItems"] });
       setActiveCell(null);
@@ -1603,7 +1611,12 @@ function VueSemaine({
         description: "",
       });
       setSelectedClient(null);
-      toast.success("Mission créée");
+      setCreateExtraDates([]);
+      toast.success(
+        allDates.length > 1
+          ? `${allDates.length} missions créées`
+          : "Mission créée",
+      );
     } catch {
       toast.error("Erreur lors de la création");
     } finally {
@@ -1805,6 +1818,16 @@ function VueSemaine({
                                     placeholder="Description..."
                                   />
                                 </div>
+                                <div>
+                                  <span className="text-xs text-gray-500 block mb-0.5">
+                                    Autres jours
+                                  </span>
+                                  <DateMultiPicker
+                                    selected={createExtraDates}
+                                    onChange={setCreateExtraDates}
+                                    excludeDate={ds}
+                                  />
+                                </div>
                                 <div className="flex gap-1">
                                   <button
                                     type="button"
@@ -1816,7 +1839,7 @@ function VueSemaine({
                                     style={{ backgroundColor: "#ea580c" }}
                                     data-ocid="planning.semaine.create_button"
                                   >
-                                    {saving ? "..." : "Créer"}
+                                    {saving ? "..." : "Ajouter"}
                                   </button>
                                   <button
                                     type="button"
@@ -1828,6 +1851,7 @@ function VueSemaine({
                                         description: "",
                                       });
                                       setSelectedClient(null);
+                                      setCreateExtraDates([]);
                                     }}
                                     className="flex-1 text-xs text-gray-600 border border-gray-200 py-1.5 rounded hover:bg-gray-50"
                                     data-ocid="planning.semaine.cancel_button"
@@ -2105,6 +2129,42 @@ function VueSemaine({
                                           )}
                                         </div>
                                       )}
+                                      {isOwner(item) && (
+                                        <div className="mt-1 flex gap-0.5">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setActiveCell(null);
+                                              setEditItem(item);
+                                              setEditForm({
+                                                clientNom: item.clientNom,
+                                                typeMission: item.typeMission,
+                                                description: item.description,
+                                              });
+                                              setEditClient(null);
+                                            }}
+                                            className="flex-1 text-xs px-1 py-0.5 rounded border border-gray-300 hover:bg-gray-50 flex items-center justify-center gap-0.5"
+                                            style={{ color: "#0f1e4a" }}
+                                            data-ocid={`planning.semaine.edit_button.${mIdx + 1}`}
+                                          >
+                                            <Pencil className="w-2.5 h-2.5" />{" "}
+                                            Modifier
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setShowAddDaysFor(item.id);
+                                              setAddDaysSelection([]);
+                                            }}
+                                            className="flex-1 text-xs px-1 py-0.5 rounded border border-orange-300 hover:bg-orange-50 text-orange-600"
+                                            data-ocid={`planning.semaine.add_days_button.${mIdx + 1}`}
+                                          >
+                                            + Jours
+                                          </button>
+                                        </div>
+                                      )}
                                     </button>
                                   )}
                                 </div>
@@ -2167,6 +2227,99 @@ function VueSemaine({
         </table>
       </div>
 
+      {/* Add days dialog */}
+      <Dialog
+        open={!!showAddDaysFor}
+        onOpenChange={(o) => !o && setShowAddDaysFor(null)}
+      >
+        <DialogContent
+          className="max-w-sm"
+          data-ocid="planning.semaine.add_days_dialog"
+        >
+          <DialogHeader>
+            <DialogTitle>Ajouter sur d’autres jours</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <DateMultiPicker
+              selected={addDaysSelection}
+              onChange={setAddDaysSelection}
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowAddDaysFor(null)}
+              data-ocid="planning.semaine.add_days_cancel_button"
+            >
+              Annuler
+            </Button>
+            <Button
+              disabled={addDaysSelection.length === 0 || saving}
+              onClick={async () => {
+                if (!showAddDaysFor || !actor || !callerPrincipal) return;
+                const srcItem = allItems.find((it) => it.id === showAddDaysFor);
+                if (!srcItem) return;
+                setSaving(true);
+                try {
+                  const targetProfile = profiles.find(
+                    ([p]) => p.toString() === srcItem.destinataire?.toString(),
+                  );
+                  const callerProfile = profiles.find(
+                    ([p]) => p.toString() === callerPrincipal.toString(),
+                  );
+                  const nomDestinataire = targetProfile
+                    ? targetProfile[1].name
+                    : srcItem.nomDestinataire || "";
+                  const nomCreateur = callerProfile
+                    ? callerProfile[1].name
+                    : "";
+                  const typeMission = srcItem.typeMission;
+                  const generatedTitre = `${TYPE_LABELS[typeMission] || typeMission}${srcItem.clientNom ? ` — ${srcItem.clientNom}` : ""}`;
+                  for (const dStr of addDaysSelection) {
+                    const did = generateId();
+                    const dNs = dateToNs(dStr);
+                    await actor.creerPlanningItem(
+                      did,
+                      generatedTitre,
+                      [dNs],
+                      srcItem.destinataire!,
+                      nomDestinataire,
+                      nomCreateur,
+                      srcItem.clientNom,
+                      typeMission,
+                      srcItem.description,
+                    );
+                    if ((srcItem as any).clientAdresse) {
+                      try {
+                        await (actor as any).setPlanningClientAdresse(
+                          did,
+                          (srcItem as any).clientAdresse,
+                        );
+                      } catch {}
+                    }
+                  }
+                  queryClient.invalidateQueries({
+                    queryKey: ["planningItems"],
+                  });
+                  toast.success(`${addDaysSelection.length} jour(s) ajouté(s)`);
+                  setShowAddDaysFor(null);
+                  setAddDaysSelection([]);
+                } catch {
+                  toast.error("Erreur lors de l’ajout");
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              style={{ backgroundColor: "#ea580c" }}
+              className="text-white"
+              data-ocid="planning.semaine.add_days_confirm_button"
+            >
+              {saving ? "..." : `Ajouter (${addDaysSelection.length})`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete confirm dialog */}
       <Dialog
         open={!!deleteConfirm}
@@ -2217,6 +2370,7 @@ function DateMultiPicker({
 }: {
   selected: string[];
   onChange: (dates: string[]) => void;
+  excludeDate?: string;
 }) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
