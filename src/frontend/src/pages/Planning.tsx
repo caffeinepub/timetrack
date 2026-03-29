@@ -204,6 +204,11 @@ export default function Planning({
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [showEditDates, setShowEditDates] = useState<DayItem | null>(null);
+  const [showEditMission, setShowEditMission] = useState<DayItem | null>(null);
+  const [editMissionClient, setEditMissionClient] = useState("");
+  const [editMissionType, setEditMissionType] = useState("depannage");
+  const [editMissionDescription, setEditMissionDescription] = useState("");
+  const [editMissionDates, setEditMissionDates] = useState<string[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"semaine" | "mois">("semaine");
 
@@ -388,29 +393,62 @@ export default function Planning({
   const handleAccept = async (item: DayItem) => {
     if (!actor || !callerPrincipal) return;
     try {
-      const firstDate =
-        item.dates && item.dates.length > 0 ? item.dates[0] : null;
-      const dateStr = firstDate
-        ? toDateStr(firstDate)
-        : new Date().toISOString().slice(0, 10);
-      const ebaucheId = `ebauche-${item.id}-${Date.now()}`;
+      // 1. Accept the mission (changes status to "en_cours")
+      await actor.accepterPlanningItem(item.id);
+
+      // 2. Create one intervention per date in the destinataire's calendar
       const clientAdresse = item.clientAdresse ?? "";
-      // Option A: backend creates ébauche with direct missionId link
-      await actor.accepterEtCreerEbauche(item.id, ebaucheId, clientAdresse);
-      // Also store in localStorage as fallback for Calendar pre-fill
-      const draft = {
-        missionId: item.id,
-        clientNom: item.clientNom,
-        clientAdresse,
-        description: item.description ?? "",
-        date: dateStr,
-        allDates: (item.dates || []).map(toDateStr),
-      };
-      localStorage.setItem("calendarMissionDraft", JSON.stringify(draft));
+      for (const d of item.dates || []) {
+        const dateStr = toDateStr(d);
+        const ebaucheId = `ebauche-${item.id}-${dateStr}`;
+        const input: InterventionInput = {
+          id: ebaucheId,
+          date: d,
+          clientNom: item.clientNom,
+          clientAdresse,
+          description: item.description || "Mission planifiée",
+          heureMatinDebutH: BigInt(0),
+          heureMatinDebutMin: BigInt(0),
+          heureMatinFinH: BigInt(0),
+          heureMatinFinMin: BigInt(0),
+          heureApremDebutH: BigInt(0),
+          heureApremDebutMin: BigInt(0),
+          heureApremFinH: BigInt(0),
+          heureApremFinMin: BigInt(0),
+          estAstreinte: false,
+          clientAbsent: false,
+          signatureIntervenant: "",
+          signatureClient: "",
+          pieces: [],
+          photos: [],
+          videos: [],
+        };
+        await actor.ajouterInterventionPourUtilisateur(
+          item.destinataire,
+          input,
+        );
+      }
+
+      // 3. Store in localStorage for Calendar pre-fill
+      const firstDateStr =
+        item.dates && item.dates.length > 0
+          ? toDateStr(item.dates[0])
+          : new Date().toISOString().slice(0, 10);
+      localStorage.setItem(
+        "calendarMissionDraft",
+        JSON.stringify({
+          missionId: item.id,
+          clientNom: item.clientNom,
+          clientAdresse,
+          description: item.description ?? "",
+          date: firstDateStr,
+          allDates: (item.dates || []).map(toDateStr),
+        }),
+      );
       queryClient.invalidateQueries({ queryKey: ["planningItems"] });
       queryClient.invalidateQueries({ queryKey: ["journees"] });
       toast.success(
-        "Mission acceptée — une intervention a été créée dans votre Calendrier",
+        "Mission acceptée — interventions créées dans votre Calendrier",
       );
       if (onNavigate) onNavigate("calendar");
     } catch (e: any) {
@@ -418,6 +456,93 @@ export default function Planning({
       toast.error(
         `Erreur lors de l'acceptation de la mission${msg ? `: ${msg}` : ""}`,
       );
+    }
+  };
+
+  const handleEditMissionSubmit = async () => {
+    if (!actor || !showEditMission) return;
+    try {
+      const oldDateStrs = (showEditMission.dates || []).map(toDateStr);
+      const newDateStrs = editMissionDates;
+      const clientNomFinal = editMissionClient || showEditMission.clientNom;
+      const clientAdr =
+        clients.find(
+          (c) =>
+            c.nom.toLowerCase().trim() === clientNomFinal.toLowerCase().trim(),
+        )?.adresse ??
+        showEditMission.clientAdresse ??
+        "";
+
+      // Update mission details
+      await (actor as any).modifierPlanningItem?.(
+        showEditMission.id,
+        showEditMission.titre,
+        clientNomFinal,
+        editMissionType,
+        editMissionDescription,
+      );
+
+      // Update dates if changed
+      if (
+        JSON.stringify(oldDateStrs.sort()) !==
+        JSON.stringify([...newDateStrs].sort())
+      ) {
+        const dates = newDateStrs.map(dateToNs);
+        await actor.modifierDatesPlanningItem(showEditMission.id, dates);
+
+        // Remove interventions for removed dates
+        for (const ds of oldDateStrs) {
+          if (!newDateStrs.includes(ds)) {
+            try {
+              await (actor as any).supprimerInterventionDraft?.(
+                showEditMission.id,
+                `${showEditMission.id}-${ds}`,
+              );
+            } catch {}
+          }
+        }
+
+        // Add interventions for new dates
+        for (const ds of newDateStrs) {
+          if (!oldDateStrs.includes(ds)) {
+            const input: InterventionInput = {
+              id: `${showEditMission.id}-${ds}`,
+              date: dateToNs(ds),
+              clientNom: clientNomFinal,
+              clientAdresse: clientAdr,
+              description: editMissionDescription || "Mission planifiée",
+              heureMatinDebutH: BigInt(0),
+              heureMatinDebutMin: BigInt(0),
+              heureMatinFinH: BigInt(0),
+              heureMatinFinMin: BigInt(0),
+              heureApremDebutH: BigInt(0),
+              heureApremDebutMin: BigInt(0),
+              heureApremFinH: BigInt(0),
+              heureApremFinMin: BigInt(0),
+              estAstreinte: false,
+              clientAbsent: false,
+              signatureIntervenant: "",
+              signatureClient: "",
+              pieces: [],
+              photos: [],
+              videos: [],
+            };
+            try {
+              await actor.ajouterInterventionPourUtilisateur(
+                showEditMission.destinataire,
+                input,
+              );
+            } catch {}
+          }
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["planningItems"] });
+      queryClient.invalidateQueries({ queryKey: ["journees"] });
+      setShowEditMission(null);
+      toast.success("Mission modifiée");
+    } catch {
+      toast.error("Erreur lors de la modification de la mission");
     }
   };
 
@@ -444,7 +569,12 @@ export default function Planning({
               id: `${showEditDates.id}-${ds}`,
               date: dateToNs(ds),
               clientNom: showEditDates.clientNom,
-              clientAdresse: "",
+              clientAdresse:
+                clients.find(
+                  (c) =>
+                    c.nom.toLowerCase().trim() ===
+                    (showEditDates.clientNom || "").toLowerCase().trim(),
+                )?.adresse ?? "",
               description: showEditDates.description || "Mission planifiée",
               heureMatinDebutH: BigInt(0),
               heureMatinDebutMin: BigInt(0),
@@ -786,6 +916,23 @@ export default function Planning({
                               Client : {item.clientNom}
                             </p>
                           )}
+                          {(() => {
+                            const missionClient = clients.find(
+                              (c) =>
+                                c.nom.toLowerCase().trim() ===
+                                item.clientNom.toLowerCase().trim(),
+                            );
+                            return missionClient?.telephone ? (
+                              <a
+                                href={`tel:${missionClient.telephone}`}
+                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-1"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Phone className="w-3 h-3" />
+                                <span>{missionClient.telephone}</span>
+                              </a>
+                            ) : null;
+                          })()}
                           <div className="flex items-center gap-1 mt-1">
                             <User className="w-3 h-3 text-gray-400" />
                             <span className="text-xs text-gray-500">
@@ -814,6 +961,25 @@ export default function Planning({
                         {isOwner(item) && (
                           <div className="flex flex-col gap-1 flex-shrink-0">
                             <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-xs"
+                                title="Modifier la mission"
+                                onClick={() => {
+                                  setShowEditMission(item);
+                                  setEditMissionClient(item.clientNom);
+                                  setEditMissionType(item.typeMission);
+                                  setEditMissionDescription(
+                                    item.description ?? "",
+                                  );
+                                  setEditMissionDates(
+                                    (item.dates || []).map(toDateStr),
+                                  );
+                                }}
+                              >
+                                ✏️
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -850,7 +1016,7 @@ export default function Planning({
 
       {activeTab === "semaine" && (
         <VueSemaine
-          allItems={allItems}
+          allItems={filteredItems}
           profiles={profiles as [any, any][]}
           clients={clients}
           callerPrincipalStr={callerPrincipalStr}
@@ -871,6 +1037,83 @@ export default function Planning({
           Chargement...
         </div>
       )}
+
+      {/* Edit mission dialog */}
+      <Dialog
+        open={!!showEditMission}
+        onOpenChange={(o) => !o && setShowEditMission(null)}
+      >
+        <DialogContent
+          className="max-w-sm max-h-[90vh] overflow-y-auto"
+          data-ocid="planning.edit_mission_dialog"
+        >
+          <DialogHeader>
+            <DialogTitle>Modifier la mission</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label className="text-sm">Client</Label>
+              <ClientAutocomplete
+                clients={clients}
+                value={editMissionClient}
+                onManual={(val) => setEditMissionClient(val)}
+                onSelect={(client) => {
+                  setEditMissionClient(client.nom);
+                }}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Type de mission</Label>
+              <Select
+                value={editMissionType}
+                onValueChange={setEditMissionType}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="depannage">Dépannage</SelectItem>
+                  <SelectItem value="controle">Contrôle</SelectItem>
+                  <SelectItem value="chantier">Chantier</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Description</Label>
+              <Textarea
+                value={editMissionDescription}
+                onChange={(e) => setEditMissionDescription(e.target.value)}
+                rows={3}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Dates</Label>
+              <DateMultiPicker
+                selected={editMissionDates}
+                onChange={setEditMissionDates}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowEditMission(null)}
+              data-ocid="planning.edit_mission_cancel_button"
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleEditMissionSubmit}
+              className="text-white"
+              style={{ backgroundColor: "#ea580c" }}
+              data-ocid="planning.edit_mission_save_button"
+            >
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit dates dialog */}
       <Dialog
@@ -1497,6 +1740,28 @@ function VueSemaine({
                                       ) || item.typeMission.slice(0, 4)}
                                       .
                                     </span>
+                                    {(() => {
+                                      const mc = clients.find(
+                                        (c) =>
+                                          c.nom.toLowerCase().trim() ===
+                                          item.clientNom.toLowerCase().trim(),
+                                      );
+                                      return mc?.telephone ? (
+                                        <a
+                                          href={`tel:${mc.telephone}`}
+                                          className="flex items-center gap-0.5 text-xs text-blue-600 hover:text-blue-800"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <Phone className="w-3 h-3" />
+                                          <span
+                                            className="truncate"
+                                            style={{ maxWidth: "80px" }}
+                                          >
+                                            {mc.telephone}
+                                          </span>
+                                        </a>
+                                      ) : null;
+                                    })()}
                                     {item.destinataire?.toString() ===
                                       callerPrincipalStr &&
                                       item.statut === "a_realiser" && (
