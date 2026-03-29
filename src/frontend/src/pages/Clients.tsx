@@ -182,8 +182,7 @@ function ClientInterventions({
     () =>
       allInterventions.filter(
         (inv) =>
-          (inv.clientNom || "").toLowerCase() === clientNom.toLowerCase() &&
-          inv.valide === true,
+          (inv.clientNom || "").toLowerCase() === clientNom.toLowerCase(),
       ),
     [allInterventions, clientNom],
   );
@@ -541,6 +540,7 @@ export default function Clients() {
       return (actor as any).obtenirToutesInterventionsValideesClient();
     },
     enabled: !!actor && !actorFetching,
+    refetchOnMount: "always",
   });
 
   const { data: allProfiles = [] } = useQuery<any[]>({

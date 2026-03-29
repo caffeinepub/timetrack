@@ -337,6 +337,7 @@ export default function Facturation() {
     setSelectedIds(new Set());
     setBulkAction(null);
     queryClient.invalidateQueries({ queryKey: ["facturationInterventions"] });
+    queryClient.invalidateQueries({ queryKey: ["clientsInterventions"] });
     queryClient.invalidateQueries({ queryKey: ["planningItems"] });
   };
 

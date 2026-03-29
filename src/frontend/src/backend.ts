@@ -407,6 +407,7 @@ export interface backendInterface {
     obtenirTousPlanningItems(): Promise<Array<PlanningItem>>;
     obtenirToutesInterventions(): Promise<Array<InterventionAvecPieces>>;
     obtenirToutesInterventionsPourFacturation(): Promise<Array<InterventionAvecPieces>>;
+    obtenirToutesInterventionsValideesClient(): Promise<Array<InterventionAvecPieces>>;
     obtenirToutesMissionsAcceptees(): Promise<Array<Mission>>;
     obtenirVehiculeDefaut(): Promise<VehiculeDefaut | null>;
     rechercherFichiers(_motCle: string): Promise<Array<Fichier>>;
@@ -1334,6 +1335,19 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.obtenirToutesInterventionsPourFacturation();
+            return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async obtenirToutesInterventionsValideesClient(): Promise<Array<InterventionAvecPieces>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.obtenirToutesInterventionsValideesClient();
+                return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
+            } catch(e) {
+                throw this.processError(e);
+            }
+        } else {
+            const result = await this.actor.obtenirToutesInterventionsValideesClient();
             return from_candid_vec_n34(this._uploadFile, this._downloadFile, result);
         }
     }
