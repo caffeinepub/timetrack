@@ -203,24 +203,14 @@ export default function Planning({
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
   const [showEditDates, setShowEditDates] = useState<DayItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"semaine" | "mois">("semaine");
 
   // Filters
   const [filterUserPrincipal, setFilterUserPrincipal] = useState("all");
   const [filterType, setFilterType] = useState("all");
   const [filterStatut, setFilterStatut] = useState("all");
-
-  // Create form
-  const [createForm, setCreateForm] = useState({
-    dates: [] as string[],
-    destinataire: "",
-    clientNom: "",
-    typeMission: "depannage",
-    description: "",
-  });
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   // Edit dates form
   const [editDates, setEditDates] = useState<string[]>([]);
@@ -488,98 +478,6 @@ export default function Planning({
     }
   };
 
-  const handleCreate = async () => {
-    if (!actor || !callerPrincipal) return;
-    if (!createForm.destinataire || createForm.dates.length === 0) {
-      toast.error("Remplissez tous les champs obligatoires");
-      return;
-    }
-    const targetProfile = (profiles as [any, any][]).find(
-      ([p]) => p.toString() === createForm.destinataire,
-    );
-    if (!targetProfile) {
-      toast.error("Intervenant introuvable, veuillez réessayer");
-      return;
-    }
-    const nomDestinataire = targetProfile[1].name;
-    const callerProfile = (profiles as [any, any][]).find(
-      ([p]) => p.toString() === callerPrincipal.toString(),
-    );
-    const nomCreateur = callerProfile ? callerProfile[1].name : "";
-    const generatedTitre = `${TYPE_LABELS[createForm.typeMission] || createForm.typeMission}${createForm.clientNom ? ` — ${createForm.clientNom}` : ""}`;
-    const encodedDesc = createForm.description.trim();
-    const planId = generateId();
-    try {
-      await actor.creerPlanningItem(
-        planId,
-        generatedTitre,
-        createForm.dates.map(dateToNs),
-        targetProfile[0],
-        nomDestinataire,
-        nomCreateur,
-        createForm.clientNom.trim(),
-        createForm.typeMission,
-        encodedDesc,
-      );
-      // Store clientAdresse for Option A ébauche creation
-      if (selectedClient?.adresse) {
-        try {
-          await (actor as any).setPlanningClientAdresse(
-            planId,
-            selectedClient.adresse,
-          );
-        } catch {}
-      }
-      // Auto-create calendar drafts
-      try {
-        for (const dateStr of createForm.dates) {
-          const input: InterventionInput = {
-            id: `${planId}-${dateStr}`,
-            date: dateToNs(dateStr),
-            clientNom: createForm.clientNom.trim(),
-            clientAdresse: selectedClient?.adresse ?? "",
-            description: createForm.description.trim() || "Mission planifiée",
-            heureMatinDebutH: BigInt(0),
-            heureMatinDebutMin: BigInt(0),
-            heureMatinFinH: BigInt(0),
-            heureMatinFinMin: BigInt(0),
-            heureApremDebutH: BigInt(0),
-            heureApremDebutMin: BigInt(0),
-            heureApremFinH: BigInt(0),
-            heureApremFinMin: BigInt(0),
-            estAstreinte: false,
-            clientAbsent: false,
-            signatureIntervenant: "",
-            signatureClient: "",
-            pieces: [],
-            photos: [],
-            videos: [],
-          };
-          await (actor as any).ajouterInterventionPourUtilisateur(
-            targetProfile[0],
-            input,
-          );
-        }
-      } catch {}
-      queryClient.invalidateQueries({ queryKey: ["planningItems"] });
-      queryClient.invalidateQueries({ queryKey: ["journees"] });
-      setShowCreate(false);
-      setCreateForm({
-        dates: [],
-        destinataire: "",
-        clientNom: "",
-        typeMission: "depannage",
-        description: "",
-      });
-      setSelectedClient(null);
-      toast.success("Mission créée");
-    } catch {
-      toast.error("Erreur lors de la création");
-    }
-  };
-
-  const profilesLoaded = (profiles as any[]).length > 0;
-
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -590,15 +488,6 @@ export default function Planning({
         >
           Planning
         </h1>
-        <Button
-          onClick={() => setShowCreate(true)}
-          className="gap-2 text-white font-semibold"
-          style={{ backgroundColor: "#ea580c" }}
-          data-ocid="planning.open_modal_button"
-        >
-          <Plus className="w-4 h-4" />
-          Nouvelle mission
-        </Button>
       </div>
 
       {/* Today badges */}
@@ -625,6 +514,36 @@ export default function Planning({
             exécutés aujourd'hui
           </span>
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab("semaine")}
+          className="px-4 py-2 rounded-xl font-semibold text-sm transition-colors"
+          style={
+            activeTab === "semaine"
+              ? { backgroundColor: "#0f1e4a", color: "white" }
+              : { backgroundColor: "#f3f4f6", color: "#374151" }
+          }
+          data-ocid="planning.semaine.tab"
+        >
+          Vue semaine
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("mois")}
+          className="px-4 py-2 rounded-xl font-semibold text-sm transition-colors"
+          style={
+            activeTab === "mois"
+              ? { backgroundColor: "#0f1e4a", color: "white" }
+              : { backgroundColor: "#f3f4f6", color: "#374151" }
+          }
+          data-ocid="planning.mois.tab"
+        >
+          Vue mois
+        </button>
       </div>
 
       {/* Filters */}
@@ -681,242 +600,266 @@ export default function Planning({
         </Select>
       </div>
 
-      {/* Calendar grid */}
-      <div className="rounded-2xl overflow-hidden shadow border border-gray-200 bg-white">
-        {/* Month navigation */}
-        <div
-          className="flex items-center justify-between px-4 py-3"
-          style={{ backgroundColor: "oklch(var(--navy-dark))" }}
-        >
-          <button
-            type="button"
-            onClick={prevMonth}
-            className="text-white p-1 rounded-lg hover:bg-white/10"
-            data-ocid="planning.pagination_prev"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <span className="text-white font-bold text-base">
-            {MONTHS[viewMonth]} {viewYear}
-          </span>
-          <button
-            type="button"
-            onClick={nextMonth}
-            className="text-white p-1 rounded-lg hover:bg-white/10"
-            data-ocid="planning.pagination_next"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-gray-100">
-          {DAYS.map((d) => (
+      {activeTab === "mois" && (
+        <>
+          {/* Calendar grid */}
+          <div className="rounded-2xl overflow-hidden shadow border border-gray-200 bg-white">
+            {/* Month navigation */}
             <div
-              key={d}
-              className="text-center text-xs font-semibold text-gray-400 py-2"
+              className="flex items-center justify-between px-4 py-3"
+              style={{ backgroundColor: "oklch(var(--navy-dark))" }}
             >
-              {d}
-            </div>
-          ))}
-        </div>
-
-        {/* Day cells */}
-        <div className="grid grid-cols-7">
-          {DAYS.slice(0, firstDayOfWeek).map((d) => (
-            <div
-              key={`empty-${viewYear}-${viewMonth}-${d}`}
-              className="h-14 sm:h-16 border-b border-r border-gray-100"
-            />
-          ))}
-
-          {Array.from({ length: daysInMonth }).map((_, i) => {
-            const day = i + 1;
-            const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-            const dayItems = dateMap.get(dateStr) || [];
-            const isToday = dateStr === todayStr;
-            const isSelected = dateStr === selectedDay;
-
-            return (
               <button
-                key={dateStr}
                 type="button"
-                onClick={() => setSelectedDay(isSelected ? null : dateStr)}
-                className={[
-                  "h-14 sm:h-16 border-b border-r border-gray-100 flex flex-col items-center justify-start pt-1.5 gap-1 transition-colors relative",
-                  isSelected
-                    ? "bg-blue-50 ring-2 ring-inset ring-blue-300"
-                    : "hover:bg-gray-50",
-                ].join(" ")}
-                data-ocid={`planning.item.${day}`}
+                onClick={prevMonth}
+                className="text-white p-1 rounded-lg hover:bg-white/10"
+                data-ocid="planning.pagination_prev"
               >
-                <span
-                  className={[
-                    "text-sm font-semibold leading-none w-7 h-7 flex items-center justify-center rounded-full",
-                    isToday ? "text-white" : "text-gray-700",
-                  ].join(" ")}
-                  style={isToday ? { backgroundColor: "#0f1e4a" } : {}}
-                >
-                  {day}
-                </span>
-                <div className="flex gap-0.5 flex-wrap justify-center max-w-full px-0.5">
-                  {dayItems.slice(0, 5).map((mi) => (
-                    <span
-                      key={mi.id}
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{
-                        backgroundColor:
-                          mi.statut === "execute"
-                            ? "#16a34a"
-                            : mi.statut === "en_cours"
-                              ? "#2563eb"
-                              : "#ea580c",
-                      }}
-                    />
-                  ))}
-                  {dayItems.length > 5 && (
-                    <span
-                      className="text-gray-400"
-                      style={{ fontSize: "8px", lineHeight: "8px" }}
-                    >
-                      +
-                    </span>
-                  )}
-                </div>
+                <ChevronLeft className="w-5 h-5" />
               </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Selected day panel */}
-      {selectedDay && (
-        <div className="rounded-2xl border border-gray-200 bg-white shadow overflow-hidden">
-          <div
-            className="flex items-center justify-between px-4 py-3"
-            style={{ backgroundColor: "oklch(var(--navy-dark))" }}
-          >
-            <span className="text-white font-bold text-sm">
-              {new Date(`${selectedDay}T12:00:00`).toLocaleDateString("fr-FR", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-              })}
-            </span>
-            <button
-              type="button"
-              onClick={() => setSelectedDay(null)}
-              className="text-white/70 hover:text-white"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {selectedDayItems.length === 0 ? (
-            <div
-              className="p-6 text-center text-gray-400 text-sm"
-              data-ocid="planning.empty_state"
-            >
-              Aucune intervention ce jour
+              <span className="text-white font-bold text-base">
+                {MONTHS[viewMonth]} {viewYear}
+              </span>
+              <button
+                type="button"
+                onClick={nextMonth}
+                className="text-white p-1 rounded-lg hover:bg-white/10"
+                data-ocid="planning.pagination_next"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
             </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {selectedDayItems.map((item, idx) => (
-                <div
-                  key={item.id}
-                  className="p-3 sm:p-4"
-                  data-ocid={`planning.row.${idx + 1}`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-sm text-gray-900">
-                          {item.titre}
-                        </span>
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_COLORS[item.typeMission] || "bg-gray-100 text-gray-700"}`}
-                        >
-                          {TYPE_LABELS[item.typeMission] || item.typeMission}
-                        </span>
-                        <span
-                          className="text-xs px-2 py-0.5 rounded-full font-bold text-white"
-                          style={{
-                            backgroundColor:
-                              item.statut === "execute"
-                                ? "#16a34a"
-                                : item.statut === "en_cours"
-                                  ? "#2563eb"
-                                  : "#ea580c",
-                          }}
-                        >
-                          {item.statut === "execute"
-                            ? "Exécuté"
-                            : item.statut === "en_cours"
-                              ? "En cours"
-                              : "À réaliser"}
-                        </span>
-                      </div>
-                      {item.clientNom && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Client : {item.clientNom}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-1 mt-1">
-                        <User className="w-3 h-3 text-gray-400" />
-                        <span className="text-xs text-gray-500">
-                          {item.nomDestinataire}
-                        </span>
-                      </div>
-                      {item.description && (
-                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-                          {item.description}
-                        </p>
-                      )}
-                    </div>
 
-                    {item.destinataire?.toString() === callerPrincipalStr &&
-                      item.statut === "a_realiser" && (
-                        <Button
-                          size="sm"
-                          className="h-7 px-2 text-xs text-white font-semibold"
-                          style={{ backgroundColor: "#16a34a" }}
-                          onClick={() => handleAccept(item)}
-                          data-ocid={`planning.accept_button.${idx + 1}`}
-                        >
-                          ✓ Accepter
-                        </Button>
-                      )}
-                    {isOwner(item) && (
-                      <div className="flex flex-col gap-1 flex-shrink-0">
-                        <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 px-2 text-xs"
-                            onClick={() => {
-                              setShowEditDates(item);
-                              setEditDates((item.dates || []).map(toDateStr));
-                            }}
-                          >
-                            <Clock className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 px-2 text-xs text-red-600 border-red-200 hover:bg-red-50"
-                            onClick={() => setDeleteConfirm(item.id)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+            {/* Day headers */}
+            <div className="grid grid-cols-7 border-b border-gray-100">
+              {DAYS.map((d) => (
+                <div
+                  key={d}
+                  className="text-center text-xs font-semibold text-gray-400 py-2"
+                >
+                  {d}
                 </div>
               ))}
             </div>
+
+            {/* Day cells */}
+            <div className="grid grid-cols-7">
+              {DAYS.slice(0, firstDayOfWeek).map((d) => (
+                <div
+                  key={`empty-${viewYear}-${viewMonth}-${d}`}
+                  className="h-14 sm:h-16 border-b border-r border-gray-100"
+                />
+              ))}
+
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const day = i + 1;
+                const dateStr = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                const dayItems = dateMap.get(dateStr) || [];
+                const isToday = dateStr === todayStr;
+                const isSelected = dateStr === selectedDay;
+
+                return (
+                  <button
+                    key={dateStr}
+                    type="button"
+                    onClick={() => setSelectedDay(isSelected ? null : dateStr)}
+                    className={[
+                      "h-14 sm:h-16 border-b border-r border-gray-100 flex flex-col items-center justify-start pt-1.5 gap-1 transition-colors relative",
+                      isSelected
+                        ? "bg-blue-50 ring-2 ring-inset ring-blue-300"
+                        : "hover:bg-gray-50",
+                    ].join(" ")}
+                    data-ocid={`planning.item.${day}`}
+                  >
+                    <span
+                      className={[
+                        "text-sm font-semibold leading-none w-7 h-7 flex items-center justify-center rounded-full",
+                        isToday ? "text-white" : "text-gray-700",
+                      ].join(" ")}
+                      style={isToday ? { backgroundColor: "#0f1e4a" } : {}}
+                    >
+                      {day}
+                    </span>
+                    <div className="flex gap-0.5 flex-wrap justify-center max-w-full px-0.5">
+                      {dayItems.slice(0, 5).map((mi) => (
+                        <span
+                          key={mi.id}
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{
+                            backgroundColor:
+                              mi.statut === "execute"
+                                ? "#16a34a"
+                                : mi.statut === "en_cours"
+                                  ? "#2563eb"
+                                  : "#ea580c",
+                          }}
+                        />
+                      ))}
+                      {dayItems.length > 5 && (
+                        <span
+                          className="text-gray-400"
+                          style={{ fontSize: "8px", lineHeight: "8px" }}
+                        >
+                          +
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Selected day panel */}
+          {selectedDay && (
+            <div className="rounded-2xl border border-gray-200 bg-white shadow overflow-hidden">
+              <div
+                className="flex items-center justify-between px-4 py-3"
+                style={{ backgroundColor: "oklch(var(--navy-dark))" }}
+              >
+                <span className="text-white font-bold text-sm">
+                  {new Date(`${selectedDay}T12:00:00`).toLocaleDateString(
+                    "fr-FR",
+                    {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                    },
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDay(null)}
+                  className="text-white/70 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {selectedDayItems.length === 0 ? (
+                <div
+                  className="p-6 text-center text-gray-400 text-sm"
+                  data-ocid="planning.empty_state"
+                >
+                  Aucune intervention ce jour
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {selectedDayItems.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      className="p-3 sm:p-4"
+                      data-ocid={`planning.row.${idx + 1}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm text-gray-900">
+                              {item.titre}
+                            </span>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_COLORS[item.typeMission] || "bg-gray-100 text-gray-700"}`}
+                            >
+                              {TYPE_LABELS[item.typeMission] ||
+                                item.typeMission}
+                            </span>
+                            <span
+                              className="text-xs px-2 py-0.5 rounded-full font-bold text-white"
+                              style={{
+                                backgroundColor:
+                                  item.statut === "execute"
+                                    ? "#16a34a"
+                                    : item.statut === "en_cours"
+                                      ? "#2563eb"
+                                      : "#ea580c",
+                              }}
+                            >
+                              {item.statut === "execute"
+                                ? "Exécuté"
+                                : item.statut === "en_cours"
+                                  ? "En cours"
+                                  : "À réaliser"}
+                            </span>
+                          </div>
+                          {item.clientNom && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Client : {item.clientNom}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-1 mt-1">
+                            <User className="w-3 h-3 text-gray-400" />
+                            <span className="text-xs text-gray-500">
+                              {item.nomDestinataire}
+                            </span>
+                          </div>
+                          {item.description && (
+                            <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                              {item.description}
+                            </p>
+                          )}
+                        </div>
+
+                        {item.destinataire?.toString() === callerPrincipalStr &&
+                          item.statut === "a_realiser" && (
+                            <Button
+                              size="sm"
+                              className="h-7 px-2 text-xs text-white font-semibold"
+                              style={{ backgroundColor: "#16a34a" }}
+                              onClick={() => handleAccept(item)}
+                              data-ocid={`planning.accept_button.${idx + 1}`}
+                            >
+                              ✓ Accepter
+                            </Button>
+                          )}
+                        {isOwner(item) && (
+                          <div className="flex flex-col gap-1 flex-shrink-0">
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => {
+                                  setShowEditDates(item);
+                                  setEditDates(
+                                    (item.dates || []).map(toDateStr),
+                                  );
+                                }}
+                              >
+                                <Clock className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                                onClick={() => setDeleteConfirm(item.id)}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
-        </div>
+        </>
+      )}
+
+      {activeTab === "semaine" && (
+        <VueSemaine
+          allItems={allItems}
+          profiles={profiles as [any, any][]}
+          clients={clients}
+          callerPrincipalStr={callerPrincipalStr}
+          actor={actor}
+          queryClient={queryClient}
+          callerPrincipal={callerPrincipal}
+          handleDelete={handleDelete}
+          handleAccept={handleAccept}
+        />
       )}
 
       {/* Loading */}
@@ -928,126 +871,6 @@ export default function Planning({
           Chargement...
         </div>
       )}
-
-      {/* Create dialog */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent
-          className="max-w-lg max-h-[90vh] overflow-y-auto"
-          data-ocid="planning.dialog"
-        >
-          <DialogHeader>
-            <DialogTitle>Nouvelle mission</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1">
-              <Label className="text-sm">Intervenant *</Label>
-              {!profilesLoaded ? (
-                <p className="text-xs text-gray-400 py-1">
-                  Chargement des intervenants...
-                </p>
-              ) : (
-                <Select
-                  value={createForm.destinataire}
-                  onValueChange={(v) =>
-                    setCreateForm((f) => ({ ...f, destinataire: v }))
-                  }
-                >
-                  <SelectTrigger data-ocid="planning.destinataire.select">
-                    <SelectValue placeholder="Choisir un intervenant" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(profiles as [any, any][]).map(([principal, profile]) => (
-                      <SelectItem
-                        key={principal.toString()}
-                        value={principal.toString()}
-                      >
-                        {profile.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-sm">Client</Label>
-              <ClientAutocomplete
-                value={createForm.clientNom}
-                clients={clients}
-                onSelect={(c) => {
-                  setSelectedClient(c);
-                  setCreateForm((f) => ({ ...f, clientNom: c.nom }));
-                }}
-                onManual={(name) => {
-                  setSelectedClient(null);
-                  setCreateForm((f) => ({ ...f, clientNom: name }));
-                }}
-              />
-              {selectedClient && <ClientInfoCard client={selectedClient} />}
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-sm">Type *</Label>
-              <Select
-                value={createForm.typeMission}
-                onValueChange={(v) =>
-                  setCreateForm((f) => ({ ...f, typeMission: v }))
-                }
-              >
-                <SelectTrigger data-ocid="planning.type_mission.select">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="depannage">Dépannage</SelectItem>
-                  <SelectItem value="controle">Contrôle</SelectItem>
-                  <SelectItem value="chantier">Chantier</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-sm">
-                Dates * (sélectionnez une ou plusieurs dates)
-              </Label>
-              <DateMultiPicker
-                selected={createForm.dates}
-                onChange={(dates) => setCreateForm((f) => ({ ...f, dates }))}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-sm">Description</Label>
-              <Textarea
-                value={createForm.description}
-                onChange={(e) =>
-                  setCreateForm((f) => ({ ...f, description: e.target.value }))
-                }
-                placeholder="Description..."
-                rows={3}
-                data-ocid="planning.description.textarea"
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowCreate(false)}
-              data-ocid="planning.cancel_button"
-            >
-              Annuler
-            </Button>
-            <Button
-              onClick={handleCreate}
-              className="text-white"
-              style={{ backgroundColor: "#ea580c" }}
-              disabled={!profilesLoaded}
-              data-ocid="planning.submit_button"
-            >
-              Créer la mission
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Edit dates dialog */}
       <Dialog
@@ -1111,6 +934,684 @@ export default function Planning({
               onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
               className="text-white bg-red-600 hover:bg-red-700"
               data-ocid="planning.delete_confirm_button"
+            >
+              Supprimer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// VueSemaine: weekly table view
+interface VueSemaineProps {
+  allItems: DayItem[];
+  profiles: [any, any][];
+  clients: Client[];
+  callerPrincipalStr: string;
+  actor: any;
+  queryClient: any;
+  callerPrincipal: any;
+  handleDelete: (id: string) => Promise<void>;
+  handleAccept: (item: DayItem) => Promise<void>;
+}
+
+function VueSemaine({
+  allItems,
+  profiles,
+  clients,
+  callerPrincipalStr,
+  actor,
+  queryClient,
+  callerPrincipal,
+  handleDelete,
+  handleAccept,
+}: VueSemaineProps) {
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+
+  // Get monday of current week
+  const getMonday = (d: Date): Date => {
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.getFullYear(), d.getMonth(), diff);
+  };
+
+  const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
+  const [activeCell, setActiveCell] = useState<{
+    userPrincipal: string;
+    dateStr: string;
+  } | null>(null);
+  const [editItem, setEditItem] = useState<DayItem | null>(null);
+  const [createForm, setCreateForm] = useState({
+    clientNom: "",
+    typeMission: "depannage",
+    description: "",
+  });
+  const [editForm, setEditForm] = useState({
+    clientNom: "",
+    typeMission: "depannage",
+    description: "",
+  });
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [editClient, setEditClient] = useState<Client | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  const weekDays = Array.from({ length: 5 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    return d;
+  });
+
+  const prevWeek = () => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() - 7);
+    setWeekStart(d);
+  };
+
+  const nextWeek = () => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + 7);
+    setWeekStart(d);
+  };
+
+  const formatWeekHeader = () => {
+    const end = weekDays[4];
+    const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+    const startFmt = weekDays[0].toLocaleDateString("fr-FR", opts);
+    const endFmt = end.toLocaleDateString("fr-FR", opts);
+    return `${startFmt} — ${endFmt} ${end.getFullYear()}`;
+  };
+
+  const DAY_SHORT = ["Lun", "Mar", "Mer", "Jeu", "Ven"];
+
+  const dateMap = useMemo(() => {
+    const map = new Map<string, DayItem[]>();
+    for (const item of allItems) {
+      for (const d of item.dates || []) {
+        const ds = toDateStr(d);
+        if (!map.has(ds)) map.set(ds, []);
+        map.get(ds)!.push(item);
+      }
+    }
+    return map;
+  }, [allItems]);
+
+  const getCellItems = (userPrincipal: string, dateStr: string): DayItem[] => {
+    const items = dateMap.get(dateStr) || [];
+    return items.filter(
+      (item) => item.destinataire?.toString() === userPrincipal,
+    );
+  };
+
+  const isOwner = (item: DayItem) => {
+    if (!callerPrincipalStr) return false;
+    return (
+      item.createur?.toString() === callerPrincipalStr ||
+      item.destinataire?.toString() === callerPrincipalStr
+    );
+  };
+
+  const handleCreate = async (userPrincipal: string, dateStr: string) => {
+    if (!actor || !callerPrincipal) return;
+    const targetProfile = profiles.find(
+      ([p]) => p.toString() === userPrincipal,
+    );
+    if (!targetProfile) {
+      toast.error("Intervenant introuvable");
+      return;
+    }
+    setSaving(true);
+    try {
+      const nomDestinataire = targetProfile[1].name;
+      const callerProfile = profiles.find(
+        ([p]) => p.toString() === callerPrincipal.toString(),
+      );
+      const nomCreateur = callerProfile ? callerProfile[1].name : "";
+      const typeMission = createForm.typeMission;
+      const generatedTitre = `${TYPE_LABELS[typeMission] || typeMission}${createForm.clientNom ? ` — ${createForm.clientNom}` : ""}`;
+      const planId = generateId();
+      const dateNs = dateToNs(dateStr);
+      await actor.creerPlanningItem(
+        planId,
+        generatedTitre,
+        [dateNs],
+        targetProfile[0],
+        nomDestinataire,
+        nomCreateur,
+        createForm.clientNom.trim(),
+        typeMission,
+        createForm.description.trim(),
+      );
+      if (selectedClient?.adresse) {
+        try {
+          await (actor as any).setPlanningClientAdresse(
+            planId,
+            selectedClient.adresse,
+          );
+        } catch {}
+      }
+      queryClient.invalidateQueries({ queryKey: ["planningItems"] });
+      setActiveCell(null);
+      setCreateForm({
+        clientNom: "",
+        typeMission: "depannage",
+        description: "",
+      });
+      setSelectedClient(null);
+      toast.success("Mission créée");
+    } catch {
+      toast.error("Erreur lors de la création");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEdit = async () => {
+    if (!actor || !editItem) return;
+    setSaving(true);
+    try {
+      const typeMission = editForm.typeMission;
+      const generatedTitre = `${TYPE_LABELS[typeMission] || typeMission}${editForm.clientNom ? ` — ${editForm.clientNom}` : ""}`;
+      await (actor as any).modifierPlanningItem?.(
+        editItem.id,
+        generatedTitre,
+        editForm.clientNom.trim(),
+        typeMission,
+        editForm.description.trim(),
+      );
+      queryClient.invalidateQueries({ queryKey: ["planningItems"] });
+      setEditItem(null);
+      toast.success("Mission modifiée");
+    } catch {
+      toast.error("Erreur lors de la modification");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Week navigation */}
+      <div className="flex items-center justify-between px-1">
+        <button
+          type="button"
+          onClick={prevWeek}
+          className="p-2 rounded-lg hover:bg-gray-100"
+          data-ocid="planning.week.pagination_prev"
+        >
+          <ChevronLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <span className="font-semibold text-sm" style={{ color: "#0f1e4a" }}>
+          {formatWeekHeader()}
+        </span>
+        <button
+          type="button"
+          onClick={nextWeek}
+          className="p-2 rounded-lg hover:bg-gray-100"
+          data-ocid="planning.week.pagination_next"
+        >
+          <ChevronRight className="w-5 h-5 text-gray-600" />
+        </button>
+      </div>
+
+      {/* Table container */}
+      <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow bg-white">
+        <table className="w-full min-w-[700px] border-collapse">
+          <thead>
+            <tr>
+              <th
+                className="text-left px-3 py-3 text-xs font-bold text-white w-28 border-r border-blue-800"
+                style={{ backgroundColor: "#0f1e4a" }}
+              >
+                Intervenant
+              </th>
+              {weekDays.map((d, i) => {
+                const ds = d.toISOString().slice(0, 10);
+                const isToday = ds === todayStr;
+                return (
+                  <th
+                    key={ds}
+                    className="px-2 py-3 text-xs font-bold text-white text-center border-r border-blue-800 last:border-r-0"
+                    style={{ backgroundColor: isToday ? "#ea580c" : "#0f1e4a" }}
+                  >
+                    <div>{DAY_SHORT[i]}</div>
+                    <div className="text-xs font-normal opacity-80">
+                      {d.toLocaleDateString("fr-FR", {
+                        day: "numeric",
+                        month: "short",
+                      })}
+                    </div>
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {profiles.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="text-center py-8 text-gray-400 text-sm"
+                  data-ocid="planning.semaine.empty_state"
+                >
+                  Aucun intervenant disponible
+                </td>
+              </tr>
+            ) : (
+              profiles.map(([principal, profile], rowIdx) => {
+                const principalStr = principal.toString();
+                return (
+                  <tr key={principalStr} className="border-t border-gray-100">
+                    <td
+                      className="px-3 py-2 font-semibold text-sm border-r border-gray-200 bg-gray-50 align-top"
+                      style={{ color: "#0f1e4a" }}
+                      data-ocid={`planning.semaine.row.${rowIdx + 1}`}
+                    >
+                      {profile.name || "Utilisateur"}
+                    </td>
+                    {weekDays.map((d) => {
+                      const ds = d.toISOString().slice(0, 10);
+                      const isToday = ds === todayStr;
+                      const cellItems = getCellItems(principalStr, ds);
+                      const isActive =
+                        activeCell?.userPrincipal === principalStr &&
+                        activeCell?.dateStr === ds;
+                      const isEditing =
+                        editItem !== null &&
+                        cellItems.some((it) => it.id === editItem?.id);
+
+                      return (
+                        <td
+                          key={ds}
+                          className={[
+                            "px-2 py-2 align-top border-r border-gray-100 last:border-r-0 min-w-[130px]",
+                            isToday ? "bg-orange-50" : "bg-white",
+                          ].join(" ")}
+                          style={{ verticalAlign: "top" }}
+                        >
+                          {/* Inline create form */}
+                          {isActive && !isEditing && (
+                            <div className="bg-white border border-orange-200 rounded-lg p-2 shadow-md space-y-2">
+                              <div>
+                                <span className="text-xs text-gray-500 block mb-0.5">
+                                  Client
+                                </span>
+                                <ClientAutocomplete
+                                  value={createForm.clientNom}
+                                  clients={clients}
+                                  onSelect={(c) => {
+                                    setSelectedClient(c);
+                                    setCreateForm((f) => ({
+                                      ...f,
+                                      clientNom: c.nom,
+                                    }));
+                                  }}
+                                  onManual={(name) => {
+                                    setSelectedClient(null);
+                                    setCreateForm((f) => ({
+                                      ...f,
+                                      clientNom: name,
+                                    }));
+                                  }}
+                                />
+                                {selectedClient && (
+                                  <ClientInfoCard client={selectedClient} />
+                                )}
+                              </div>
+                              <div>
+                                <span className="text-xs text-gray-500 block mb-0.5">
+                                  Type
+                                </span>
+                                <select
+                                  className="w-full text-xs border border-gray-200 rounded px-2 py-1.5"
+                                  value={createForm.typeMission}
+                                  onChange={(e) =>
+                                    setCreateForm((f) => ({
+                                      ...f,
+                                      typeMission: e.target.value,
+                                    }))
+                                  }
+                                >
+                                  <option value="depannage">Dépannage</option>
+                                  <option value="controle">Contrôle</option>
+                                  <option value="chantier">Chantier</option>
+                                </select>
+                              </div>
+                              <div>
+                                <span className="text-xs text-gray-500 block mb-0.5">
+                                  Description
+                                </span>
+                                <textarea
+                                  className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 resize-none"
+                                  rows={2}
+                                  value={createForm.description}
+                                  onChange={(e) =>
+                                    setCreateForm((f) => ({
+                                      ...f,
+                                      description: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="Description..."
+                                />
+                              </div>
+                              <div className="flex gap-1">
+                                <button
+                                  type="button"
+                                  disabled={saving}
+                                  onClick={() => handleCreate(principalStr, ds)}
+                                  className="flex-1 text-xs text-white font-semibold py-1.5 rounded"
+                                  style={{ backgroundColor: "#ea580c" }}
+                                  data-ocid="planning.semaine.create_button"
+                                >
+                                  {saving ? "..." : "Créer"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveCell(null);
+                                    setCreateForm({
+                                      clientNom: "",
+                                      typeMission: "depannage",
+                                      description: "",
+                                    });
+                                    setSelectedClient(null);
+                                  }}
+                                  className="flex-1 text-xs text-gray-600 border border-gray-200 py-1.5 rounded hover:bg-gray-50"
+                                  data-ocid="planning.semaine.cancel_button"
+                                >
+                                  Annuler
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Missions list */}
+                          {cellItems.map((item, mIdx) => {
+                            const isEditingThis = editItem?.id === item.id;
+                            return (
+                              <div
+                                key={item.id}
+                                data-ocid={`planning.semaine.item.${mIdx + 1}`}
+                              >
+                                {isEditingThis ? (
+                                  <div className="bg-white border border-blue-200 rounded-lg p-2 shadow-md space-y-2 mb-1">
+                                    <div>
+                                      <span className="text-xs text-gray-500 block mb-0.5">
+                                        Client
+                                      </span>
+                                      <ClientAutocomplete
+                                        value={editForm.clientNom}
+                                        clients={clients}
+                                        onSelect={(c) => {
+                                          setEditClient(c);
+                                          setEditForm((f) => ({
+                                            ...f,
+                                            clientNom: c.nom,
+                                          }));
+                                        }}
+                                        onManual={(name) => {
+                                          setEditClient(null);
+                                          setEditForm((f) => ({
+                                            ...f,
+                                            clientNom: name,
+                                          }));
+                                        }}
+                                      />
+                                      {editClient && (
+                                        <ClientInfoCard client={editClient} />
+                                      )}
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block mb-0.5">
+                                        Type
+                                      </span>
+                                      <select
+                                        className="w-full text-xs border border-gray-200 rounded px-2 py-1.5"
+                                        value={editForm.typeMission}
+                                        onChange={(e) =>
+                                          setEditForm((f) => ({
+                                            ...f,
+                                            typeMission: e.target.value,
+                                          }))
+                                        }
+                                      >
+                                        <option value="depannage">
+                                          Dépannage
+                                        </option>
+                                        <option value="controle">
+                                          Contrôle
+                                        </option>
+                                        <option value="chantier">
+                                          Chantier
+                                        </option>
+                                      </select>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs text-gray-500 block mb-0.5">
+                                        Description
+                                      </span>
+                                      <textarea
+                                        className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 resize-none"
+                                        rows={2}
+                                        value={editForm.description}
+                                        onChange={(e) =>
+                                          setEditForm((f) => ({
+                                            ...f,
+                                            description: e.target.value,
+                                          }))
+                                        }
+                                      />
+                                    </div>
+                                    <div className="flex gap-1">
+                                      <button
+                                        type="button"
+                                        disabled={saving}
+                                        onClick={handleEdit}
+                                        className="flex-1 text-xs text-white font-semibold py-1.5 rounded"
+                                        style={{ backgroundColor: "#0f1e4a" }}
+                                        data-ocid="planning.semaine.save_button"
+                                      >
+                                        {saving ? "..." : "Sauvegarder"}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setEditItem(null)}
+                                        className="flex-1 text-xs text-gray-600 border border-gray-200 py-1.5 rounded hover:bg-gray-50"
+                                        data-ocid="planning.semaine.edit_cancel_button"
+                                      >
+                                        Annuler
+                                      </button>
+                                    </div>
+                                    {isOwner(item) && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setDeleteConfirm(item.id)
+                                        }
+                                        className="w-full text-xs text-red-600 border border-red-200 py-1.5 rounded hover:bg-red-50"
+                                        data-ocid={`planning.semaine.delete_button.${mIdx + 1}`}
+                                      >
+                                        Supprimer
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="w-full text-left rounded-lg px-2 py-1.5 mb-1 hover:opacity-80 transition-opacity border"
+                                    style={{
+                                      borderColor:
+                                        item.statut === "execute"
+                                          ? "#16a34a"
+                                          : item.statut === "en_cours"
+                                            ? "#2563eb"
+                                            : "#ea580c",
+                                      backgroundColor:
+                                        item.statut === "execute"
+                                          ? "#f0fdf4"
+                                          : item.statut === "en_cours"
+                                            ? "#eff6ff"
+                                            : "#fff7ed",
+                                    }}
+                                    onClick={() => {
+                                      setActiveCell(null);
+                                      setEditItem(item);
+                                      setEditForm({
+                                        clientNom: item.clientNom,
+                                        typeMission: item.typeMission,
+                                        description: item.description,
+                                      });
+                                      setEditClient(null);
+                                    }}
+                                    data-ocid={`planning.semaine.mission.${mIdx + 1}`}
+                                  >
+                                    <div className="flex items-center gap-1 mb-0.5">
+                                      <span
+                                        className="w-2 h-2 rounded-full flex-shrink-0"
+                                        style={{
+                                          backgroundColor:
+                                            item.statut === "execute"
+                                              ? "#16a34a"
+                                              : item.statut === "en_cours"
+                                                ? "#2563eb"
+                                                : "#ea580c",
+                                        }}
+                                      />
+                                      <span
+                                        className="text-xs font-semibold truncate"
+                                        style={{
+                                          color: "#0f1e4a",
+                                          maxWidth: "90px",
+                                        }}
+                                      >
+                                        {item.clientNom || "Sans client"}
+                                      </span>
+                                    </div>
+                                    <span className="text-xs text-gray-500">
+                                      {TYPE_LABELS[item.typeMission]?.slice(
+                                        0,
+                                        4,
+                                      ) || item.typeMission.slice(0, 4)}
+                                      .
+                                    </span>
+                                    {item.destinataire?.toString() ===
+                                      callerPrincipalStr &&
+                                      item.statut === "a_realiser" && (
+                                        <div className="mt-1">
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleAccept(item);
+                                            }}
+                                            className="text-xs text-white px-1.5 py-0.5 rounded font-medium"
+                                            style={{
+                                              backgroundColor: "#16a34a",
+                                            }}
+                                            data-ocid={`planning.semaine.accept_button.${mIdx + 1}`}
+                                          >
+                                            ✓ Accepter
+                                          </button>
+                                        </div>
+                                      )}
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                          {/* Empty cell click area */}
+                          {!isActive && cellItems.length === 0 && (
+                            <button
+                              type="button"
+                              className="w-full h-10 flex items-center justify-center rounded text-gray-300 hover:text-gray-500 hover:bg-gray-50 transition-colors text-lg"
+                              onClick={() => {
+                                setEditItem(null);
+                                setActiveCell({
+                                  userPrincipal: principalStr,
+                                  dateStr: ds,
+                                });
+                                setCreateForm({
+                                  clientNom: "",
+                                  typeMission: "depannage",
+                                  description: "",
+                                });
+                                setSelectedClient(null);
+                              }}
+                              data-ocid={`planning.semaine.add_button.${rowIdx + 1}`}
+                            >
+                              +
+                            </button>
+                          )}
+                          {!isActive && cellItems.length > 0 && (
+                            <button
+                              type="button"
+                              className="w-full mt-1 flex items-center justify-center rounded text-gray-300 hover:text-gray-500 hover:bg-gray-50 transition-colors text-sm py-0.5"
+                              onClick={() => {
+                                setEditItem(null);
+                                setActiveCell({
+                                  userPrincipal: principalStr,
+                                  dateStr: ds,
+                                });
+                                setCreateForm({
+                                  clientNom: "",
+                                  typeMission: "depannage",
+                                  description: "",
+                                });
+                                setSelectedClient(null);
+                              }}
+                              data-ocid={`planning.semaine.add_more_button.${rowIdx + 1}`}
+                            >
+                              +
+                            </button>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Delete confirm dialog */}
+      <Dialog
+        open={!!deleteConfirm}
+        onOpenChange={(o) => !o && setDeleteConfirm(null)}
+      >
+        <DialogContent
+          className="max-w-sm"
+          data-ocid="planning.semaine.delete_dialog"
+        >
+          <DialogHeader>
+            <DialogTitle>Supprimer la mission</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600 py-2">
+            Êtes-vous sûr de vouloir supprimer cette mission ?
+          </p>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirm(null)}
+              data-ocid="planning.semaine.delete_cancel_button"
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={() => {
+                if (deleteConfirm) {
+                  handleDelete(deleteConfirm);
+                  setDeleteConfirm(null);
+                  setEditItem(null);
+                }
+              }}
+              className="text-white bg-red-600 hover:bg-red-700"
+              data-ocid="planning.semaine.delete_confirm_button"
             >
               Supprimer
             </Button>

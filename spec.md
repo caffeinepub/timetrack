@@ -1,31 +1,44 @@
-# Vial Traite Service
+# Vial Traite Service — Vue Semaine Planning
 
 ## Current State
-- Planning.tsx shows `validatedInterventions` (validated interventions from Facturation) as separate DayItem entries in `allItems`, causing duplication when Facturation validation auto-updates a mission
-- Creating a mission in Planning does NOT create any draft entry in the Calendar
-- Header.tsx has no badge for pending missions
-- No sync between Planning missions and Calendar when missions are edited/deleted
+La page Planning affiche un calendrier mensuel avec filtres et un bouton "Nouvelle mission" qui ouvre une modale de création. Les missions s'affichent via des points colorés par jour, et un panneau s'ouvre en dessous du calendrier quand on clique sur un jour.
 
 ## Requested Changes (Diff)
 
 ### Add
-- **Auto-create calendar draft interventions** when a planning mission is created: for each date in the mission, call `ajouterIntervention` with a deterministic ID `${planningItemId}-${dateStr}`, client name and address pre-filled, all hours at 0, for the destinataire's principal
-- **Badge orange in Header**: `missionsBadgeCount` prop, orange circle with number of today's missions "à réaliser"; computed in App.tsx from planningItems query
+- Nouvel onglet "Vue semaine" dans la page Planning (en plus du calendrier mensuel existant)
+- La page Planning s'ouvre directement sur cet onglet "Vue semaine" par défaut
+- Tableau hebdomadaire Lun→Ven avec :
+  - En-tête : 5 colonnes avec date précise (ex. "Lun 29 Mar")
+  - En-tête gauche : liste de tous les utilisateurs (une ligne par utilisateur)
+  - Navigation semaine précédente / semaine suivante avec dates affichées
+  - Cellule vide = fond discret si aucune mission
+  - Cellule avec mission = affiche nom client + type + rond coloré (🟠 à réaliser, 🔵 en cours, 🟢 réalisé)
+  - Aujourd'hui mis en évidence visuellement
+  - Scroll horizontal sur mobile
+- Création de mission depuis le tableau : clic sur cellule vide → formulaire inline dans la cellule (jour + utilisateur pré-remplis, champs : client avec autocomplétion, type, description)
+- Modification de mission depuis le tableau : clic sur mission existante → formulaire inline dans la cellule
 
 ### Modify
-- **Planning.tsx**: Remove `validatedInterventions` entirely from `allItems`. The auto-validation already updates the mission's own `statut` to `execute` via `validerPlanningItem` — so the mission itself shows as executed. No need to duplicate as a separate item.
-- **Planning.tsx `handleDelete`**: after deleting the planning item, also call `supprimerIntervention` for each derived ID (`${item.id}-${toDateStr(date)}`) to remove corresponding calendar drafts
-- **Planning.tsx `handleEditDatesSubmit`**: compare old dates vs new dates, delete interventions for removed dates (derived IDs), add interventions for added dates
-- **Header.tsx**: accept `missionsBadgeCount?: number` prop, render orange badge next to user name when count > 0
-- **App.tsx**: fetch `obtenirTousPlanningItems`, compute count of today's `a_realiser` items, pass to Header
+- Supprimer le bouton "Nouvelle mission" et sa modale (la création se fait uniquement via le tableau)
+- La page Planning s'ouvre sur l'onglet "Vue semaine" au lieu du calendrier mensuel
+- Garder le calendrier mensuel existant comme second onglet "Vue mois"
 
 ### Remove
-- `validatedInterventions` useMemo and its usage in Planning.tsx
+- Bouton "Nouvelle mission" en haut de page
+- Modale Dialog de création de mission (`showCreate` / `setShowCreate`)
 
 ## Implementation Plan
-1. Planning.tsx: remove `validatedInterventions` and its merge into `allItems`
-2. Planning.tsx `handleCreate`: after `creerPlanningItem`, for each date call `ajouterIntervention` with deterministic ID and client info pre-filled (need to get client address from `selectedClient?.adresse`); use the destinataire's principal for `user` field — but `ajouterIntervention` takes the caller as user automatically. The draft is created for the logged-in user (creator), not the destinataire. Actually create on behalf of destinataire is not possible without backend changes — create it as creator, set clientNom and clientAdresse from selected client
-3. Planning.tsx `handleDelete`: call `supprimerIntervention(${id}-${dateStr})` for each date of the item being deleted
-4. Planning.tsx `handleEditDatesSubmit`: diff old/new dates, delete removed, add new
-5. Header.tsx: add `missionsBadgeCount` prop with orange badge display
-6. App.tsx: add query for planning items, compute today badge count, pass to Header
+1. Ajouter un état `activeTab: 'semaine' | 'mois'` initialisé à `'semaine'`
+2. Ajouter des onglets visuels en haut de la page Planning
+3. Créer le composant `VueSemaine` inline dans Planning.tsx :
+   - Calcul de la semaine courante (lundi au vendredi)
+   - Navigation semaine précédente / suivante
+   - Tableau avec une ligne par profil utilisateur et une colonne par jour (Lun-Ven)
+   - Dans chaque cellule : liste des missions avec rond coloré + nom client abrégé + type
+   - Clic cellule vide → `showInlineCreate` state avec { userId, dateStr } → formulaire inline
+   - Clic mission → `showInlineEdit` state avec mission → formulaire inline de modification
+4. Formulaire inline de création : client autocomplete (liste clients), type, description, bouton Créer / Annuler
+5. Formulaire inline de modification : mêmes champs pré-remplis, bouton Sauvegarder / Annuler / Supprimer
+6. Supprimer le bouton "Nouvelle mission" et la Dialog de création du JSX
+7. Garder le calendrier mensuel dans l'onglet "Vue mois"
