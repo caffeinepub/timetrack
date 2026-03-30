@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Minus, Plus, Trash2, UserX, X, ZoomIn } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { ExternalBlob } from "../backend";
 import type { InterventionInput } from "../backend";
 import { useActor } from "../hooks/useActor";
 import { useGetClients } from "../hooks/useQueries";
@@ -165,63 +166,119 @@ export function PlanningInterventionModal({
     string | undefined
   >(interventionId);
 
+  // Track whether the modal was already open to avoid resetting user-entered
+  // data (pieces, mediaFiles) when actor becomes available after the modal opens.
+  const wasOpenRef = useRef(false);
+
   const { actor } = useActor();
   const { data: clients = [] } = useGetClients();
   const queryClient = useQueryClient();
 
+  // Effect 1 — runs only when the modal transitions from closed → open.
+  // Resets form state (including pieces and mediaFiles) exactly once per opening.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional — only [open] triggers reset; actor/prefill/interventionId are read inside the guard
   useEffect(() => {
-    if (!open) return;
+    const justOpened = open && !wasOpenRef.current;
+    wasOpenRef.current = open;
+
+    if (!justOpened) return;
+
     setForm(defaultForm(prefill));
     setClientSearch(prefill.clientNom);
     setExistingInterventionId(interventionId);
     setPieces([]);
     setMediaFiles([]);
 
-    if (actor) {
-      actor
-        .obtenirSignatureIntervenant()
-        .then((sig) => {
-          if (sig) setForm((f) => ({ ...f, signatureIntervenant: sig }));
+    // If actor is already available at open time, load existing data immediately.
+    if (actor && (interventionId || isEditMode)) {
+      (actor as any)
+        .obtenirInterventionsPourJour?.(prefill.date)
+        .then((interventions: any[]) => {
+          const existing = interventionId
+            ? interventions.find((i: any) => i.id === interventionId)
+            : interventions.find(
+                (i: any) =>
+                  i.clientNom?.toLowerCase().trim() ===
+                  prefill.clientNom.toLowerCase().trim(),
+              );
+          if (existing) {
+            setExistingInterventionId(existing.id);
+            setClientSearch(existing.clientNom);
+            setForm({
+              clientNom: existing.clientNom,
+              clientAdresse: existing.clientAdresse,
+              matinDebutH: String(Number(existing.heureMatinDebutH)),
+              matinDebutMin: String(Number(existing.heureMatinDebutMin)),
+              matinFinH: String(Number(existing.heureMatinFinH)),
+              matinFinMin: String(Number(existing.heureMatinFinMin)),
+              apremDebutH: String(Number(existing.heureApremDebutH)),
+              apremDebutMin: String(Number(existing.heureApremDebutMin)),
+              apremFinH: String(Number(existing.heureApremFinH)),
+              apremFinMin: String(Number(existing.heureApremFinMin)),
+              description: "", // always blank for technician to fill
+              signatureClient: existing.signatureClient,
+              signatureIntervenant: existing.signatureIntervenant,
+              estAstreinte: existing.estAstreinte ?? false,
+              clientAbsent: existing.clientAbsent ?? false,
+            });
+          }
         })
         .catch(() => {});
-
-      if (interventionId || isEditMode) {
-        (actor as any)
-          .obtenirInterventionsPourJour?.(prefill.date)
-          .then((interventions: any[]) => {
-            const existing = interventionId
-              ? interventions.find((i: any) => i.id === interventionId)
-              : interventions.find(
-                  (i: any) =>
-                    i.clientNom?.toLowerCase().trim() ===
-                    prefill.clientNom.toLowerCase().trim(),
-                );
-            if (existing) {
-              setExistingInterventionId(existing.id);
-              setClientSearch(existing.clientNom);
-              setForm({
-                clientNom: existing.clientNom,
-                clientAdresse: existing.clientAdresse,
-                matinDebutH: String(Number(existing.heureMatinDebutH)),
-                matinDebutMin: String(Number(existing.heureMatinDebutMin)),
-                matinFinH: String(Number(existing.heureMatinFinH)),
-                matinFinMin: String(Number(existing.heureMatinFinMin)),
-                apremDebutH: String(Number(existing.heureApremDebutH)),
-                apremDebutMin: String(Number(existing.heureApremDebutMin)),
-                apremFinH: String(Number(existing.heureApremFinH)),
-                apremFinMin: String(Number(existing.heureApremFinMin)),
-                description: "", // always blank for technician to fill
-                signatureClient: existing.signatureClient,
-                signatureIntervenant: existing.signatureIntervenant,
-                estAstreinte: existing.estAstreinte ?? false,
-                clientAbsent: existing.clientAbsent ?? false,
-              });
-            }
-          })
-          .catch(() => {});
-      }
     }
-  }, [open, actor, prefill, interventionId, isEditMode]);
+  }, [open]);
+
+  // Effect 2 — loads actor-dependent data (signature + edit mode data) without
+  // ever touching pieces or mediaFiles. Safe to re-run when actor becomes available.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional — [open, actor] only; prefill/interventionId/isEditMode are stable for the modal's lifetime
+  useEffect(() => {
+    if (!open || !actor) return;
+
+    // Load saved intervenant signature
+    actor
+      .obtenirSignatureIntervenant()
+      .then((sig) => {
+        if (sig) setForm((f) => ({ ...f, signatureIntervenant: sig }));
+      })
+      .catch(() => {});
+
+    // Load existing intervention data if in edit mode (only if not already loaded)
+    if (interventionId || isEditMode) {
+      (actor as any)
+        .obtenirInterventionsPourJour?.(prefill.date)
+        .then((interventions: any[]) => {
+          const existing = interventionId
+            ? interventions.find((i: any) => i.id === interventionId)
+            : interventions.find(
+                (i: any) =>
+                  i.clientNom?.toLowerCase().trim() ===
+                  prefill.clientNom.toLowerCase().trim(),
+              );
+          if (existing) {
+            setExistingInterventionId(existing.id);
+            setClientSearch(existing.clientNom);
+            setForm((f) => ({
+              ...f,
+              clientNom: existing.clientNom,
+              clientAdresse: existing.clientAdresse,
+              matinDebutH: String(Number(existing.heureMatinDebutH)),
+              matinDebutMin: String(Number(existing.heureMatinDebutMin)),
+              matinFinH: String(Number(existing.heureMatinFinH)),
+              matinFinMin: String(Number(existing.heureMatinFinMin)),
+              apremDebutH: String(Number(existing.heureApremDebutH)),
+              apremDebutMin: String(Number(existing.heureApremDebutMin)),
+              apremFinH: String(Number(existing.heureApremFinH)),
+              apremFinMin: String(Number(existing.heureApremFinMin)),
+              // description intentionally NOT overwritten — technician fills it
+              signatureClient: existing.signatureClient,
+              signatureIntervenant: existing.signatureIntervenant,
+              estAstreinte: existing.estAstreinte ?? false,
+              clientAbsent: existing.clientAbsent ?? false,
+            }));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [open, actor]);
 
   const handleIntervenantSignatureChange = (sig: string) => {
     setForm((f) => ({ ...f, signatureIntervenant: sig }));
@@ -353,16 +410,11 @@ export function PlanningInterventionModal({
       } else {
         const newId = `intv-plan-${missionId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-        const toBlob = async (dataUrl: string) => {
+        const toBlob = async (dataUrl: string): Promise<ExternalBlob> => {
           const res = await fetch(dataUrl);
           const ab = await res.arrayBuffer();
           const bytes = new Uint8Array(ab);
-          return {
-            data: bytes,
-            mimeType: dataUrl.startsWith("data:video")
-              ? "video/mp4"
-              : "image/jpeg",
-          } as any;
+          return ExternalBlob.fromBytes(bytes);
         };
         const photoBlobs = await Promise.all(
           mediaFiles

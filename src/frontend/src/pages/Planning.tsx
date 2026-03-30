@@ -1014,7 +1014,7 @@ export default function Planning({
                       {dayItems.slice(0, 5).map((mi) => (
                         <span
                           key={mi.id}
-                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          className="w-3 h-3 rounded-full flex-shrink-0"
                           style={{
                             backgroundColor:
                               mi.statut === "execute"
@@ -1700,7 +1700,7 @@ function VueSemaine({
                 return (
                   <th
                     key={ds}
-                    className="px-2 py-3 text-xs font-bold text-white text-center border-r border-blue-800 last:border-r-0"
+                    className="px-2 py-3 text-sm font-bold text-white text-center border-r border-blue-800 last:border-r-0"
                     style={{ backgroundColor: isToday ? "#ea580c" : "#0f1e4a" }}
                   >
                     <div>{DAY_SHORT[i]}</div>
@@ -1738,7 +1738,7 @@ function VueSemaine({
                   return (
                     <tr key={principalStr} className="border-t border-gray-100">
                       <td
-                        className="px-3 py-2 font-semibold text-sm border-r border-gray-200 bg-gray-50 align-top"
+                        className="px-3 py-3 font-semibold text-base border-r border-gray-200 bg-gray-50 align-top"
                         style={{ color: "#0f1e4a" }}
                         data-ocid={`planning.semaine.row.${rowIdx + 1}`}
                       >
@@ -1759,7 +1759,7 @@ function VueSemaine({
                           <td
                             key={ds}
                             className={[
-                              "px-2 py-2 align-top border-r border-gray-100 last:border-r-0 min-w-[130px]",
+                              "px-2 py-2 align-top border-r border-gray-100 last:border-r-0 min-w-[160px]",
                               isToday ? "bg-orange-50" : "bg-white",
                             ].join(" ")}
                             style={{ verticalAlign: "top" }}
@@ -1986,7 +1986,7 @@ function VueSemaine({
                                   ) : (
                                     <button
                                       type="button"
-                                      className="w-full text-left rounded-lg px-2 py-1.5 mb-1 hover:opacity-80 transition-opacity border"
+                                      className="w-full text-left rounded-lg px-3 py-2.5 mb-1 hover:opacity-80 transition-opacity border"
                                       style={{
                                         borderColor:
                                           item.statut === "execute"
@@ -2015,7 +2015,7 @@ function VueSemaine({
                                     >
                                       <div className="flex items-center gap-1 mb-0.5">
                                         <span
-                                          className="w-2 h-2 rounded-full flex-shrink-0"
+                                          className="w-3 h-3 rounded-full flex-shrink-0"
                                           style={{
                                             backgroundColor:
                                               item.statut === "execute"
@@ -2026,21 +2026,18 @@ function VueSemaine({
                                           }}
                                         />
                                         <span
-                                          className="text-xs font-semibold truncate"
+                                          className="text-sm font-semibold truncate"
                                           style={{
                                             color: "#0f1e4a",
-                                            maxWidth: "90px",
+                                            maxWidth: "120px",
                                           }}
                                         >
                                           {item.clientNom || "Sans client"}
                                         </span>
                                       </div>
                                       <span className="text-xs text-gray-500">
-                                        {TYPE_LABELS[item.typeMission]?.slice(
-                                          0,
-                                          4,
-                                        ) || item.typeMission.slice(0, 4)}
-                                        .
+                                        {TYPE_LABELS[item.typeMission] ||
+                                          item.typeMission}
                                       </span>
                                       {item.clientAdresse && (
                                         <span
@@ -2108,7 +2105,7 @@ function VueSemaine({
                                                   );
                                                 }
                                               }}
-                                              className="text-xs text-white px-1.5 py-0.5 rounded font-medium"
+                                              className="text-sm text-white px-2 py-1 rounded font-medium"
                                               style={{
                                                 backgroundColor: "#f97316",
                                               }}
@@ -2124,7 +2121,7 @@ function VueSemaine({
                                                 e.stopPropagation();
                                                 onRemplirFiche(item);
                                               }}
-                                              className="text-xs text-white px-1.5 py-0.5 rounded font-medium"
+                                              className="text-sm text-white px-2 py-1 rounded font-medium"
                                               style={{
                                                 backgroundColor: "#2563eb",
                                               }}
@@ -2140,7 +2137,7 @@ function VueSemaine({
                                                 e.stopPropagation();
                                                 onRemplirFiche(item);
                                               }}
-                                              className="text-xs text-white px-1.5 py-0.5 rounded font-medium"
+                                              className="text-sm text-white px-2 py-1 rounded font-medium"
                                               style={{
                                                 backgroundColor: "#16a34a",
                                               }}

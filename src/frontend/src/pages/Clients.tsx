@@ -100,6 +100,34 @@ function exportInterventionPdf(inv: any, profileName: string) {
         </table>`
       : "<p style='color:#888'>Aucune pièce</p>";
 
+  const photos: any[] = Array.isArray(inv.photos) ? inv.photos : [];
+  const photosHtml =
+    photos.length > 0
+      ? `<div style="margin-top:16px">
+          <div style="font-weight:bold;color:#555;margin-bottom:8px">Photos (${photos.length})</div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px">
+            ${photos
+              .map((p: any) => {
+                let url = "";
+                if (typeof p === "string") url = p;
+                else if (p?.url) url = p.url;
+                else if (p?.data) {
+                  const bytes = new Uint8Array(p.data);
+                  const blob = new Blob([bytes], {
+                    type: p.mimeType || "image/jpeg",
+                  });
+                  url = URL.createObjectURL(blob);
+                }
+                return url
+                  ? `<img src="${url}" style="width:200px;height:150px;object-fit:cover;border:1px solid #ccc;border-radius:4px" />`
+                  : "";
+              })
+              .filter(Boolean)
+              .join("")}
+          </div>
+        </div>`
+      : "";
+
   const sigClientHtml = inv.signatureClient
     ? `<img src="${inv.signatureClient}" style="max-width:200px;border:1px solid #ccc" />`
     : "<span style='color:#888'>Non signée</span>";
@@ -143,6 +171,7 @@ function exportInterventionPdf(inv: any, profileName: string) {
     </div>
     ${inv.description ? `<div class="section"><span class="label">Description :</span><br/><em>${inv.description}</em></div>` : ""}
     <div class="section"><span class="label">Pièces utilisées :</span>${piecesHtml}</div>
+    ${photosHtml}
     <div class="sigs">
       <div class="sig-block"><div class="label">Signature Client</div>${sigClientHtml}</div>
       <div class="sig-block"><div class="label">Signature Intervenant</div>${sigIntervHtml}</div>
@@ -269,7 +298,7 @@ function ClientInterventions({
                 <div
                   key={inv.id ?? i}
                   className="rounded-lg border border-emerald-200 bg-emerald-50/20 p-3 space-y-2"
-                  data-ocid={`clients.intervention.item.${i + 1}`}
+                  data-ocid={"clients.intervention.item.$i + 1"}
                 >
                   {/* Header */}
                   <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -292,7 +321,9 @@ function ClientInterventions({
                         size="sm"
                         className="h-7 text-xs shrink-0"
                         onClick={() => exportInterventionPdf(inv, profileName)}
-                        data-ocid={`clients.intervention.secondary_button.${i + 1}`}
+                        data-ocid={
+                          "clients.intervention.secondary_button.$i + 1"
+                        }
                       >
                         <FileText className="w-3 h-3 mr-1" />
                         PDF
@@ -305,7 +336,9 @@ function ClientInterventions({
                           onClick={() =>
                             setDeleteConfirmInterv(inv.id ?? String(i))
                           }
-                          data-ocid={`clients.intervention.delete_button.${i + 1}`}
+                          data-ocid={
+                            "clients.intervention.delete_button.$i + 1"
+                          }
                         >
                           <Trash2 className="w-3 h-3" />
                         </Button>
@@ -360,9 +393,9 @@ function ClientInterventions({
                           </tr>
                         </thead>
                         <tbody>
-                          {inv.pieces.map((piece: any, pIdx: number) => (
+                          {inv.pieces.map((piece: any, _pIdx: number) => (
                             <tr
-                              key={`${piece.reference}-${pIdx}`}
+                              key={"$piece.reference-$pIdx"}
                               className="border-t border-border"
                             >
                               <td className="px-2 py-1">{piece.reference}</td>
@@ -385,12 +418,12 @@ function ClientInterventions({
                         {photos.length})
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        {photos.map((photo: any, pi: number) => {
+                        {photos.map((photo: any, _pi: number) => {
                           const url = getMediaUrl(photo);
                           if (!url) return null;
                           return (
                             <button
-                              key={url || `photo-${pi}`}
+                              key={url || "photo-$pi"}
                               type="button"
                               onClick={() =>
                                 setMediaModal({ url, type: "image" })
@@ -399,7 +432,7 @@ function ClientInterventions({
                             >
                               <img
                                 src={url}
-                                alt={`Aperçu ${pi + 1}`}
+                                alt={"Aperçu $pi + 1"}
                                 className="w-full h-full object-cover"
                               />
                             </button>
@@ -416,12 +449,12 @@ function ClientInterventions({
                         <Video className="w-3 h-3" /> Vidéos ({videos.length})
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        {videos.map((video: any, vi: number) => {
+                        {videos.map((video: any, _vi: number) => {
                           const url = getMediaUrl(video);
                           if (!url) return null;
                           return (
                             <button
-                              key={url || `video-${vi}`}
+                              key={url || "video-$vi"}
                               type="button"
                               onClick={() =>
                                 setMediaModal({ url, type: "video" })
@@ -608,7 +641,7 @@ export default function Clients({ readOnly = false }: { readOnly?: boolean }) {
         c.adresse.trim().toLowerCase() === form.adresse.trim().toLowerCase(),
     );
     if (duplicate) {
-      alert(`Ce client existe déjà : ${duplicate.nom} — ${duplicate.adresse}`);
+      alert("Ce client existe déjà : $duplicate.nom— $duplicate.adresse");
       return;
     }
     if (editingId) {
@@ -790,7 +823,7 @@ export default function Clients({ readOnly = false }: { readOnly?: boolean }) {
 
       {/* Client list */}
       <div className="space-y-3">
-        {displayedClients.map((client, idx) => (
+        {displayedClients.map((client, _idx) => (
           <Card
             key={client.id}
             className={[
@@ -799,7 +832,7 @@ export default function Clients({ readOnly = false }: { readOnly?: boolean }) {
                 ? "border-destructive/60 bg-destructive/5"
                 : "border-border bg-card",
             ].join(" ")}
-            data-ocid={`clients.item.${idx + 1}`}
+            data-ocid={"clients.item.$idx + 1"}
           >
             <CardContent className="p-3 space-y-2">
               {/* Name + badge */}
@@ -808,7 +841,7 @@ export default function Clients({ readOnly = false }: { readOnly?: boolean }) {
                   type="button"
                   className="text-left font-semibold text-base leading-tight hover:underline"
                   onClick={() => openEdit(client)}
-                  data-ocid={`clients.edit_button.${idx + 1}`}
+                  data-ocid={"clients.edit_button.$idx + 1"}
                 >
                   {client.nom}
                 </button>
@@ -838,7 +871,7 @@ export default function Clients({ readOnly = false }: { readOnly?: boolean }) {
                         <div className="flex items-center gap-1.5">
                           <Phone className="w-3.5 h-3.5 shrink-0" />
                           <a
-                            href={`tel:${tel1}`}
+                            href={"tel:$tel1"}
                             className="hover:text-foreground"
                           >
                             {tel1}
@@ -849,7 +882,7 @@ export default function Clients({ readOnly = false }: { readOnly?: boolean }) {
                         <div className="flex items-center gap-1.5">
                           <Phone className="w-3.5 h-3.5 shrink-0" />
                           <a
-                            href={`tel:${tel2}`}
+                            href={"tel:$tel2"}
                             className="hover:text-foreground"
                           >
                             {tel2}
@@ -863,7 +896,7 @@ export default function Clients({ readOnly = false }: { readOnly?: boolean }) {
                   <div className="flex items-center gap-1.5">
                     <Mail className="w-3.5 h-3.5 shrink-0" />
                     <a
-                      href={`mailto:${client.email}`}
+                      href={"mailto:$client.email"}
                       className="hover:text-foreground break-all"
                     >
                       {client.email}
@@ -894,7 +927,7 @@ export default function Clients({ readOnly = false }: { readOnly?: boolean }) {
                   ].join(" ")}
                   disabled={toggleBlacklist.isPending}
                   onClick={() => toggleBlacklist.mutate(client.id)}
-                  data-ocid={`clients.toggle.${idx + 1}`}
+                  data-ocid={"clients.toggle.$idx + 1"}
                 >
                   {activeTab === "blacklist"
                     ? "Retirer de la liste noire"
@@ -908,7 +941,7 @@ export default function Clients({ readOnly = false }: { readOnly?: boolean }) {
                   variant="ghost"
                   className="text-xs h-7 px-2 text-destructive hover:bg-destructive/10 ml-auto"
                   onClick={() => setDeleteConfirmId(client.id)}
-                  data-ocid={`clients.delete_button.${idx + 1}`}
+                  data-ocid={"clients.delete_button.$idx + 1"}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
