@@ -487,7 +487,7 @@ function ClientInterventions({
                   onClick={async () => {
                     if (!deleteConfirmInterv || !actor) return;
                     try {
-                      await (actor as any).supprimerInterventionDuDossierClient(
+                      await actor.supprimerInterventionDuDossierClient(
                         deleteConfirmInterv,
                       );
                       onInterventionDeleted();

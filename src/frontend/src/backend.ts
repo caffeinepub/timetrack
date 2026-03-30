@@ -423,6 +423,7 @@ export interface backendInterface {
     supprimerFichier(_id: bigint): Promise<boolean>;
     supprimerIntervention(id: string): Promise<void>;
     supprimerInterventionDraft(planningItemId: string, interventionId: string): Promise<void>;
+    supprimerInterventionDuDossierClient(id: string): Promise<void>;
     supprimerJournal(id: string): Promise<void>;
     supprimerJournee(id: string): Promise<void>;
     supprimerMediaQuotidien(id: string): Promise<void>;
@@ -1572,6 +1573,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.supprimerInterventionDraft(arg0, arg1);
+            return result;
+        }
+    }
+    async supprimerInterventionDuDossierClient(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.supprimerInterventionDuDossierClient(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.supprimerInterventionDuDossierClient(arg0);
             return result;
         }
     }
