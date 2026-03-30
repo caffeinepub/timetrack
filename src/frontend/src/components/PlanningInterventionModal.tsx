@@ -24,6 +24,8 @@ interface PlanningInterventionModalProps {
   missionId: string;
   destinatairePrincipal: any;
   interventionId?: string;
+  creatorPrincipalStr?: string;
+  currentUserPrincipalStr?: string;
   prefill: {
     clientNom: string;
     clientAdresse: string;
@@ -144,6 +146,8 @@ export function PlanningInterventionModal({
   missionId,
   destinatairePrincipal,
   interventionId,
+  creatorPrincipalStr,
+  currentUserPrincipalStr,
   prefill,
 }: PlanningInterventionModalProps) {
   const isEditMode = !!interventionId;
@@ -378,6 +382,13 @@ export function PlanningInterventionModal({
           input,
         );
 
+        // Mark the mission as "execute" (réalisé)
+        try {
+          await (actor as any).validerPlanningItem(missionId);
+        } catch (_e) {
+          /* non-blocking */
+        }
+
         queryClient.invalidateQueries({ queryKey: ["planningItems"] });
         queryClient.invalidateQueries({
           queryKey: ["facturationInterventions"],
@@ -386,7 +397,7 @@ export function PlanningInterventionModal({
         queryClient.invalidateQueries({ queryKey: ["journees"] });
 
         const { toast } = await import("sonner");
-        toast.success("Fiche enregistrée — visible dans Facturation ✓");
+        toast.success("Fiche enregistrée — mission passée en Réalisé ✓");
         onClose();
       }
     } catch (e: any) {
@@ -819,7 +830,7 @@ export function PlanningInterventionModal({
             />
           </div>
 
-          <DialogFooter className="flex gap-2 mt-4">
+          <DialogFooter className="flex gap-2 mt-4 flex-wrap">
             <Button
               variant="outline"
               onClick={onClose}
@@ -828,23 +839,46 @@ export function PlanningInterventionModal({
             >
               Annuler
             </Button>
-            <Button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="bg-orange-500 hover:bg-orange-600 text-white"
-              data-ocid="planning.intervention.submit_button"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                  {isEditMode ? "Mise à jour..." : "Validation..."}
-                </>
-              ) : isEditMode ? (
-                "Enregistrer la fiche"
-              ) : (
-                "✓ Valider l'intervention"
+            {/* "Mettre à jour" — only visible to creator in edit mode */}
+            {isEditMode &&
+              creatorPrincipalStr &&
+              currentUserPrincipalStr &&
+              creatorPrincipalStr === currentUserPrincipalStr && (
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  variant="outline"
+                  className="border-blue-500 text-blue-700 hover:bg-blue-50"
+                  data-ocid="planning.intervention.update_button"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                      Mise à jour...
+                    </>
+                  ) : (
+                    "✏️ Mettre à jour"
+                  )}
+                </Button>
               )}
-            </Button>
+            {/* "Enregistrer" — always visible for new intervention */}
+            {!isEditMode && (
+              <Button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                data-ocid="planning.intervention.submit_button"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                    Enregistrement...
+                  </>
+                ) : (
+                  "✓ Enregistrer"
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1440,6 +1440,8 @@ export default function Planning({
           interventionId={
             showInterventionModal.statut === "execute" ? "lookup" : undefined
           }
+          creatorPrincipalStr={showInterventionModal.createur?.toString()}
+          currentUserPrincipalStr={callerPrincipalStr}
           prefill={{
             clientNom: showInterventionModal.clientNom,
             clientAdresse: showInterventionModal.clientAdresse ?? "",
