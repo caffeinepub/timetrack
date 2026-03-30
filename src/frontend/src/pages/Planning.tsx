@@ -643,6 +643,32 @@ export default function Planning({
         </button>
       </div>
 
+      {/* Color Legend */}
+      <div className="flex items-center gap-4 flex-wrap px-1">
+        <span className="text-xs font-semibold text-gray-500">Légende :</span>
+        <span className="flex items-center gap-1.5 text-xs text-gray-600">
+          <span
+            className="w-3 h-3 rounded-full flex-shrink-0"
+            style={{ backgroundColor: "#ea580c" }}
+          />
+          À réaliser
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-gray-600">
+          <span
+            className="w-3 h-3 rounded-full flex-shrink-0"
+            style={{ backgroundColor: "#2563eb" }}
+          />
+          En cours
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-gray-600">
+          <span
+            className="w-3 h-3 rounded-full flex-shrink-0"
+            style={{ backgroundColor: "#16a34a" }}
+          />
+          Réalisé
+        </span>
+      </div>
+
       {/* Filters */}
       <div className="flex gap-2 flex-wrap">
         <Select

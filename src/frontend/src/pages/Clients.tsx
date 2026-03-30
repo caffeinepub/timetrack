@@ -111,7 +111,11 @@ function exportInterventionPdf(inv: any, profileName: string) {
                 let url = "";
                 if (typeof p === "string") url = p;
                 else if (p?.url) url = p.url;
-                else if (p?.data) {
+                else if (p && typeof p.getDirectURL === "function") {
+                  try {
+                    url = p.getDirectURL();
+                  } catch (_) {}
+                } else if (p?.data) {
                   const bytes = new Uint8Array(p.data);
                   const blob = new Blob([bytes], {
                     type: p.mimeType || "image/jpeg",

@@ -1,19 +1,37 @@
 # Vial Traite Service
 
 ## Current State
-Application complète de gestion du temps de travail avec Planning, Calendrier, Facturation, Clients, Mémo, Tickets, Messagerie.
+- Photos/vidéos ajoutables dans les fiches intervention Planning, Facturation et dossier client mais stockées temporairement (non persistantes entre rechargements)
+- Pas de photos dans le PDF du dossier client (bug connu)
+- Pas de bouton actualiser dans l'en-tête
+- Pas de légende des couleurs de statut dans le Planning
+- blob-storage déjà intégré dans le backend (Mixin.mo présent)
 
 ## Requested Changes (Diff)
 
 ### Add
-- Photos/vidéos incluses dans le PDF de la fiche intervention du dossier client (taille lisible : 200×150px)
+- Bouton actualiser (rechargement complet F5) dans le Header à côté de l'icône de déconnexion
+- Légende colorée permanente dans le Planning : petits ronds colorés avec label (🟠 À réaliser, 🔵 En cours, 🟢 Réalisé)
+- Stockage persistant des photos/vidéos via blob-storage dans : PlanningInterventionModal, Facturation, dossier client (Clients.tsx)
+- Fonctions backend pour uploader/récupérer les médias associés aux interventions Planning, Facturation et dossier client
 
 ### Modify
-- Fiches missions dans le tableau hebdomadaire du Planning : cartes plus grandes (padding, police, dot de statut, largeur colonnes)
+- PlanningInterventionModal : remplacer stockage local des médias par upload blob-storage, charger les URLs persistantes à l'ouverture
+- Facturation : remplacer stockage local des médias par upload blob-storage, charger les URLs persistantes
+- Clients (dossier client) : fix du bug PDF - inclure les photos en taille lisible dans l'export PDF des interventions
+- Header : ajouter bouton actualiser (window.location.reload()) à côté du bouton de déconnexion
+- Planning.tsx : ajouter légende colorée en haut du tableau hebdomadaire
 
 ### Remove
-- Rien
+- Stockage temporaire des médias dans les sections concernées (remplacé par blob-storage)
 
 ## Implementation Plan
-1. Planning.tsx : agrandir les cartes missions (padding px-3 py-2.5, dot w-3 h-3, text-sm, maxWidth 120px, boutons text-sm)
-2. Clients.tsx : ajouter les photos dans la fonction exportInterventionPdf en taille 200×150px
+1. Sélectionner composant blob-storage
+2. Mettre à jour backend main.mo pour exposer fonctions de stockage de médias liés aux interventions Planning/Facturation/Client
+3. Mettre à jour backend.d.ts avec les nouveaux types
+4. Header.tsx : ajouter bouton refresh (window.location.reload())
+5. Planning.tsx : ajouter légende colorée permanente
+6. PlanningInterventionModal.tsx : intégrer upload blob-storage pour photos/vidéos (persistance)
+7. Facturation.tsx : intégrer upload blob-storage pour photos/vidéos
+8. Clients.tsx : fix export PDF pour inclure photos des interventions
+9. StorageClient.ts : s'assurer que uploadMedia et getMediaUrl sont bien exposés

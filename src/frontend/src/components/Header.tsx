@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
-import { LogIn, LogOut } from "lucide-react";
+import { LogIn, LogOut, RefreshCcw } from "lucide-react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useSafeTap } from "../hooks/useSafeTap";
 
@@ -88,6 +88,17 @@ export default function Header({ userName, missionsBadgeCount }: HeaderProps) {
                 {missionsBadgeCount}
               </span>
             ) : null}
+            {isAuthenticated && (
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors flex-shrink-0"
+                title="Actualiser la page"
+                data-ocid="header.refresh_button"
+              >
+                <RefreshCcw className="w-4 h-4" />
+              </button>
+            )}
             <Button
               type="button"
               onClick={handleAuth}

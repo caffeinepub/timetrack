@@ -25,6 +25,22 @@ function formatDate(timestamp: bigint): string {
   });
 }
 
+function getMediaUrlForPdf(p: any): string {
+  if (typeof p === "string") return p;
+  if (p && typeof p.getDirectURL === "function") {
+    try {
+      return p.getDirectURL();
+    } catch (_) {}
+  }
+  if (p?.url) return p.url;
+  if (p?.data) {
+    const bytes = new Uint8Array(p.data);
+    const blob = new Blob([bytes], { type: p.mimeType || "image/jpeg" });
+    return URL.createObjectURL(blob);
+  }
+  return "";
+}
+
 function buildInterventionHtml(inv: any, profileName: string): string {
   const date = new Date(Number(inv.date) / 1_000_000).toLocaleDateString(
     "fr-FR",
@@ -78,6 +94,34 @@ function buildInterventionHtml(inv: any, profileName: string): string {
       </div>
       ${inv.description ? `<div style="margin-bottom:12px;"><strong>Description :</strong><br/><em>${inv.description}</em></div>` : ""}
       <div style="margin-bottom:12px;"><strong>Pièces utilisées :</strong>${piecesHtml}</div>
+
+      ${(() => {
+        const photos: any[] = Array.isArray(inv.photos) ? inv.photos : [];
+        const videos: any[] = Array.isArray(inv.videos) ? inv.videos : [];
+        const photoItems = photos
+          .map((p: any) => getMediaUrlForPdf(p))
+          .filter(Boolean);
+        const videoItems = videos
+          .map((v: any) => getMediaUrlForPdf(v))
+          .filter(Boolean);
+        if (photoItems.length === 0 && videoItems.length === 0) return "";
+        return `<div style="margin-bottom:16px">
+          ${
+            photoItems.length > 0
+              ? `<div style="font-weight:bold;color:#555;margin-bottom:6px">Photos (${photoItems.length})</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+            ${photoItems.map((url: string) => `<img src="${url}" style="width:200px;height:150px;object-fit:cover;border:1px solid #ccc;border-radius:4px" />`).join("")}
+          </div>`
+              : ""
+          }
+          ${
+            videoItems.length > 0
+              ? `<div style="font-weight:bold;color:#555;margin-bottom:6px">Vidéos (${videoItems.length})</div>
+          <div style="color:#555;font-size:12px">${videoItems.map((url: string) => `<div>▶ <a href="${url}" style="color:#1d6fa5">Vidéo jointe</a></div>`).join("")}</div>`
+              : ""
+          }
+        </div>`;
+      })()}
       <div style="display:flex; gap:40px; margin-top:20px;">
         <div style="text-align:center;"><div style="font-weight:bold;">Signature Client</div>${sigClientHtml}</div>
         <div style="text-align:center;"><div style="font-weight:bold;">Signature Intervenant</div>${sigIntervHtml}</div>
