@@ -14,7 +14,7 @@ import {
   Video,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ExternalBlob } from "../backend";
 import MediaViewer, { type MediaItem } from "../components/MediaViewer";
@@ -97,6 +97,29 @@ export default function Memo({ readOnly = false }: { readOnly?: boolean }) {
   const queryClient = useQueryClient();
 
   const { data: memos = [], isLoading } = useGetMemos();
+
+  const [filterUser, setFilterUser] = useState("");
+  const [filterDate, setFilterDate] = useState("");
+
+  const filteredMemos = useMemo(() => {
+    let list = memos as any[];
+    if (filterUser.trim()) {
+      const u = filterUser.toLowerCase();
+      list = list.filter((m) => (m.authorName || "").toLowerCase().includes(u));
+    }
+    if (filterDate) {
+      const d = new Date(filterDate);
+      list = list.filter((m) => {
+        const md = new Date(Number(m.createdAt) / 1_000_000);
+        return (
+          md.getFullYear() === d.getFullYear() &&
+          md.getMonth() === d.getMonth() &&
+          md.getDate() === d.getDate()
+        );
+      });
+    }
+    return list;
+  }, [memos, filterUser, filterDate]);
   const deleteMemo = useDeleteMemo();
 
   const { data: userProfile } = useGetCallerUserProfile();
@@ -263,7 +286,7 @@ export default function Memo({ readOnly = false }: { readOnly?: boolean }) {
           </p>
         </div>
         <Badge variant="outline" className="text-xs badge-green">
-          {memos.length} note{memos.length !== 1 ? "s" : ""}
+          {filteredMemos.length} note{filteredMemos.length !== 1 ? "s" : ""}
         </Badge>
       </div>
 
@@ -429,6 +452,45 @@ export default function Memo({ readOnly = false }: { readOnly?: boolean }) {
         </Card>
       )}
 
+      {/* Filters */}
+      <div className="flex gap-2 flex-wrap items-end">
+        <div className="flex-1 min-w-[140px]">
+          <span className="text-xs text-muted-foreground block mb-1">
+            Utilisateur
+          </span>
+          <Input
+            placeholder="Filtrer par nom..."
+            value={filterUser}
+            onChange={(e) => setFilterUser(e.target.value)}
+            className="h-8 text-xs"
+            data-ocid="memo.search_input"
+          />
+        </div>
+        <div className="flex-1 min-w-[140px]">
+          <span className="text-xs text-muted-foreground block mb-1">Date</span>
+          <Input
+            type="date"
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="h-8 text-xs"
+            data-ocid="memo.filter_date"
+          />
+        </div>
+        {(filterUser || filterDate) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => {
+              setFilterUser("");
+              setFilterDate("");
+            }}
+          >
+            Effacer
+          </Button>
+        )}
+      </div>
+
       {/* Feed */}
       {isLoading ? (
         <div
@@ -437,7 +499,7 @@ export default function Memo({ readOnly = false }: { readOnly?: boolean }) {
         >
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
-      ) : memos.length === 0 ? (
+      ) : filteredMemos.length === 0 ? (
         <div
           className="text-center py-12 text-muted-foreground"
           data-ocid="memo.empty_state"
@@ -446,7 +508,7 @@ export default function Memo({ readOnly = false }: { readOnly?: boolean }) {
         </div>
       ) : (
         <div className="space-y-3">
-          {memos.map((memo: any, i: number) => {
+          {filteredMemos.map((memo: any, i: number) => {
             const allMedia: MediaItem[] = [
               ...(memo.photos ?? []).map((p: ExternalBlob) => ({
                 type: "photo" as const,

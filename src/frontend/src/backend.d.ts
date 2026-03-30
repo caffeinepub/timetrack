@@ -328,6 +328,7 @@ export interface backendInterface {
     supprimerDeFacturation(id: string): Promise<void>;
     supprimerFichier(_id: bigint): Promise<boolean>;
     supprimerIntervention(id: string): Promise<void>;
+    supprimerInterventionDuDossierClient(id: string): Promise<void>;
     supprimerJournal(id: string): Promise<void>;
     supprimerInterventionDraft(planningItemId: string, interventionId: string): Promise<void>;
     supprimerJournee(id: string): Promise<void>;

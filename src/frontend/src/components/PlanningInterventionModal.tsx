@@ -297,20 +297,16 @@ export function PlanningInterventionModal({
     setMediaFiles((prev) => prev.filter((m) => m.id !== id));
   };
 
-  const buildInput = (id: string): InterventionInput => {
+  const buildInput = (
+    id: string,
+    photoBlobs: any[] = [],
+    videoBlobs: any[] = [],
+  ): InterventionInput => {
     const piecesInput = pieces.map((p) => ({
       article: p.article,
       reference: p.reference,
       quantite: BigInt(Number.parseInt(p.quantite) || 0),
     }));
-
-    const photosInput = mediaFiles
-      .filter((m) => m.type === "photo")
-      .map((m) => ({ url: m.dataUrl, mimeType: "image/jpeg" }) as any);
-
-    const videosInput = mediaFiles
-      .filter((m) => m.type === "video")
-      .map((m) => ({ url: m.dataUrl, mimeType: "video/mp4" }) as any);
 
     return {
       id,
@@ -329,8 +325,8 @@ export function PlanningInterventionModal({
       signatureClient: form.clientAbsent ? "" : form.signatureClient,
       signatureIntervenant: form.signatureIntervenant,
       pieces: piecesInput,
-      photos: photosInput,
-      videos: videosInput,
+      photos: photoBlobs,
+      videos: videoBlobs,
       estAstreinte: form.estAstreinte,
       clientAbsent: form.clientAbsent,
     };
@@ -341,7 +337,7 @@ export function PlanningInterventionModal({
     setIsSaving(true);
     try {
       if (isEditMode && existingInterventionId) {
-        const input = buildInput(existingInterventionId);
+        const input = buildInput(existingInterventionId, [], []);
         await actor.modifierIntervention(existingInterventionId, input);
         queryClient.invalidateQueries({
           queryKey: ["facturationInterventions"],
@@ -352,16 +348,35 @@ export function PlanningInterventionModal({
         onClose();
       } else {
         const newId = `intv-plan-${missionId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const input = buildInput(newId);
+
+        const toBlob = async (dataUrl: string) => {
+          const res = await fetch(dataUrl);
+          const ab = await res.arrayBuffer();
+          const bytes = new Uint8Array(ab);
+          return {
+            data: bytes,
+            mimeType: dataUrl.startsWith("data:video")
+              ? "video/mp4"
+              : "image/jpeg",
+          } as any;
+        };
+        const photoBlobs = await Promise.all(
+          mediaFiles
+            .filter((m) => m.type === "photo")
+            .map((m) => toBlob(m.dataUrl)),
+        );
+        const videoBlobs = await Promise.all(
+          mediaFiles
+            .filter((m) => m.type === "video")
+            .map((m) => toBlob(m.dataUrl)),
+        );
+
+        const input = buildInput(newId, photoBlobs, videoBlobs);
 
         await actor.ajouterInterventionPourUtilisateur(
           destinatairePrincipal,
           input,
         );
-
-        await actor.validerIntervention(newId);
-
-        await (actor as any).validerPlanningItem(missionId);
 
         queryClient.invalidateQueries({ queryKey: ["planningItems"] });
         queryClient.invalidateQueries({
@@ -371,7 +386,7 @@ export function PlanningInterventionModal({
         queryClient.invalidateQueries({ queryKey: ["journees"] });
 
         const { toast } = await import("sonner");
-        toast.success("Intervention validée et envoyée en Facturation ✓");
+        toast.success("Fiche enregistrée — visible dans Facturation ✓");
         onClose();
       }
     } catch (e: any) {

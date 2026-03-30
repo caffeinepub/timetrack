@@ -1043,8 +1043,13 @@ actor {
     switch (interventions.get(id)) {
       case (null) { /* not found: will create */ };
       case (?existing) {
-        if (existing.user != caller and not isCallerAdminInternal(caller)) {
-          Runtime.trap("Non autorisé");
+        // Any authenticated user can modify non-validated interventions
+        let isValidated = switch (interventionValidees.get(id)) {
+          case (?v) { v };
+          case (null) { false };
+        };
+        if (isValidated and existing.user != caller and not isCallerAdminInternal(caller)) {
+          Runtime.trap("Non autorisé : intervention déjà validée");
         };
       };
     };
@@ -1123,10 +1128,8 @@ actor {
     };
     switch (interventions.get(id)) {
       case (null) { Runtime.trap("Intervention non trouvée") };
-      case (?existing) {
-        if (existing.user != caller and not isCallerAdminInternal(caller)) {
-          Runtime.trap("Non autorisé : seul le créateur peut valider cette intervention");
-        };
+      case (?_existing) {
+        // Any authenticated user can validate an intervention from Facturation
       };
     };
     interventionValidees.add(id, true);

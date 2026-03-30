@@ -320,7 +320,7 @@ export default function Profil() {
               data-ocid={`profil.item.${idx + 1}`}
             >
               {/* User header row */}
-              <div className="p-4 flex items-center justify-between gap-3">
+              <div className="p-4 flex flex-wrap items-start justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div
                     className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white flex-shrink-0 text-sm"
@@ -334,7 +334,7 @@ export default function Profil() {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-white font-semibold text-sm truncate">
+                      <span className="text-white font-bold text-base">
                         {profile.name || "Sans nom"}
                       </span>
                       {isAdminUser && (
@@ -362,14 +362,16 @@ export default function Profil() {
                         {profile.email}
                       </p>
                     )}
-                    <p className="text-white/30 text-[10px] mt-0.5 font-mono truncate">
-                      {principalStr}
+                    <p className="text-white/30 text-[10px] mt-0.5 font-mono">
+                      {principalStr.length > 20
+                        ? `${principalStr.slice(0, 20)}...`
+                        : principalStr}
                     </p>
                   </div>
                 </div>
 
                 {!isAdminUser && (
-                  <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex gap-2 flex-shrink-0 flex-wrap">
                     <button
                       type="button"
                       onClick={() => toggleStatus(principalStr)}

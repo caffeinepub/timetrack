@@ -40,6 +40,7 @@ import {
   useUpdateClient,
 } from "../hooks/useQueries";
 import { getUsersDisabledForSection } from "../utils/userAccessControl";
+import { ADMIN_PRINCIPAL_ID } from "./Profil";
 
 const emptyForm = (): Omit<Client, "id" | "createdAt" | "listeNoire"> & {
   telephone2: string;
@@ -296,20 +297,19 @@ function ClientInterventions({
                         <FileText className="w-3 h-3 mr-1" />
                         PDF
                       </Button>
-                      {currentUserPrincipal &&
-                        inv.user?.toString?.() === currentUserPrincipal && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs shrink-0 text-destructive hover:bg-destructive/10"
-                            onClick={() =>
-                              setDeleteConfirmInterv(inv.id ?? String(i))
-                            }
-                            data-ocid={`clients.intervention.delete_button.${i + 1}`}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        )}
+                      {currentUserPrincipal === ADMIN_PRINCIPAL_ID && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs shrink-0 text-destructive hover:bg-destructive/10"
+                          onClick={() =>
+                            setDeleteConfirmInterv(inv.id ?? String(i))
+                          }
+                          data-ocid={`clients.intervention.delete_button.${i + 1}`}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      )}
                     </div>
                   </div>
 

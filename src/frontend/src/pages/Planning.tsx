@@ -64,6 +64,10 @@ function toDateStr(ns: bigint): string {
   return new Date(Number(ns / BigInt(1_000_000))).toISOString().slice(0, 10);
 }
 
+function localDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function dateToNs(dateStr: string): bigint {
   return BigInt(new Date(dateStr).getTime()) * BigInt(1_000_000);
 }
@@ -205,7 +209,7 @@ export default function Planning({
   readOnly = false,
 }: { onNavigate?: (page: Page) => void; readOnly?: boolean }) {
   const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  const todayStr = localDateStr(today);
 
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -717,7 +721,7 @@ export default function Planning({
               if (!jsPDF) throw new Error("jsPDF not available");
               const doc = new jsPDF();
               const today = new Date();
-              const todayStr2 = today.toISOString().slice(0, 10);
+              const todayStr2 = localDateStr(today);
               const dayItems = dateMap.get(selectedDay ?? todayStr2) || [];
               const exportDate = selectedDay ?? todayStr2;
               const filterName =
@@ -849,7 +853,7 @@ export default function Planning({
               doc.line(14, 40, 196, 40);
               let y = 48;
               for (const day of weekDays2) {
-                const ds = day.toISOString().slice(0, 10);
+                const ds = localDateStr(day);
                 const dayMissions = dateMap.get(ds) || [];
                 doc.setFontSize(11);
                 doc.setFont("helvetica", "bold");
@@ -1110,6 +1114,11 @@ export default function Planning({
                           {item.clientNom && (
                             <p className="text-xs text-gray-500 mt-1">
                               Client : {item.clientNom}
+                            </p>
+                          )}
+                          {item.clientAdresse && (
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              📍 {item.clientAdresse}
                             </p>
                           )}
                           {(() => {
@@ -1472,7 +1481,7 @@ function VueSemaine({
   filterUserPrincipal = "all",
 }: VueSemaineProps) {
   const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  const todayStr = localDateStr(today);
 
   // Get monday of current week
   const getMonday = (d: Date): Date => {
@@ -1684,7 +1693,7 @@ function VueSemaine({
                 Intervenant
               </th>
               {weekDays.map((d, i) => {
-                const ds = d.toISOString().slice(0, 10);
+                const ds = localDateStr(d);
                 const isToday = ds === todayStr;
                 return (
                   <th
@@ -1734,7 +1743,7 @@ function VueSemaine({
                         {profile.name || "Utilisateur"}
                       </td>
                       {weekDays.map((d) => {
-                        const ds = d.toISOString().slice(0, 10);
+                        const ds = localDateStr(d);
                         const isToday = ds === todayStr;
                         const cellItems = getCellItems(principalStr, ds);
                         const isActive =
@@ -2031,6 +2040,17 @@ function VueSemaine({
                                         ) || item.typeMission.slice(0, 4)}
                                         .
                                       </span>
+                                      {item.clientAdresse && (
+                                        <span
+                                          className="text-gray-400 block truncate"
+                                          style={{
+                                            maxWidth: "90px",
+                                            fontSize: "10px",
+                                          }}
+                                        >
+                                          📍 {item.clientAdresse}
+                                        </span>
+                                      )}
                                       {(() => {
                                         const mc = clients.find(
                                           (c) =>

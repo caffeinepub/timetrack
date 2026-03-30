@@ -1017,6 +1017,7 @@ export const idlFactory = ({ IDL }) => {
     'supprimerDeFacturation' : IDL.Func([IDL.Text], [], []),
     'supprimerFichier' : IDL.Func([IDL.Nat], [IDL.Bool], []),
     'supprimerIntervention' : IDL.Func([IDL.Text], [], []),
+    'supprimerInterventionDuDossierClient' : IDL.Func([IDL.Text], [], []),
     'supprimerJournal' : IDL.Func([IDL.Text], [], []),
     'supprimerJournee' : IDL.Func([IDL.Text], [], []),
     'supprimerMediaQuotidien' : IDL.Func([IDL.Text], [], []),

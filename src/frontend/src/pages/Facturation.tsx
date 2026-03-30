@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, FileText, Search, Trash2, User, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useGetToutesInterventionsFact } from "../hooks/useQueries";
@@ -149,6 +150,18 @@ export default function Facturation({
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterName, setFilterName] = useState("");
   const [filterStatus, setFilterStatus] = useState<StatusFilter>("all");
+  const [editingInv, setEditingInv] = useState<any | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    clientNom: "",
+    clientAdresse: "",
+    description: "",
+    pieces: [] as Array<{
+      article: string;
+      reference: string;
+      quantite: string;
+    }>,
+  });
+  const [editSaving, setEditSaving] = useState(false);
 
   const { data: allInterventions = [], isLoading } =
     useGetToutesInterventionsFact();
@@ -405,6 +418,47 @@ export default function Facturation({
       <span>Mode lecture seule — modifications désactivées</span>
     </div>
   ) : null;
+
+  const handleSaveEdit = async () => {
+    if (!actor || !editingInv) return;
+    setEditSaving(true);
+    try {
+      const input = {
+        id: editingInv.id,
+        date: editingInv.date,
+        clientNom: editFormData.clientNom,
+        clientAdresse: editFormData.clientAdresse,
+        heureMatinDebutH: editingInv.heureMatinDebutH,
+        heureMatinDebutMin: editingInv.heureMatinDebutMin,
+        heureMatinFinH: editingInv.heureMatinFinH,
+        heureMatinFinMin: editingInv.heureMatinFinMin,
+        heureApremDebutH: editingInv.heureApremDebutH,
+        heureApremDebutMin: editingInv.heureApremDebutMin,
+        heureApremFinH: editingInv.heureApremFinH,
+        heureApremFinMin: editingInv.heureApremFinMin,
+        description: editFormData.description,
+        signatureClient: editingInv.signatureClient ?? "",
+        signatureIntervenant: editingInv.signatureIntervenant ?? "",
+        pieces: editFormData.pieces.map((p) => ({
+          article: p.article,
+          reference: p.reference,
+          quantite: BigInt(Number.parseInt(p.quantite) || 0),
+        })),
+        photos: editingInv.photos ?? [],
+        videos: editingInv.videos ?? [],
+        estAstreinte: editingInv.estAstreinte ?? false,
+        clientAbsent: editingInv.clientAbsent ?? false,
+      };
+      await (actor as any).modifierIntervention(editingInv.id, input);
+      setEditingInv(null);
+      queryClient.invalidateQueries({ queryKey: ["facturationInterventions"] });
+      toast.success("Intervention modifiée");
+    } catch (e: any) {
+      toast.error(`Erreur : ${e?.message ?? String(e)}`);
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-4 pb-6">
@@ -808,8 +862,32 @@ export default function Facturation({
                     PDF
                   </Button>
 
+                  {/* Modifier */}
+                  {!isValide && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs h-8 border-blue-300 text-blue-600 hover:bg-blue-50"
+                      data-ocid="facturation.edit_button"
+                      onClick={() => {
+                        setEditingInv(inv);
+                        setEditFormData({
+                          clientNom: inv.clientNom || "",
+                          clientAdresse: inv.clientAdresse || "",
+                          description: inv.description || "",
+                          pieces: (inv.pieces || []).map((p: any) => ({
+                            article: p.article || "",
+                            reference: p.reference || "",
+                            quantite: String(p.quantite ?? 0),
+                          })),
+                        });
+                      }}
+                    >
+                      Modifier
+                    </Button>
+                  )}
                   {/* Valider */}
-                  {!isValide && isCreator && (
+                  {!isValide && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -866,6 +944,168 @@ export default function Facturation({
               </div>
             );
           })}
+        </div>
+      )}
+      {/* Edit Modal */}
+      {editingInv && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-base">
+                Modifier l'intervention
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingInv(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <span className="text-xs font-medium text-gray-600">
+                  Client
+                </span>
+                <Input
+                  value={editFormData.clientNom}
+                  onChange={(e) =>
+                    setEditFormData((p) => ({
+                      ...p,
+                      clientNom: e.target.value,
+                    }))
+                  }
+                  className="mt-1 text-sm"
+                  placeholder="Nom du client"
+                />
+              </div>
+              <div>
+                <span className="text-xs font-medium text-gray-600">
+                  Adresse
+                </span>
+                <Input
+                  value={editFormData.clientAdresse}
+                  onChange={(e) =>
+                    setEditFormData((p) => ({
+                      ...p,
+                      clientAdresse: e.target.value,
+                    }))
+                  }
+                  className="mt-1 text-sm"
+                  placeholder="Adresse"
+                />
+              </div>
+              <div>
+                <span className="text-xs font-medium text-gray-600">
+                  Description
+                </span>
+                <textarea
+                  value={editFormData.description}
+                  onChange={(e) =>
+                    setEditFormData((p) => ({
+                      ...p,
+                      description: e.target.value,
+                    }))
+                  }
+                  className="mt-1 w-full text-sm border rounded-md px-3 py-2 min-h-[80px] resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="Description de l'intervention"
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-600">
+                    Pièces utilisées
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditFormData((p) => ({
+                        ...p,
+                        pieces: [
+                          ...p.pieces,
+                          { article: "", reference: "", quantite: "1" },
+                        ],
+                      }))
+                    }
+                    className="text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    + Ajouter
+                  </button>
+                </div>
+                {editFormData.pieces.map((piece, pi) => (
+                  <div
+                    key={`piece-${pi}-${piece.article}`}
+                    className="flex gap-2 mb-2"
+                  >
+                    <Input
+                      value={piece.article}
+                      onChange={(e) =>
+                        setEditFormData((p) => ({
+                          ...p,
+                          pieces: p.pieces.map((x, i) =>
+                            i === pi ? { ...x, article: e.target.value } : x,
+                          ),
+                        }))
+                      }
+                      placeholder="Article"
+                      className="text-xs"
+                    />
+                    <Input
+                      value={piece.reference}
+                      onChange={(e) =>
+                        setEditFormData((p) => ({
+                          ...p,
+                          pieces: p.pieces.map((x, i) =>
+                            i === pi ? { ...x, reference: e.target.value } : x,
+                          ),
+                        }))
+                      }
+                      placeholder="Réf."
+                      className="text-xs"
+                    />
+                    <Input
+                      value={piece.quantite}
+                      onChange={(e) =>
+                        setEditFormData((p) => ({
+                          ...p,
+                          pieces: p.pieces.map((x, i) =>
+                            i === pi ? { ...x, quantite: e.target.value } : x,
+                          ),
+                        }))
+                      }
+                      placeholder="Qté"
+                      className="text-xs w-16"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditFormData((p) => ({
+                          ...p,
+                          pieces: p.pieces.filter((_, i) => i !== pi),
+                        }))
+                      }
+                      className="text-red-400 hover:text-red-600"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditingInv(null)}
+                disabled={editSaving}
+              >
+                Annuler
+              </Button>
+              <Button size="sm" onClick={handleSaveEdit} disabled={editSaving}>
+                {editSaving ? "Enregistrement..." : "Enregistrer"}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

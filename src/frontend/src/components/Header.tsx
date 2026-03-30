@@ -16,7 +16,6 @@ export default function Header({ userName, missionsBadgeCount }: HeaderProps) {
 
   const isAuthenticated = !!identity;
   const disabled = loginStatus === "logging-in";
-  const principalId = identity?.getPrincipal().toText();
 
   const handleAuth = safeTap(async () => {
     if (isAuthenticated) {
@@ -75,14 +74,6 @@ export default function Header({ userName, missionsBadgeCount }: HeaderProps) {
                   </span>
                 )}
               </div>
-              {/* DEBUG: affiche le Principal ID pour vérification admin */}
-              {isAuthenticated && principalId && (
-                <div className="mt-0.5">
-                  <span className="text-[9px] font-mono text-white/40 break-all">
-                    ID: {principalId}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
 
