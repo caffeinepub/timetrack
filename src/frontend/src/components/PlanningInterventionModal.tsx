@@ -217,7 +217,7 @@ export function PlanningInterventionModal({
               apremDebutMin: String(Number(existing.heureApremDebutMin)),
               apremFinH: String(Number(existing.heureApremFinH)),
               apremFinMin: String(Number(existing.heureApremFinMin)),
-              description: "", // always blank for technician to fill
+              description: existing.description ?? "",
               signatureClient: existing.signatureClient,
               signatureIntervenant: existing.signatureIntervenant,
               estAstreinte: existing.estAstreinte ?? false,
@@ -302,7 +302,7 @@ export function PlanningInterventionModal({
               apremDebutMin: String(Number(existing.heureApremDebutMin)),
               apremFinH: String(Number(existing.heureApremFinH)),
               apremFinMin: String(Number(existing.heureApremFinMin)),
-              // description intentionally NOT overwritten — technician fills it
+              description: existing.description ?? f.description,
               signatureClient: existing.signatureClient,
               signatureIntervenant: existing.signatureIntervenant,
               estAstreinte: existing.estAstreinte ?? false,

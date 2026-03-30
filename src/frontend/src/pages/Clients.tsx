@@ -226,9 +226,12 @@ function ClientInterventions({
     <div className="mt-2 border-t border-border pt-2">
       {/* Media modal */}
       {mediaModal && (
-        <dialog
-          open
-          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center m-0 p-0 max-w-none max-h-none border-0 bg-transparent"
+        // biome-ignore lint/a11y/useSemanticElements: div needed to fix video controls z-index stacking on mobile
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 bg-black/90 flex items-center justify-center"
+          style={{ zIndex: 200 }}
           onClick={() => setMediaModal(null)}
           onKeyDown={(e) => {
             if (e.key === "Escape") setMediaModal(null);
@@ -236,7 +239,8 @@ function ClientInterventions({
         >
           <button
             type="button"
-            className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/40 rounded-full p-2"
+            className="fixed top-4 right-4 text-white/80 hover:text-white bg-black/60 rounded-full p-2"
+            style={{ zIndex: 201 }}
             onClick={(e) => {
               e.stopPropagation();
               setMediaModal(null);
@@ -266,7 +270,7 @@ function ClientInterventions({
               </video>
             )}
           </div>
-        </dialog>
+        </div>
       )}
 
       <button
