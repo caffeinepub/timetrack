@@ -221,6 +221,41 @@ export function PlanningInterventionModal({
               estAstreinte: existing.estAstreinte ?? false,
               clientAbsent: existing.clientAbsent ?? false,
             });
+            // Load pieces
+            if (existing.pieces?.length) {
+              setPieces(
+                existing.pieces.map((p: any, i: number) => ({
+                  id: `existing-piece-${i}-${Date.now()}`,
+                  article: p.article ?? "",
+                  reference: p.reference ?? "",
+                  quantite: String(Number(p.quantite ?? 0)),
+                })),
+              );
+            }
+            // Load photos and videos
+            const loadedPhotos = (existing.photos ?? []).map(
+              (blob: any, i: number) => ({
+                id: `existing-photo-${i}-${Date.now()}`,
+                type: "photo" as const,
+                dataUrl: blob.getDirectURL
+                  ? blob.getDirectURL()
+                  : (blob.directURL ?? ""),
+                name: `photo-${i + 1}.jpg`,
+              }),
+            );
+            const loadedVideos = (existing.videos ?? []).map(
+              (blob: any, i: number) => ({
+                id: `existing-video-${i}-${Date.now()}`,
+                type: "video" as const,
+                dataUrl: blob.getDirectURL
+                  ? blob.getDirectURL()
+                  : (blob.directURL ?? ""),
+                name: `video-${i + 1}.mp4`,
+              }),
+            );
+            if (loadedPhotos.length + loadedVideos.length > 0) {
+              setMediaFiles([...loadedPhotos, ...loadedVideos]);
+            }
           }
         })
         .catch(() => {});
@@ -274,6 +309,41 @@ export function PlanningInterventionModal({
               estAstreinte: existing.estAstreinte ?? false,
               clientAbsent: existing.clientAbsent ?? false,
             }));
+            // Load pieces
+            if (existing.pieces?.length) {
+              setPieces(
+                existing.pieces.map((p: any, i: number) => ({
+                  id: `existing-piece-${i}-${Date.now()}`,
+                  article: p.article ?? "",
+                  reference: p.reference ?? "",
+                  quantite: String(Number(p.quantite ?? 0)),
+                })),
+              );
+            }
+            // Load photos and videos
+            const loadedPhotos = (existing.photos ?? []).map(
+              (blob: any, i: number) => ({
+                id: `existing-photo-${i}-${Date.now()}`,
+                type: "photo" as const,
+                dataUrl: blob.getDirectURL
+                  ? blob.getDirectURL()
+                  : (blob.directURL ?? ""),
+                name: `photo-${i + 1}.jpg`,
+              }),
+            );
+            const loadedVideos = (existing.videos ?? []).map(
+              (blob: any, i: number) => ({
+                id: `existing-video-${i}-${Date.now()}`,
+                type: "video" as const,
+                dataUrl: blob.getDirectURL
+                  ? blob.getDirectURL()
+                  : (blob.directURL ?? ""),
+                name: `video-${i + 1}.mp4`,
+              }),
+            );
+            if (loadedPhotos.length + loadedVideos.length > 0) {
+              setMediaFiles([...loadedPhotos, ...loadedVideos]);
+            }
           }
         })
         .catch(() => {});
@@ -398,11 +468,36 @@ export function PlanningInterventionModal({
     setIsSaving(true);
     try {
       if (isEditMode && existingInterventionId) {
-        const input = buildInput(existingInterventionId, [], []);
+        const toBlob = async (dataUrl: string): Promise<ExternalBlob> => {
+          if (dataUrl.startsWith("blob:") || dataUrl.startsWith("http")) {
+            return ExternalBlob.fromURL(dataUrl);
+          }
+          const res = await fetch(dataUrl);
+          const ab = await res.arrayBuffer();
+          const bytes = new Uint8Array(ab);
+          return ExternalBlob.fromBytes(bytes);
+        };
+        const photoBlobs = await Promise.all(
+          mediaFiles
+            .filter((m) => m.type === "photo")
+            .map((m) => toBlob(m.dataUrl)),
+        );
+        const videoBlobs = await Promise.all(
+          mediaFiles
+            .filter((m) => m.type === "video")
+            .map((m) => toBlob(m.dataUrl)),
+        );
+        const input = buildInput(
+          existingInterventionId,
+          photoBlobs,
+          videoBlobs,
+        );
         await actor.modifierIntervention(existingInterventionId, input);
         queryClient.invalidateQueries({
           queryKey: ["facturationInterventions"],
         });
+        queryClient.invalidateQueries({ queryKey: ["clientsInterventions"] });
+        queryClient.invalidateQueries({ queryKey: ["planningItems"] });
         queryClient.invalidateQueries({ queryKey: ["journees"] });
         const { toast } = await import("sonner");
         toast.success("Fiche mise à jour");
