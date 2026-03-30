@@ -1078,6 +1078,7 @@ actor {
     interventionPhotos.add(id, input.photos);
     interventionVideos.add(id, input.videos);
     interventionEstAstreinte.add(id, input.estAstreinte);
+    interventionValidees.remove(id);
     interventionSupprimeeFacturation.remove(id);
   };
 

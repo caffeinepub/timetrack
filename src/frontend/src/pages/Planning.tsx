@@ -377,17 +377,10 @@ export default function Planning({
     if (!actor) return;
     try {
       // Delete calendar drafts first
-      const item = planningItems.find((p) => p.id === id);
-      if (item) {
-        try {
-          for (const d of item.dates) {
-            await (actor as any).supprimerInterventionDraft(
-              id,
-              `${id}-${toDateStr(d)}`,
-            );
-          }
-        } catch {}
-      }
+      // Delete the deterministic intervention linked to this mission
+      try {
+        await (actor as any).supprimerInterventionDraft(id, `intv-plan-${id}`);
+      } catch {}
       await actor.supprimerPlanningItem(id);
       queryClient.invalidateQueries({ queryKey: ["planningItems"] });
       queryClient.invalidateQueries({ queryKey: ["journees"] });
@@ -1155,9 +1148,7 @@ export default function Planning({
           onClose={() => setShowInterventionModal(null)}
           missionId={showInterventionModal.id}
           destinatairePrincipal={showInterventionModal.destinataire}
-          interventionId={
-            showInterventionModal.statut === "execute" ? "lookup" : undefined
-          }
+          interventionId={`intv-plan-${showInterventionModal.id}`}
           creatorPrincipalStr={showInterventionModal.createur?.toString()}
           currentUserPrincipalStr={callerPrincipalStr}
           prefill={{
@@ -1599,10 +1590,9 @@ function VueSemaine({
                                         }}
                                       />
                                       <span
-                                        className="text-sm font-semibold truncate"
+                                        className="text-sm font-semibold break-words"
                                         style={{
                                           color: "#0f1e4a",
-                                          maxWidth: "120px",
                                         }}
                                       >
                                         {item.clientNom || "Sans client"}

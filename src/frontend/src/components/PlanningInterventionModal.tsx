@@ -162,9 +162,11 @@ export function PlanningInterventionModal({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const saveSignatureTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [existingInterventionId, setExistingInterventionId] = useState<
+  const [_existingInterventionId, setExistingInterventionId] = useState<
     string | undefined
   >(interventionId);
+  // existingFound: true = intervention found in backend (show Mettre à jour), false = new (show Enregistrer)
+  const [existingFound, setExistingFound] = useState(false);
 
   // Track whether the modal was already open to avoid resetting user-entered
   // data (pieces, mediaFiles) when actor becomes available after the modal opens.
@@ -186,22 +188,22 @@ export function PlanningInterventionModal({
     setForm(defaultForm(prefill));
     setClientSearch(prefill.clientNom);
     setExistingInterventionId(interventionId);
+    setExistingFound(false);
     setPieces([]);
     setMediaFiles([]);
 
+    // Deterministic interventionId = "intv-plan-${missionId}"
+    const targetId = interventionId; // already deterministic from parent
+
     // If actor is already available at open time, load existing data immediately.
-    if (actor && (interventionId || isEditMode)) {
+    if (actor && targetId) {
       (actor as any)
         .obtenirInterventionsPourJour?.(prefill.date)
         .then((interventions: any[]) => {
-          const existing = interventionId
-            ? interventions.find((i: any) => i.id === interventionId)
-            : interventions.find(
-                (i: any) =>
-                  i.clientNom?.toLowerCase().trim() ===
-                  prefill.clientNom.toLowerCase().trim(),
-              );
+          // Look up by exact deterministic ID
+          const existing = interventions.find((i: any) => i.id === targetId);
           if (existing) {
+            setExistingFound(true);
             setExistingInterventionId(existing.id);
             setClientSearch(existing.clientNom);
             setForm({
@@ -276,19 +278,16 @@ export function PlanningInterventionModal({
       })
       .catch(() => {});
 
-    // Load existing intervention data if in edit mode (only if not already loaded)
-    if (interventionId || isEditMode) {
+    // Load existing intervention data by deterministic ID (only if not already loaded via Effect 1)
+    if (interventionId) {
       (actor as any)
         .obtenirInterventionsPourJour?.(prefill.date)
         .then((interventions: any[]) => {
-          const existing = interventionId
-            ? interventions.find((i: any) => i.id === interventionId)
-            : interventions.find(
-                (i: any) =>
-                  i.clientNom?.toLowerCase().trim() ===
-                  prefill.clientNom.toLowerCase().trim(),
-              );
+          const existing = interventions.find(
+            (i: any) => i.id === interventionId,
+          );
           if (existing) {
+            setExistingFound(true);
             setExistingInterventionId(existing.id);
             setClientSearch(existing.clientNom);
             setForm((f) => ({
@@ -309,41 +308,42 @@ export function PlanningInterventionModal({
               estAstreinte: existing.estAstreinte ?? false,
               clientAbsent: existing.clientAbsent ?? false,
             }));
-            // Load pieces
-            if (existing.pieces?.length) {
-              setPieces(
-                existing.pieces.map((p: any, i: number) => ({
-                  id: `existing-piece-${i}-${Date.now()}`,
-                  article: p.article ?? "",
-                  reference: p.reference ?? "",
-                  quantite: String(Number(p.quantite ?? 0)),
-                })),
+            // Load pieces only if not yet loaded (avoid overwriting user-added data)
+            setPieces((prev) => {
+              if (prev.length > 0) return prev;
+              if (!existing.pieces?.length) return prev;
+              return existing.pieces.map((p: any, i: number) => ({
+                id: `existing-piece-${i}-${Date.now()}`,
+                article: p.article ?? "",
+                reference: p.reference ?? "",
+                quantite: String(Number(p.quantite ?? 0)),
+              }));
+            });
+            // Load photos and videos only if not yet loaded
+            setMediaFiles((prev) => {
+              if (prev.length > 0) return prev;
+              const loadedPhotos = (existing.photos ?? []).map(
+                (blob: any, i: number) => ({
+                  id: `existing-photo-${i}-${Date.now()}`,
+                  type: "photo" as const,
+                  dataUrl: blob.getDirectURL
+                    ? blob.getDirectURL()
+                    : (blob.directURL ?? ""),
+                  name: `photo-${i + 1}.jpg`,
+                }),
               );
-            }
-            // Load photos and videos
-            const loadedPhotos = (existing.photos ?? []).map(
-              (blob: any, i: number) => ({
-                id: `existing-photo-${i}-${Date.now()}`,
-                type: "photo" as const,
-                dataUrl: blob.getDirectURL
-                  ? blob.getDirectURL()
-                  : (blob.directURL ?? ""),
-                name: `photo-${i + 1}.jpg`,
-              }),
-            );
-            const loadedVideos = (existing.videos ?? []).map(
-              (blob: any, i: number) => ({
-                id: `existing-video-${i}-${Date.now()}`,
-                type: "video" as const,
-                dataUrl: blob.getDirectURL
-                  ? blob.getDirectURL()
-                  : (blob.directURL ?? ""),
-                name: `video-${i + 1}.mp4`,
-              }),
-            );
-            if (loadedPhotos.length + loadedVideos.length > 0) {
-              setMediaFiles([...loadedPhotos, ...loadedVideos]);
-            }
+              const loadedVideos = (existing.videos ?? []).map(
+                (blob: any, i: number) => ({
+                  id: `existing-video-${i}-${Date.now()}`,
+                  type: "video" as const,
+                  dataUrl: blob.getDirectURL
+                    ? blob.getDirectURL()
+                    : (blob.directURL ?? ""),
+                  name: `video-${i + 1}.mp4`,
+                }),
+              );
+              return [...loadedPhotos, ...loadedVideos];
+            });
           }
         })
         .catch(() => {});
@@ -466,87 +466,60 @@ export function PlanningInterventionModal({
   const handleSave = async () => {
     if (!actor) return;
     setIsSaving(true);
+    // Deterministic intervention ID — always the same for a given mission
+    const deterministicId = `intv-plan-${missionId}`;
+
+    const toBlob = async (dataUrl: string): Promise<ExternalBlob> => {
+      if (dataUrl.startsWith("blob:") || dataUrl.startsWith("http")) {
+        return ExternalBlob.fromURL(dataUrl);
+      }
+      const res = await fetch(dataUrl);
+      const ab = await res.arrayBuffer();
+      const bytes = new Uint8Array(ab);
+      return ExternalBlob.fromBytes(bytes);
+    };
+
     try {
-      if (isEditMode && existingInterventionId) {
-        const toBlob = async (dataUrl: string): Promise<ExternalBlob> => {
-          if (dataUrl.startsWith("blob:") || dataUrl.startsWith("http")) {
-            return ExternalBlob.fromURL(dataUrl);
-          }
-          const res = await fetch(dataUrl);
-          const ab = await res.arrayBuffer();
-          const bytes = new Uint8Array(ab);
-          return ExternalBlob.fromBytes(bytes);
-        };
-        const photoBlobs = await Promise.all(
-          mediaFiles
-            .filter((m) => m.type === "photo")
-            .map((m) => toBlob(m.dataUrl)),
-        );
-        const videoBlobs = await Promise.all(
-          mediaFiles
-            .filter((m) => m.type === "video")
-            .map((m) => toBlob(m.dataUrl)),
-        );
-        const input = buildInput(
-          existingInterventionId,
-          photoBlobs,
-          videoBlobs,
-        );
-        await actor.modifierIntervention(existingInterventionId, input);
-        queryClient.invalidateQueries({
-          queryKey: ["facturationInterventions"],
-        });
-        queryClient.invalidateQueries({ queryKey: ["clientsInterventions"] });
-        queryClient.invalidateQueries({ queryKey: ["planningItems"] });
-        queryClient.invalidateQueries({ queryKey: ["journees"] });
+      const photoBlobs = await Promise.all(
+        mediaFiles
+          .filter((m) => m.type === "photo")
+          .map((m) => toBlob(m.dataUrl)),
+      );
+      const videoBlobs = await Promise.all(
+        mediaFiles
+          .filter((m) => m.type === "video")
+          .map((m) => toBlob(m.dataUrl)),
+      );
+      const input = buildInput(deterministicId, photoBlobs, videoBlobs);
+
+      if (existingFound) {
+        // Update existing intervention — backend will also reset validées → en attente
+        await actor.modifierIntervention(deterministicId, input);
         const { toast } = await import("sonner");
-        toast.success("Fiche mise à jour");
-        onClose();
+        toast.success(
+          "Fiche mise à jour — repassée en Attente dans Facturation",
+        );
       } else {
-        const newId = `intv-plan-${missionId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-        const toBlob = async (dataUrl: string): Promise<ExternalBlob> => {
-          const res = await fetch(dataUrl);
-          const ab = await res.arrayBuffer();
-          const bytes = new Uint8Array(ab);
-          return ExternalBlob.fromBytes(bytes);
-        };
-        const photoBlobs = await Promise.all(
-          mediaFiles
-            .filter((m) => m.type === "photo")
-            .map((m) => toBlob(m.dataUrl)),
-        );
-        const videoBlobs = await Promise.all(
-          mediaFiles
-            .filter((m) => m.type === "video")
-            .map((m) => toBlob(m.dataUrl)),
-        );
-
-        const input = buildInput(newId, photoBlobs, videoBlobs);
-
+        // Create new intervention for the destinataire
         await actor.ajouterInterventionPourUtilisateur(
           destinatairePrincipal,
           input,
         );
-
         // Mark the mission as "execute" (réalisé)
         try {
           await (actor as any).validerPlanningItem(missionId);
         } catch (_e) {
           /* non-blocking */
         }
-
-        queryClient.invalidateQueries({ queryKey: ["planningItems"] });
-        queryClient.invalidateQueries({
-          queryKey: ["facturationInterventions"],
-        });
-        queryClient.invalidateQueries({ queryKey: ["clientsInterventions"] });
-        queryClient.invalidateQueries({ queryKey: ["journees"] });
-
         const { toast } = await import("sonner");
         toast.success("Fiche enregistrée — mission passée en Réalisé ✓");
-        onClose();
       }
+
+      queryClient.invalidateQueries({ queryKey: ["planningItems"] });
+      queryClient.invalidateQueries({ queryKey: ["facturationInterventions"] });
+      queryClient.invalidateQueries({ queryKey: ["clientsInterventions"] });
+      queryClient.invalidateQueries({ queryKey: ["journees"] });
+      onClose();
     } catch (e: any) {
       const { toast } = await import("sonner");
       toast.error(`Erreur : ${e?.message ?? String(e)}`);
@@ -986,8 +959,8 @@ export function PlanningInterventionModal({
             >
               Annuler
             </Button>
-            {/* "Mettre à jour" — only visible to creator in edit mode */}
-            {isEditMode &&
+            {/* "Mettre à jour" — visible to creator when intervention exists in backend */}
+            {existingFound &&
               creatorPrincipalStr &&
               currentUserPrincipalStr &&
               creatorPrincipalStr === currentUserPrincipalStr && (
@@ -1008,8 +981,8 @@ export function PlanningInterventionModal({
                   )}
                 </Button>
               )}
-            {/* "Enregistrer" — always visible for new intervention */}
-            {!isEditMode && (
+            {/* "Enregistrer" — visible when no existing intervention yet */}
+            {!existingFound && (
               <Button
                 onClick={handleSave}
                 disabled={isSaving}
