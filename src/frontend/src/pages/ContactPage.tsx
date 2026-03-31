@@ -17,7 +17,7 @@ import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
 interface ContactRaw {
   id: string;
-  nom: string; // encoded as "nom||societe" or just "nom"
+  nom: string;
   telephone: string;
   email: string;
   createdBy: any;
@@ -68,10 +68,11 @@ function useAddContact() {
       email: string;
     }) => {
       if (!actor) throw new Error("Actor not available");
+      // Encode nom||societe into a single nom field as expected by backend
+      const encodedNom = `${params.nom}||${params.societe}`;
       return (actor as any).ajouterContact(
         params.id,
-        params.nom,
-        params.societe,
+        encodedNom,
         params.telephone,
         params.email,
       );
@@ -113,7 +114,7 @@ export default function ContactPage() {
 
   const handleAdd = async () => {
     if (!nom.trim() && !societe.trim()) {
-      toast.error("Le nom ou la société est requis");
+      toast.error("Le nom ou la soci\u00e9t\u00e9 est requis");
       return;
     }
     try {
@@ -125,7 +126,7 @@ export default function ContactPage() {
         telephone: telephone.trim(),
         email: email.trim(),
       });
-      toast.success("Contact ajouté");
+      toast.success("Contact ajout\u00e9");
       setNom("");
       setSociete("");
       setTelephone("");
@@ -139,7 +140,7 @@ export default function ContactPage() {
   const handleDelete = async (id: string) => {
     try {
       await deleteContact.mutateAsync(id);
-      toast.success("Contact supprimé");
+      toast.success("Contact supprim\u00e9");
     } catch {
       toast.error("Erreur lors de la suppression");
     }
@@ -190,10 +191,10 @@ export default function ContactPage() {
             style={{ color: "oklch(var(--navy-dark))" }}
           />
           <p className="text-muted-foreground font-medium">
-            Aucun contact enregistré
+            Aucun contact enregistr\u00e9
           </p>
           <p className="text-sm text-muted-foreground mt-1">
-            Cliquez sur "Ajouter" pour créer un contact
+            Cliquez sur &quot;Ajouter&quot; pour cr\u00e9er un contact
           </p>
         </div>
       )}
@@ -297,7 +298,7 @@ export default function ContactPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="contact-societe">Société</Label>
+              <Label htmlFor="contact-societe">Soci\u00e9t\u00e9</Label>
               <Input
                 id="contact-societe"
                 value={societe}
@@ -307,7 +308,7 @@ export default function ContactPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="contact-tel">Téléphone</Label>
+              <Label htmlFor="contact-tel">T\u00e9l\u00e9phone</Label>
               <Input
                 id="contact-tel"
                 type="tel"
