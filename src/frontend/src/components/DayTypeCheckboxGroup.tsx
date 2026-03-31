@@ -30,13 +30,25 @@ const DAY_TYPE_CONFIG = {
     checkboxActiveClasses: "border-white bg-white",
     checkIconColor: "text-orange-500",
   },
+  [DayType.arretMaladie]: {
+    label: "Arrêt maladie",
+    // Red
+    activeClasses: "border-red-500 bg-red-500 text-white shadow-md scale-105",
+    checkboxActiveClasses: "border-white bg-white",
+    checkIconColor: "text-red-500",
+  },
 } as const;
 
 export function DayTypeCheckboxGroup({
   value,
   onChange,
 }: DayTypeCheckboxGroupProps) {
-  const options = [DayType.work, DayType.conge, DayType.astreinte];
+  const options = [
+    DayType.work,
+    DayType.conge,
+    DayType.astreinte,
+    DayType.arretMaladie,
+  ];
 
   return (
     <div className="flex flex-wrap gap-3">
@@ -103,6 +115,14 @@ export function getDayTypeColors(type: string | DayType) {
         text: "text-orange-500",
         dot: "bg-orange-500",
         light: "bg-orange-50",
+      };
+    case DayType.arretMaladie:
+    case "arretMaladie":
+      return {
+        bg: "bg-red-500",
+        text: "text-red-500",
+        dot: "bg-red-500",
+        light: "bg-red-50",
       };
     default:
       return {

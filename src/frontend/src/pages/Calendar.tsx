@@ -361,8 +361,12 @@ export default function Calendar({ readOnly = false }: { readOnly?: boolean }) {
         }
         return slots;
       })(),
-      typeOfDay: entry.typeOfDay as DayType,
-      description: entry.description,
+      typeOfDay: entry.description.includes("[ARRET_MALADIE]")
+        ? DayType.arretMaladie
+        : (entry.typeOfDay as DayType),
+      description: entry.description
+        .replace("[ARRET_MALADIE] ", "")
+        .replace("[ARRET_MALADIE]", ""),
     });
     setDialogOpen(true);
   };
@@ -387,23 +391,27 @@ export default function Calendar({ readOnly = false }: { readOnly?: boolean }) {
         id,
         date: dateToTimestamp(selectedDate),
         startMorning:
-          form.typeOfDay === DayType.astreinte &&
-          [0, 6].includes(selectedDate.getDay())
+          (form.typeOfDay === DayType.astreinte &&
+            [0, 6].includes(selectedDate.getDay())) ||
+          form.typeOfDay === DayType.arretMaladie
             ? BigInt(0)
             : toMinutes(form.startMorning),
         endMorning:
-          form.typeOfDay === DayType.astreinte &&
-          [0, 6].includes(selectedDate.getDay())
+          (form.typeOfDay === DayType.astreinte &&
+            [0, 6].includes(selectedDate.getDay())) ||
+          form.typeOfDay === DayType.arretMaladie
             ? BigInt(0)
             : toMinutes(form.endMorning),
         startAfternoon:
-          form.typeOfDay === DayType.astreinte &&
-          [0, 6].includes(selectedDate.getDay())
+          (form.typeOfDay === DayType.astreinte &&
+            [0, 6].includes(selectedDate.getDay())) ||
+          form.typeOfDay === DayType.arretMaladie
             ? BigInt(0)
             : toMinutes(form.startAfternoon),
         endAfternoon:
-          form.typeOfDay === DayType.astreinte &&
-          [0, 6].includes(selectedDate.getDay())
+          (form.typeOfDay === DayType.astreinte &&
+            [0, 6].includes(selectedDate.getDay())) ||
+          form.typeOfDay === DayType.arretMaladie
             ? BigInt(0)
             : toMinutes(form.endAfternoon),
         heuresRepas: toMinutes(form.heuresRepas),
@@ -414,11 +422,19 @@ export default function Calendar({ readOnly = false }: { readOnly?: boolean }) {
         endAstreinte: form.astreinteSlots[0]?.fin
           ? toMinutes(form.astreinteSlots[0].fin)
           : undefined,
-        typeOfDay: form.typeOfDay,
+        typeOfDay:
+          form.typeOfDay === DayType.arretMaladie
+            ? DayType.conge
+            : form.typeOfDay,
         description: (() => {
           let desc = form.description
             .replace(/\s*\[Plages astreinte:[^\]]*\]/g, "")
+            .replace("[ARRET_MALADIE] ", "")
+            .replace("[ARRET_MALADIE]", "")
             .trim();
+          if (form.typeOfDay === DayType.arretMaladie) {
+            desc = desc ? `[ARRET_MALADIE] ${desc}` : "[ARRET_MALADIE]";
+          }
           if (form.astreinteSlots.length > 1) {
             const slotsStr = form.astreinteSlots
               .map((s) => `${s.debut}-${s.fin}`)
@@ -506,6 +522,7 @@ export default function Calendar({ readOnly = false }: { readOnly?: boolean }) {
     : false;
   const isAstreinteWeekend = form.typeOfDay === DayType.astreinte && isWeekend;
   const isAstreinteWeekday = form.typeOfDay === DayType.astreinte && !isWeekend;
+  const isArretMaladie = form.typeOfDay === DayType.arretMaladie;
   const astreinteMin = form.astreinteSlots.reduce((acc, slot) => {
     if (!slot.debut || !slot.fin) return acc;
     const dur = Math.max(
@@ -676,7 +693,11 @@ export default function Calendar({ readOnly = false }: { readOnly?: boolean }) {
               <div className="mt-0.5 space-y-0.5">
                 {dayEntries.slice(0, 2).map((entry) => {
                   const minutes = computeNormalHours(entry);
-                  const colors = getDayTypeColors(entry.typeOfDay);
+                  const colors = getDayTypeColors(
+                    entry.description?.includes("[ARRET_MALADIE]")
+                      ? "arretMaladie"
+                      : entry.typeOfDay,
+                  );
                   return (
                     <button
                       key={entry.id}
@@ -687,7 +708,10 @@ export default function Calendar({ readOnly = false }: { readOnly?: boolean }) {
                       }}
                       className={`text-[9px] leading-tight px-1 py-0.5 rounded text-white truncate w-full text-left ${colors.bg}`}
                     >
-                      {formatMinutes(minutes)}
+                      {entry.typeOfDay === "arretMaladie" ||
+                      entry.description?.includes("[ARRET_MALADIE]")
+                        ? "Arrêt"
+                        : formatMinutes(minutes)}
                     </button>
                   );
                 })}
@@ -716,6 +740,10 @@ export default function Calendar({ readOnly = false }: { readOnly?: boolean }) {
           <span className="w-3 h-3 rounded-full bg-orange-500 inline-block" />
           Astreinte
         </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-full bg-red-500 inline-block" />
+          Arrêt maladie
+        </span>
       </div>
 
       {/* Entry list for selected month */}
@@ -737,7 +765,11 @@ export default function Calendar({ readOnly = false }: { readOnly?: boolean }) {
               const d = timestampToDate(entry.date);
               const normal = computeNormalHours(entry);
               const astreinte = computeAstreinteHours(entry);
-              const colors = getDayTypeColors(entry.typeOfDay);
+              const colors = getDayTypeColors(
+                entry.description?.includes("[ARRET_MALADIE]")
+                  ? "arretMaladie"
+                  : entry.typeOfDay,
+              );
               return (
                 <div
                   key={entry.id}
@@ -770,6 +802,12 @@ export default function Calendar({ readOnly = false }: { readOnly?: boolean }) {
                         {astreinte > 0 && (
                           <span className="text-xs text-orange-500">
                             {formatMinutes(astreinte)} astreinte
+                          </span>
+                        )}
+                        {(entry.typeOfDay === "arretMaladie" ||
+                          entry.description?.includes("[ARRET_MALADIE]")) && (
+                          <span className="text-xs text-red-500 font-medium">
+                            Arrêt maladie
                           </span>
                         )}
                         {Number(entry.heuresRepas) > 0 && (
@@ -825,80 +863,98 @@ export default function Calendar({ readOnly = false }: { readOnly?: boolean }) {
               />
             </div>
 
-            {/* Morning hours */}
-            {!(form.typeOfDay === DayType.astreinte && isWeekend) && (
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Matin</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs text-muted-foreground mb-1 block">
-                      Début
-                    </Label>
-                    <HMInput
-                      value={form.startMorning}
-                      onChange={(v) =>
-                        setForm((f) => ({ ...f, startMorning: v }))
-                      }
-                      placeholderH="08"
-                      placeholderM="00"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground mb-1 block">
-                      Fin
-                    </Label>
-                    <HMInput
-                      value={form.endMorning}
-                      onChange={(v) =>
-                        setForm((f) => ({ ...f, endMorning: v }))
-                      }
-                      placeholderH="12"
-                      placeholderM="00"
-                    />
-                  </div>
-                </div>
+            {/* ArretMaladie notice */}
+            {isArretMaladie && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-700 font-medium">
+                  Arrêt maladie
+                </p>
+                <p className="text-xs text-red-600 mt-1">
+                  Les heures ne sont pas comptabilisées. Le nombre de journées
+                  est suivi dans le tableau de bord.
+                </p>
               </div>
             )}
 
-            {/* Afternoon hours */}
-            {!(form.typeOfDay === DayType.astreinte && isWeekend) && (
-              <div>
-                <Label className="text-sm font-medium mb-2 block">
-                  Après-midi
-                </Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs text-muted-foreground mb-1 block">
-                      Début
-                    </Label>
-                    <HMInput
-                      value={form.startAfternoon}
-                      onChange={(v) =>
-                        setForm((f) => ({ ...f, startAfternoon: v }))
-                      }
-                      placeholderH="13"
-                      placeholderM="00"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground mb-1 block">
-                      Fin
-                    </Label>
-                    <HMInput
-                      value={form.endAfternoon}
-                      onChange={(v) =>
-                        setForm((f) => ({ ...f, endAfternoon: v }))
-                      }
-                      placeholderH="17"
-                      placeholderM="00"
-                    />
+            {/* Morning hours */}
+            {!(form.typeOfDay === DayType.astreinte && isWeekend) &&
+              !isArretMaladie && (
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">
+                    Matin
+                  </Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1 block">
+                        Début
+                      </Label>
+                      <HMInput
+                        value={form.startMorning}
+                        onChange={(v) =>
+                          setForm((f) => ({ ...f, startMorning: v }))
+                        }
+                        placeholderH="08"
+                        placeholderM="00"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1 block">
+                        Fin
+                      </Label>
+                      <HMInput
+                        value={form.endMorning}
+                        onChange={(v) =>
+                          setForm((f) => ({ ...f, endMorning: v }))
+                        }
+                        placeholderH="12"
+                        placeholderM="00"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+
+            {/* Afternoon hours */}
+            {!(form.typeOfDay === DayType.astreinte && isWeekend) &&
+              !isArretMaladie && (
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">
+                    Après-midi
+                  </Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1 block">
+                        Début
+                      </Label>
+                      <HMInput
+                        value={form.startAfternoon}
+                        onChange={(v) =>
+                          setForm((f) => ({ ...f, startAfternoon: v }))
+                        }
+                        placeholderH="13"
+                        placeholderM="00"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground mb-1 block">
+                        Fin
+                      </Label>
+                      <HMInput
+                        value={form.endAfternoon}
+                        onChange={(v) =>
+                          setForm((f) => ({ ...f, endAfternoon: v }))
+                        }
+                        placeholderH="17"
+                        placeholderM="00"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
             {/* Total preview */}
             {!(form.typeOfDay === DayType.astreinte && isWeekend) &&
+              !isArretMaladie &&
               totalNormalMin > 0 && (
                 <p className="text-xs text-muted-foreground -mt-2">
                   Total heures normales :{" "}

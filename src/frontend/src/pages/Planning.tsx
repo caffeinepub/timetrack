@@ -686,7 +686,7 @@ export default function Planning({
                 return new Date(d.getFullYear(), d.getMonth(), diff);
               };
               const monday = getMonday2(today);
-              const weekDays2 = Array.from({ length: 5 }, (_, i) => {
+              const weekDays2 = Array.from({ length: 7 }, (_, i) => {
                 const d = new Date(monday);
                 d.setDate(monday.getDate() + i);
                 return d;
@@ -697,7 +697,7 @@ export default function Planning({
                       ([p]) => p.toString() === filterUserPrincipal,
                     )?.[1]?.name ?? "Tous")
                   : "Tous";
-              const weekStr = `${weekDays2[0].toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} — ${weekDays2[4].toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}`;
+              const weekStr = `${weekDays2[0].toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} — ${weekDays2[6].toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}`;
               doc.setFontSize(14);
               doc.setFont("helvetica", "bold");
               doc.text("Vial Traite Service — Planning Semaine", 105, 18, {
@@ -1221,7 +1221,7 @@ function VueSemaine({
     new Set(),
   );
 
-  const weekDays = Array.from({ length: 5 }, (_, i) => {
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
     d.setDate(weekStart.getDate() + i);
     return d;
@@ -1240,14 +1240,14 @@ function VueSemaine({
   };
 
   const formatWeekHeader = () => {
-    const end = weekDays[4];
+    const end = weekDays[6];
     const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
     const startFmt = weekDays[0].toLocaleDateString("fr-FR", opts);
     const endFmt = end.toLocaleDateString("fr-FR", opts);
     return `${startFmt} — ${endFmt} ${end.getFullYear()}`;
   };
 
-  const DAY_SHORT = ["Lun", "Mar", "Mer", "Jeu", "Ven"];
+  const DAY_SHORT = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
   const dateMap = useMemo(() => {
     const map = new Map<string, DayItem[]>();

@@ -1,4 +1,5 @@
 import {
+  BookUser,
   CalendarCheck,
   CalendarDays,
   Car,
@@ -28,6 +29,7 @@ const NAV_ITEMS: { page: Page; label: string; Icon: React.ElementType }[] = [
   { page: "clients", label: "Clients", Icon: Users },
   { page: "ticket-resto", label: "Ticket Resto", Icon: UtensilsCrossed },
   { page: "ticket-essence", label: "Ticket Essence", Icon: Car },
+  { page: "contact", label: "Contacts", Icon: BookUser },
 ];
 
 export default function DesktopSideNav({

@@ -329,7 +329,8 @@ export interface TimeEntry {
 export enum DayType {
     conge = "conge",
     work = "work",
-    astreinte = "astreinte"
+    astreinte = "astreinte",
+    arretMaladie = "arretMaladie"
 }
 export enum UserRole {
     admin = "admin",
@@ -2145,8 +2146,10 @@ function from_candid_variant_n43(_uploadFile: (file: ExternalBlob) => Promise<Ui
     work: null;
 } | {
     astreinte: null;
+} | {
+    arretMaladie: null;
 }): DayType {
-    return "conge" in value ? DayType.conge : "work" in value ? DayType.work : "astreinte" in value ? DayType.astreinte : value;
+    return "conge" in value ? DayType.conge : "work" in value ? DayType.work : "astreinte" in value ? DayType.astreinte : "arretMaladie" in value ? DayType.arretMaladie : value as DayType;
 }
 async function from_candid_variant_n52(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     audio: _ExternalBlob;

@@ -126,12 +126,17 @@ export default function Dashboard({
     let workDays = 0;
     let congeDays = 0;
     let astreinteDays = 0;
+    let maladeDays = 0;
 
     for (const entry of filteredEntries) {
       const _entryDay1 = new Date(Number(entry.date) / 1_000_000).getDay();
+      const _isArretMaladie =
+        entry.description?.includes("[ARRET_MALADIE]") ||
+        entry.typeOfDay === "arretMaladie";
       totalNormal +=
-        entry.typeOfDay === "astreinte" &&
-        (_entryDay1 === 0 || _entryDay1 === 6)
+        (entry.typeOfDay === "astreinte" &&
+          (_entryDay1 === 0 || _entryDay1 === 6)) ||
+        _isArretMaladie
           ? 0
           : computeNormalHours(entry);
       totalAstreinte += computeAstreinteHours(entry);
@@ -142,7 +147,9 @@ export default function Dashboard({
       const dayOfWeek = date.getDay();
       const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
 
-      if (entry.typeOfDay === "work") workDays++;
+      if (_isArretMaladie) {
+        maladeDays++;
+      } else if (entry.typeOfDay === "work") workDays++;
       else if (entry.typeOfDay === "conge") congeDays++;
       else if (entry.typeOfDay === "astreinte") {
         astreinteDays++;
@@ -157,6 +164,7 @@ export default function Dashboard({
       workDays,
       congeDays,
       astreinteDays,
+      maladeDays,
     };
   }, [filteredEntries]);
 
@@ -598,6 +606,15 @@ export default function Dashboard({
               {stats.congeDays} jour{stats.congeDays !== 1 ? "s" : ""} congé
             </span>
           </div>
+          {stats.maladeDays > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-red-500 inline-block" />
+              <span className="text-sm text-foreground">
+                {stats.maladeDays} jour{stats.maladeDays !== 1 ? "s" : ""} arrêt
+                maladie
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

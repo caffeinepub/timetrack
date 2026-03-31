@@ -243,12 +243,21 @@ export interface TimeEntry {
 export enum DayType {
     conge = "conge",
     work = "work",
-    astreinte = "astreinte"
+    astreinte = "astreinte",
+    arretMaladie = "arretMaladie"
 }
 export enum UserRole {
     admin = "admin",
     user = "user",
     guest = "guest"
+}
+export interface Contact {
+    id: string;
+    nom: string;
+    telephone: string;
+    email: string;
+    createdBy: Principal;
+    createdAt: Time;
 }
 export interface backendInterface {
     accepterMission(id: string): Promise<void>;
@@ -341,4 +350,7 @@ export interface backendInterface {
     supprimerTicketResto(id: string): Promise<boolean>;
     uploadPhotoDansStoic(filename: string, content: ExternalBlob, mimeType: string, taille: bigint, description: string): Promise<bigint | null>;
     validerIntervention(id: string): Promise<void>;
+    ajouterContact(id: string, nom: string, telephone: string, email: string): Promise<Contact>;
+    obtenirContacts(): Promise<Array<Contact>>;
+    supprimerContact(id: string): Promise<boolean>;
 }

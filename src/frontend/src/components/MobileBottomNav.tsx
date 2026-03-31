@@ -1,4 +1,5 @@
 import {
+  BookUser,
   CalendarCheck,
   CalendarDays,
   Car,
@@ -30,6 +31,7 @@ const NAV_ITEMS: { page: Page; label: string; Icon: React.ElementType }[] = [
   { page: "clients", label: "Clients", Icon: Users },
   { page: "ticket-resto", label: "T.Resto", Icon: UtensilsCrossed },
   { page: "ticket-essence", label: "T.Essence", Icon: Car },
+  { page: "contact", label: "Contacts", Icon: BookUser },
 ];
 
 export default function MobileBottomNav({

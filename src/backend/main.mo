@@ -2085,7 +2085,66 @@ actor {
     totalAstreinte;
   };
 
-  // ------- Publish Retry Workflow --------
+  // ------- Contacts --------
+
+  public type Contact = {
+    id : Text;
+    nom : Text;
+    telephone : Text;
+    email : Text;
+    createdBy : Principal;
+    createdAt : Time.Time;
+  };
+
+  let contacts = Map.empty<Text, Contact>();
+
+  module Contact {
+    public func compareByDate(a : Contact, b : Contact) : Order.Order {
+      Int.compare(a.createdAt, b.createdAt);
+    };
+  };
+
+  public shared ({ caller }) func ajouterContact(id : Text, nom : Text, telephone : Text, email : Text) : async Contact {
+    if (not callerHasAccess(caller)) {
+      Runtime.trap("Non authentifié");
+    };
+    let contact : Contact = {
+      id = id;
+      nom = nom;
+      telephone = telephone;
+      email = email;
+      createdBy = caller;
+      createdAt = Time.now();
+    };
+    contacts.add(id, contact);
+    contact;
+  };
+
+  public query ({ caller }) func obtenirContacts() : async [Contact] {
+    if (not callerHasAccess(caller)) {
+      Runtime.trap("Non authentifié");
+    };
+    let all = contacts.values().toArray();
+    all.sort(Contact.compareByDate);
+  };
+
+  public shared ({ caller }) func supprimerContact(id : Text) : async Bool {
+    if (not callerHasAccess(caller)) {
+      Runtime.trap("Non authentifié");
+    };
+    if (not isCallerAdminInternal(caller)) {
+      Runtime.trap("Non autorisé : seul l'administrateur peut supprimer un contact");
+    };
+    switch (contacts.get(id)) {
+      case (null) { false };
+      case (?_) {
+        contacts.remove(id);
+        true;
+      };
+    };
+  };
+
+    // ------- Publish Retry Workflow --------
 
   public shared ({ caller }) func restartPublish() : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {

@@ -14,6 +14,7 @@ const ALL_PAGES: Page[] = [
   "clients",
   "ticket-resto",
   "ticket-essence",
+  "contact",
 ];
 
 export function useAccessControl(principalId: string | null) {

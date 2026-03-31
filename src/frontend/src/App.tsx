@@ -22,6 +22,7 @@ import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useGetCallerUserProfile } from "./hooks/useQueries";
 import Calendar from "./pages/Calendar";
 import Clients from "./pages/Clients";
+import ContactPage from "./pages/ContactPage";
 import Dashboard from "./pages/Dashboard";
 import Facturation from "./pages/Facturation";
 import Memo from "./pages/Memo";
@@ -39,6 +40,7 @@ export type Page =
   | "ticket-resto"
   | "ticket-essence"
   | "planning"
+  | "contact"
   | "profil";
 
 function GrassDecoration() {
@@ -302,6 +304,9 @@ function AppContent() {
               onNavigate={handleTabChange}
               readOnly={isSectionReadOnly("planning")}
             />
+          </div>
+          <div className={currentPage === "contact" ? "block" : "hidden"}>
+            <ContactPage />
           </div>
           {currentPage === "profil" && isAdmin && (
             <div>
