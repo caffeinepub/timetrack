@@ -2104,13 +2104,15 @@ actor {
     };
   };
 
-  public shared ({ caller }) func ajouterContact(id : Text, nom : Text, telephone : Text, email : Text) : async Contact {
+  public shared ({ caller }) func ajouterContact(id : Text, nom : Text, societe : Text, telephone : Text, email : Text) : async Contact {
     if (not callerHasAccess(caller)) {
       Runtime.trap("Non authentifié");
     };
+    // Encode societe into nom using separator so we keep stable memory compatibility
+    let encodedNom = if (societe == "") { nom } else { nom # "||" # societe };
     let contact : Contact = {
       id = id;
-      nom = nom;
+      nom = encodedNom;
       telephone = telephone;
       email = email;
       createdBy = caller;

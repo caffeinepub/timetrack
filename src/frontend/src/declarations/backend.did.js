@@ -81,6 +81,14 @@ export const TicketResto = IDL.Record({
   'nomUtilisateur' : IDL.Text,
   'montant' : IDL.Float64,
 });
+export const Contact = IDL.Record({
+  'id' : IDL.Text,
+  'nom' : IDL.Text,
+  'telephone' : IDL.Text,
+  'email' : IDL.Text,
+  'createdBy' : IDL.Principal,
+  'createdAt' : Time,
+});
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
@@ -873,6 +881,9 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'ajouterContact' : IDL.Func([IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text], [Contact], []),
+    'obtenirContacts' : IDL.Func([], [IDL.Vec(Contact)], ['query']),
+    'supprimerContact' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'enregistrerJournee' : IDL.Func([TimeEntryInput], [], []),
     'enregistrerMediaQuotidien' : IDL.Func([IDL.Text, MediaType, Time], [], []),
     'estInterventionValidee' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),

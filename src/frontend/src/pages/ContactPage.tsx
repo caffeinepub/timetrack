@@ -15,13 +15,32 @@ import { ADMIN_PRINCIPAL_ID } from "../hooks/useAccessControl";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
-interface Contact {
+interface ContactRaw {
   id: string;
-  nom: string;
+  nom: string; // encoded as "nom||societe" or just "nom"
   telephone: string;
   email: string;
   createdBy: any;
   createdAt: bigint;
+}
+
+interface Contact {
+  id: string;
+  nom: string;
+  societe: string;
+  telephone: string;
+  email: string;
+  createdBy: any;
+  createdAt: bigint;
+}
+
+function decodeContact(raw: ContactRaw): Contact {
+  const parts = raw.nom.split("||");
+  return {
+    ...raw,
+    nom: parts[0] ?? "",
+    societe: parts[1] ?? "",
+  };
 }
 
 function useContacts() {
@@ -30,7 +49,8 @@ function useContacts() {
     queryKey: ["contacts"],
     queryFn: async () => {
       if (!actor) return [];
-      return (actor as any).obtenirContacts();
+      const raws: ContactRaw[] = await (actor as any).obtenirContacts();
+      return raws.map(decodeContact);
     },
     enabled: !!actor && !isFetching,
   });
@@ -43,6 +63,7 @@ function useAddContact() {
     mutationFn: async (params: {
       id: string;
       nom: string;
+      societe: string;
       telephone: string;
       email: string;
     }) => {
@@ -50,6 +71,7 @@ function useAddContact() {
       return (actor as any).ajouterContact(
         params.id,
         params.nom,
+        params.societe,
         params.telephone,
         params.email,
       );
@@ -85,12 +107,13 @@ export default function ContactPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [nom, setNom] = useState("");
+  const [societe, setSociete] = useState("");
   const [telephone, setTelephone] = useState("");
   const [email, setEmail] = useState("");
 
   const handleAdd = async () => {
-    if (!nom.trim()) {
-      toast.error("Le nom de la société est requis");
+    if (!nom.trim() && !societe.trim()) {
+      toast.error("Le nom ou la société est requis");
       return;
     }
     try {
@@ -98,11 +121,13 @@ export default function ContactPage() {
       await addContact.mutateAsync({
         id,
         nom: nom.trim(),
+        societe: societe.trim(),
         telephone: telephone.trim(),
         email: email.trim(),
       });
       toast.success("Contact ajouté");
       setNom("");
+      setSociete("");
       setTelephone("");
       setEmail("");
       setShowForm(false);
@@ -192,12 +217,29 @@ export default function ContactPage() {
                 >
                   <Building2 className="w-4 h-4" />
                 </div>
-                <span
-                  className="font-bold text-base truncate"
-                  style={{ color: "oklch(var(--navy-dark))" }}
-                >
-                  {contact.nom}
-                </span>
+                <div className="min-w-0">
+                  {contact.nom && (
+                    <p
+                      className="font-bold text-base truncate"
+                      style={{ color: "oklch(var(--navy-dark))" }}
+                    >
+                      {contact.nom}
+                    </p>
+                  )}
+                  {contact.societe && (
+                    <p className="text-sm text-muted-foreground truncate">
+                      {contact.societe}
+                    </p>
+                  )}
+                  {!contact.nom && !contact.societe && (
+                    <span
+                      className="font-bold text-base"
+                      style={{ color: "oklch(var(--navy-dark))" }}
+                    >
+                      Contact
+                    </span>
+                  )}
+                </div>
               </div>
               {isAdmin && (
                 <button
@@ -245,13 +287,23 @@ export default function ContactPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="contact-nom">Nom société *</Label>
+              <Label htmlFor="contact-nom">Nom</Label>
               <Input
                 id="contact-nom"
                 value={nom}
                 onChange={(e) => setNom(e.target.value)}
+                placeholder="Jean Dupont"
+                data-ocid="contact.input_nom"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="contact-societe">Société</Label>
+              <Input
+                id="contact-societe"
+                value={societe}
+                onChange={(e) => setSociete(e.target.value)}
                 placeholder="Vial Traite Service"
-                data-ocid="contact.input"
+                data-ocid="contact.input_societe"
               />
             </div>
             <div className="space-y-1.5">
@@ -287,7 +339,9 @@ export default function ContactPage() {
                 className="flex-1 font-semibold"
                 style={{ backgroundColor: "#ea580c", color: "white" }}
                 onClick={handleAdd}
-                disabled={addContact.isPending || !nom.trim()}
+                disabled={
+                  addContact.isPending || (!nom.trim() && !societe.trim())
+                }
                 data-ocid="contact.submit_button"
               >
                 {addContact.isPending ? (

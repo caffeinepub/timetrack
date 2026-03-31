@@ -249,6 +249,14 @@ export interface _CaffeineStorageRefillResult {
   'success' : [] | [boolean],
   'topped_up_amount' : [] | [bigint],
 }
+export interface Contact {
+  'id' : string,
+  'nom' : string,
+  'telephone' : string,
+  'email' : string,
+  'createdBy' : Principal,
+  'createdAt' : Time,
+}
 export interface _SERVICE {
   '_caffeineStorageBlobIsLive' : ActorMethod<[Uint8Array], boolean>,
   '_caffeineStorageBlobsToDelete' : ActorMethod<[], Array<Uint8Array>>,
@@ -312,6 +320,9 @@ export interface _SERVICE {
     [string, string, string, string, Array<ExternalBlob>, [] | [DayType]],
     undefined
   >,
+  'ajouterContact' : ActorMethod<[string, string, string, string, string], Contact>,
+  'obtenirContacts' : ActorMethod<[], Array<Contact>>,
+  'supprimerContact' : ActorMethod<[string], boolean>,
   'enregistrerJournee' : ActorMethod<[TimeEntryInput], undefined>,
   'enregistrerMediaQuotidien' : ActorMethod<
     [string, MediaType, Time],
