@@ -1,7 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
-import { LogIn, LogOut, RefreshCcw } from "lucide-react";
+import { LogIn, LogOut, RefreshCcw, WifiOff } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { useOfflineSync } from "../hooks/useOfflineSync";
 import { useSafeTap } from "../hooks/useSafeTap";
 
 interface HeaderProps {
@@ -13,6 +15,22 @@ export default function Header({ userName, missionsBadgeCount }: HeaderProps) {
   const { login, clear, loginStatus, identity } = useInternetIdentity();
   const queryClient = useQueryClient();
   const safeTap = useSafeTap();
+  const { isOnline, queueCount } = useOfflineSync();
+
+  const [justSynced, setJustSynced] = useState(false);
+  const prevQueueRef = useRef(queueCount);
+
+  // Show "Synchronisé ✓" briefly when queueCount drops to 0
+  // biome-ignore lint/correctness/useExhaustiveDependencies: prevQueueRef is a stable ref
+  useEffect(() => {
+    if (prevQueueRef.current > 0 && queueCount === 0 && isOnline) {
+      setJustSynced(true);
+      const t = setTimeout(() => setJustSynced(false), 3000);
+      prevQueueRef.current = queueCount;
+      return () => clearTimeout(t);
+    }
+    prevQueueRef.current = queueCount;
+  }, [queueCount, isOnline]);
 
   const isAuthenticated = !!identity;
   const disabled = loginStatus === "logging-in";
@@ -78,7 +96,39 @@ export default function Header({ userName, missionsBadgeCount }: HeaderProps) {
           </div>
 
           {/* Right: actions */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Offline / queue indicators */}
+            {!isOnline && (
+              <span
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold text-white"
+                style={{ backgroundColor: "#dc2626" }}
+                title="Mode hors ligne"
+                data-ocid="header.offline.toast"
+              >
+                <WifiOff className="w-3 h-3" />
+                <span className="hidden xs:inline">Hors ligne</span>
+              </span>
+            )}
+            {isOnline && queueCount > 0 && (
+              <span
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold text-white"
+                style={{ backgroundColor: "#ea580c" }}
+                title={`${queueCount} fiche(s) en attente de synchronisation`}
+                data-ocid="header.queue.toast"
+              >
+                {queueCount} en attente
+              </span>
+            )}
+            {isOnline && justSynced && (
+              <span
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold text-white"
+                style={{ backgroundColor: "#16a34a" }}
+                data-ocid="header.synced.toast"
+              >
+                Synchronisé ✓
+              </span>
+            )}
+
             {missionsBadgeCount && missionsBadgeCount > 0 ? (
               <span
                 className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white flex-shrink-0"

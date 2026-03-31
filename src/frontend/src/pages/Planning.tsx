@@ -29,7 +29,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Page } from "../App";
 import type { Client, InterventionInput, PlanningItem } from "../backend";
@@ -37,6 +37,8 @@ import { PlanningInterventionModal } from "../components/PlanningInterventionMod
 import { useAccessControlContext } from "../contexts/AccessControlContext";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { useOfflinePlanning } from "../hooks/useOfflinePlanning";
+import { useOfflineSync } from "../hooks/useOfflineSync";
 
 const MONTHS = [
   "Janvier",
@@ -224,6 +226,16 @@ export default function Planning({
   const callerPrincipal = identity?.getPrincipal();
   const callerPrincipalStr = callerPrincipal?.toString() ?? "";
 
+  const { isOnline, syncQueue } = useOfflineSync();
+
+  // Auto-sync offline queue when actor is ready and online
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional
+  useEffect(() => {
+    if (actor && isOnline) {
+      syncQueue(actor);
+    }
+  }, [actor, isOnline]);
+
   // Load planning items
   const { data: planningItems = [], isLoading: loadingPlanning } = useQuery<
     PlanningItem[]
@@ -235,6 +247,16 @@ export default function Planning({
     },
     enabled: !!actor && !isFetching,
     refetchInterval: 30000,
+  });
+
+  // Offline planning cache
+  const {
+    missions: offlineMissions,
+    isCached,
+    cacheDate,
+  } = useOfflinePlanning({
+    missions: planningItems,
+    isOnline,
   });
 
   // Load profiles for destinataire selector (exclude disabled users)
@@ -407,6 +429,35 @@ export default function Planning({
   return (
     <div className="space-y-4">
       {readOnlyBanner}
+      {/* Offline banner */}
+      {!isOnline && (
+        <div
+          className="mb-2 px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium"
+          style={{
+            backgroundColor: "rgba(234, 179, 8, 0.15)",
+            color: "#ca8a04",
+            border: "1px solid rgba(234, 179, 8, 0.4)",
+          }}
+          data-ocid="planning.offline.toast"
+        >
+          <span>📵</span>
+          <span>
+            Mode hors ligne — Données du{" "}
+            {cacheDate
+              ? cacheDate.toLocaleDateString("fr-FR", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })
+              : "cache local"}
+          </span>
+          {isCached && (
+            <span className="ml-auto text-xs opacity-70">
+              {offlineMissions.length} missions en cache
+            </span>
+          )}
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1
@@ -1096,6 +1147,7 @@ export default function Planning({
           handleDelete={handleDelete}
           onRemplirFiche={(item) => setShowInterventionModal(item)}
           filterUserPrincipal={filterUserPrincipal}
+          isOnline={isOnline}
         />
       )}
 
@@ -1175,6 +1227,7 @@ interface VueSemaineProps {
   handleDelete: (id: string) => Promise<void>;
   onRemplirFiche: (item: DayItem) => void;
   filterUserPrincipal?: string;
+  isOnline?: boolean;
 }
 
 function VueSemaine({
@@ -1188,6 +1241,7 @@ function VueSemaine({
   handleDelete,
   onRemplirFiche,
   filterUserPrincipal = "all",
+  isOnline = true,
 }: VueSemaineProps) {
   const today = new Date();
   const todayStr = localDateStr(today);
@@ -1786,6 +1840,7 @@ function VueSemaine({
                                 type="button"
                                 className="w-full h-10 flex items-center justify-center rounded text-gray-300 hover:text-gray-500 hover:bg-gray-50 transition-colors text-lg"
                                 onClick={() => {
+                                  if (!isOnline) return;
                                   setActiveCell({
                                     userPrincipal: principalStr,
                                     dateStr: ds,
