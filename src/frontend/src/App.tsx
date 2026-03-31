@@ -16,6 +16,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import Footer from "./components/Footer";
 import Header from "./components/Header";
 import MobileBottomNav from "./components/MobileBottomNav";
+import { AccessControlProvider } from "./contexts/AccessControlContext";
 import { ADMIN_PRINCIPAL_ID, useAccessControl } from "./hooks/useAccessControl";
 import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
@@ -397,7 +398,9 @@ function AppContent() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <AppContent />
+      <AccessControlProvider>
+        <AppContent />
+      </AccessControlProvider>
       <Toaster position="top-center" />
     </ErrorBoundary>
   );

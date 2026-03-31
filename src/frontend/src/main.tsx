@@ -23,8 +23,3 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </InternetIdentityProvider>
   </QueryClientProvider>,
 );
-
-// Register Service Worker for offline support
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js").catch(console.error);
-}
