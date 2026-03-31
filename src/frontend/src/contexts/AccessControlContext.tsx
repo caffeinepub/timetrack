@@ -21,9 +21,7 @@ function fromBackendLevel(level: SectionAccessLevel): AccessLevel {
 }
 
 interface AccessControlState {
-  // sectionAccess: principalId -> sectionKey -> AccessLevel
   sectionAccess: Record<string, Record<string, AccessLevel>>;
-  // userStatus: principalId -> "active" | "disabled"
   userStatus: Record<string, "active" | "disabled">;
   loaded: boolean;
 }
@@ -45,9 +43,22 @@ interface AccessControlContextValue extends AccessControlState {
   getDisabledUserIds: () => string[];
 }
 
-const AccessControlContext = createContext<AccessControlContextValue | null>(
-  null,
-);
+// Safe default context value — prevents crashes if provider is missing
+const defaultContextValue: AccessControlContextValue = {
+  sectionAccess: {},
+  userStatus: {},
+  loaded: false,
+  setSectionAccess: async () => {},
+  setUserStatus: async () => {},
+  reload: () => {},
+  getSectionAccessLevel: () => "full",
+  isUserActive: () => true,
+  getUsersDisabledForSection: () => [],
+  getDisabledUserIds: () => [],
+};
+
+const AccessControlContext =
+  createContext<AccessControlContextValue>(defaultContextValue);
 
 export function AccessControlProvider({
   children,
@@ -74,7 +85,6 @@ export function AccessControlProvider({
     const load = async () => {
       try {
         if (isAdmin) {
-          // Admin loads all access data
           const [allAccess, allStatuses] = await Promise.all([
             (actor as any).obtenirTousLesAcces(),
             (actor as any).obtenirTousStatutsComptes(),
@@ -84,7 +94,6 @@ export function AccessControlProvider({
           for (const [key, level] of allAccess as Array<
             [string, SectionAccessLevel]
           >) {
-            // key format: "principalId::sectionKey"
             const sepIdx = key.indexOf("::");
             if (sepIdx === -1) continue;
             const pid = key.substring(0, sepIdx);
@@ -100,7 +109,6 @@ export function AccessControlProvider({
 
           setState({ sectionAccess, userStatus, loaded: true });
         } else {
-          // Regular user loads only their own access
           const principal = identity.getPrincipal();
           const [myAccess, myStatus] = await Promise.all([
             (actor as any).obtenirAccesSectionPourUtilisateur(principal),
@@ -118,9 +126,6 @@ export function AccessControlProvider({
           const userStatus: Record<string, "active" | "disabled"> = {};
           userStatus[principalStr] = myStatus as "active" | "disabled";
 
-          // Also load all users' section statuses for filtering dropdowns
-          // We need to know which users are disabled for which sections
-          // Non-admin can't get all access, so we rely on what we loaded for self
           setState({ sectionAccess, userStatus, loaded: true });
         }
       } catch (e) {
@@ -223,10 +228,5 @@ export function AccessControlProvider({
 }
 
 export function useAccessControlContext() {
-  const ctx = useContext(AccessControlContext);
-  if (!ctx)
-    throw new Error(
-      "useAccessControlContext must be used within AccessControlProvider",
-    );
-  return ctx;
+  return useContext(AccessControlContext);
 }
