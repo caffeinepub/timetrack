@@ -1,9 +1,11 @@
 import { useMemo } from "react";
 import type { Page } from "../App";
-import { getSectionAccess } from "../utils/userAccessControl";
+import {
+  ADMIN_PRINCIPAL_ID,
+  useAccessControlContext,
+} from "../contexts/AccessControlContext";
 
-export const ADMIN_PRINCIPAL_ID =
-  "cpipl-aryn4-cbti4-rb7e3-csw4p-ppmbj-x2qwf-46tky-paxza-2dcvi-sae";
+export { ADMIN_PRINCIPAL_ID };
 
 const ALL_PAGES: Page[] = [
   "dashboard",
@@ -18,6 +20,8 @@ const ALL_PAGES: Page[] = [
 ];
 
 export function useAccessControl(principalId: string | null) {
+  const ctx = useAccessControlContext();
+
   return useMemo(() => {
     if (!principalId) {
       return {
@@ -32,18 +36,18 @@ export function useAccessControl(principalId: string | null) {
 
     const isSectionVisible = (page: Page): boolean => {
       if (isAdmin) return true;
-      const level = getSectionAccess(principalId, page);
+      const level = ctx.getSectionAccessLevel(principalId, page);
       return level === "full" || level === "readonly";
     };
 
     const isSectionReadOnly = (page: Page): boolean => {
       if (isAdmin) return false;
-      const level = getSectionAccess(principalId, page);
+      const level = ctx.getSectionAccessLevel(principalId, page);
       return level === "readonly";
     };
 
     const visiblePages = ALL_PAGES.filter((p) => isSectionVisible(p));
 
     return { isSectionVisible, isSectionReadOnly, visiblePages, isAdmin };
-  }, [principalId]);
+  }, [principalId, ctx]);
 }

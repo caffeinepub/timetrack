@@ -34,12 +34,9 @@ import { toast } from "sonner";
 import type { Page } from "../App";
 import type { Client, InterventionInput, PlanningItem } from "../backend";
 import { PlanningInterventionModal } from "../components/PlanningInterventionModal";
+import { useAccessControlContext } from "../contexts/AccessControlContext";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import {
-  getDisabledUserIds,
-  getUsersDisabledForSection,
-} from "../utils/userAccessControl";
 
 const MONTHS = [
   "Janvier",
@@ -249,11 +246,12 @@ export default function Planning({
     },
     enabled: !!actor && !isFetching,
   });
+  const accessCtx = useAccessControlContext();
   const profiles = (allProfilesRaw as [any, any][]).filter(([principal]) => {
     const id = principal.toString();
     return (
-      !getDisabledUserIds().includes(id) &&
-      !getUsersDisabledForSection("planning").includes(id)
+      !accessCtx.getDisabledUserIds().includes(id) &&
+      !accessCtx.getUsersDisabledForSection("planning").includes(id)
     );
   });
 

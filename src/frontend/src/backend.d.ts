@@ -259,6 +259,8 @@ export interface Contact {
     createdBy: Principal;
     createdAt: Time;
 }
+export type SectionAccessLevel = { full: null } | { readonly: null } | { disabled: null };
+
 export interface backendInterface {
     accepterMission(id: string): Promise<void>;
     accepterPlanningItem(id: string): Promise<void>;
@@ -352,5 +354,12 @@ export interface backendInterface {
     validerIntervention(id: string): Promise<void>;
     ajouterContact(id: string, nom: string, telephone: string, email: string): Promise<Contact>;
     obtenirContacts(): Promise<Array<Contact>>;
+    definirAccesSection(userId: Principal, sectionKey: string, level: SectionAccessLevel): Promise<void>;
+    obtenirAccesSection(userId: Principal, sectionKey: string): Promise<SectionAccessLevel>;
+    obtenirTousLesAcces(): Promise<Array<[string, SectionAccessLevel]>>;
+    obtenirAccesSectionPourUtilisateur(userId: Principal): Promise<Array<[string, SectionAccessLevel]>>;
+    definirStatutCompte(userId: Principal, status: string): Promise<void>;
+    obtenirStatutCompte(userId: Principal): Promise<string>;
+    obtenirTousStatutsComptes(): Promise<Array<[string, string]>>;
     supprimerContact(id: string): Promise<boolean>;
 }

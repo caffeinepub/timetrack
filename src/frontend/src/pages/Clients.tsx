@@ -30,6 +30,8 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Client } from "../backend";
+import { useAccessControlContext } from "../contexts/AccessControlContext";
+import { ADMIN_PRINCIPAL_ID } from "../contexts/AccessControlContext";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
@@ -39,8 +41,6 @@ import {
   useToggleBlacklist,
   useUpdateClient,
 } from "../hooks/useQueries";
-import { getUsersDisabledForSection } from "../utils/userAccessControl";
-import { ADMIN_PRINCIPAL_ID } from "./Profil";
 
 const emptyForm = (): Omit<Client, "id" | "createdAt" | "listeNoire"> & {
   telephone2: string;

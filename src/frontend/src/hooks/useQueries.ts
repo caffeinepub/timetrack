@@ -10,10 +10,7 @@ import type {
   TimeEntryInput,
   UserProfile,
 } from "../backend";
-import {
-  getDisabledUserIds,
-  getUsersDisabledForSection,
-} from "../utils/userAccessControl";
+import { useAccessControlContext } from "../contexts/AccessControlContext";
 import { useActor } from "./useActor";
 import { useInternetIdentity } from "./useInternetIdentity";
 
@@ -652,9 +649,10 @@ export function useGetAllProfiles() {
 
 export function useGetActiveProfiles(sectionKey?: string) {
   const result = useGetAllProfiles();
-  const disabledAccountIds = getDisabledUserIds();
+  const ctx = useAccessControlContext();
+  const disabledAccountIds = ctx.getDisabledUserIds();
   const disabledSectionIds = sectionKey
-    ? getUsersDisabledForSection(sectionKey)
+    ? ctx.getUsersDisabledForSection(sectionKey)
     : [];
   const filtered = (result.data ?? []).filter(([principal]: [any, any]) => {
     const id = principal.toString();

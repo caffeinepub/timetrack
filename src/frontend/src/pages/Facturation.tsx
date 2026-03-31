@@ -4,10 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, FileText, Search, Trash2, User, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useAccessControlContext } from "../contexts/AccessControlContext";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useGetToutesInterventionsFact } from "../hooks/useQueries";
-import { getUsersDisabledForSection } from "../utils/userAccessControl";
 
 function formatHeure(h: bigint | number, m: bigint | number): string {
   const hh = Number(h);
@@ -175,6 +175,7 @@ type StatusFilter = "all" | "validated" | "pending";
 export default function Facturation({
   readOnly = false,
 }: { readOnly?: boolean }) {
+  const accessCtx = useAccessControlContext();
   const { actor } = useActor();
   const queryClient = useQueryClient();
 
@@ -225,7 +226,7 @@ export default function Facturation({
   const _filteredProfilesFact = (allProfiles as any[]).filter(
     ([principal]: [any, any]) => {
       const id = principal.toString();
-      return !getUsersDisabledForSection("facturation").includes(id);
+      return !accessCtx.getUsersDisabledForSection("facturation").includes(id);
     },
   );
 

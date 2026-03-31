@@ -9,19 +9,12 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { UserProfile } from "../backend.d";
-import { UserRole } from "../backend.d";
-import { useActor } from "../hooks/useActor";
 import {
+  ADMIN_PRINCIPAL_ID,
   type AccessLevel,
-  deleteUserFromLocalStorage,
-  getAllUserAccess,
-  getUserAccountStatus,
-  setSectionAccess,
-  setUserAccountStatus,
-} from "../utils/userAccessControl";
-
-export const ADMIN_PRINCIPAL_ID =
-  "cpipl-aryn4-cbti4-rb7e3-csw4p-ppmbj-x2qwf-46tky-paxza-2dcvi-sae";
+  useAccessControlContext,
+} from "../contexts/AccessControlContext";
+import { useActor } from "../hooks/useActor";
 
 const ALL_SECTIONS = [
   { key: "dashboard", label: "Bord" },
@@ -64,24 +57,22 @@ const LEVEL_CONFIG: Record<
 
 export default function Profil() {
   const { actor, isFetching } = useActor();
+  const accessCtx = useAccessControlContext();
   const [profiles, setProfiles] = useState<ProfileWithPrincipal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [statusMap, setStatusMap] = useState<
-    Record<string, "active" | "disabled">
-  >({});
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
-  >({});
-  const [accessMap, setAccessMap] = useState<
-    Record<string, Record<string, AccessLevel>>
   >({});
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
     {},
   );
   const [deleteLoading, setDeleteLoading] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [sectionSaving, setSectionSaving] = useState<Record<string, boolean>>(
     {},
   );
 
@@ -105,18 +96,7 @@ export default function Profil() {
             profile,
           }));
           setProfiles(parsed);
-
-          const newAccessMap: Record<string, Record<string, AccessLevel>> = {};
-          for (const { principalStr } of parsed) {
-            newAccessMap[principalStr] = getAllUserAccess(principalStr);
-          }
-          setAccessMap(newAccessMap);
-
-          const newStatus: Record<string, "active" | "disabled"> = {};
-          for (const { principalStr } of parsed) {
-            newStatus[principalStr] = getUserAccountStatus(principalStr);
-          }
-          setStatusMap(newStatus);
+          accessCtx.reload();
           setLoading(false);
           return;
         } catch (e) {
@@ -146,18 +126,9 @@ export default function Profil() {
     if (principalStr === ADMIN_PRINCIPAL_ID) return;
     setActionLoading((prev) => ({ ...prev, [principalStr]: true }));
     try {
-      const current = statusMap[principalStr] || "active";
-      const newRole = current === "active" ? UserRole.guest : UserRole.user;
-      await actor.assignCallerUserRole(
-        Principal.fromText(principalStr),
-        newRole,
-      );
-      const newStatus2 = current === "active" ? "disabled" : "active";
-      setUserAccountStatus(principalStr, newStatus2);
-      setStatusMap((prev) => ({
-        ...prev,
-        [principalStr]: newStatus2,
-      }));
+      const current = accessCtx.userStatus[principalStr] || "active";
+      const newStatus = current === "active" ? "disabled" : "active";
+      await accessCtx.setUserStatus(principalStr, newStatus);
     } catch (e) {
       console.error(e);
     } finally {
@@ -165,19 +136,20 @@ export default function Profil() {
     }
   };
 
-  const handleSectionLevel = (
+  const handleSectionLevel = async (
     principalStr: string,
     sectionKey: string,
     level: AccessLevel,
   ) => {
-    setSectionAccess(principalStr, sectionKey, level);
-    setAccessMap((prev) => ({
-      ...prev,
-      [principalStr]: {
-        ...(prev[principalStr] ?? {}),
-        [sectionKey]: level,
-      },
-    }));
+    const key = `${principalStr}_${sectionKey}`;
+    setSectionSaving((prev) => ({ ...prev, [key]: true }));
+    try {
+      await accessCtx.setSectionAccess(principalStr, sectionKey, level);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSectionSaving((prev) => ({ ...prev, [key]: false }));
+    }
   };
 
   const handleDeleteProfile = async (principalStr: string) => {
@@ -192,7 +164,6 @@ export default function Profil() {
     setDeleteLoading((prev) => ({ ...prev, [principalStr]: true }));
     try {
       await actor.supprimerProfil(Principal.fromText(principalStr));
-      deleteUserFromLocalStorage(principalStr);
       setProfiles((prev) =>
         prev.filter((p) => p.principalStr !== principalStr),
       );
@@ -229,7 +200,7 @@ export default function Profil() {
             Section Profil — Administration
           </h1>
           <p className="text-sm" style={{ color: "oklch(var(--vts-green))" }}>
-            Gestion des accès utilisateurs
+            Gestion des accès utilisateurs — données stockées sur le serveur
           </p>
         </div>
       </div>
@@ -249,7 +220,7 @@ export default function Profil() {
           </div>
         ))}
         <span className="text-white/40 text-xs ml-auto">
-          Cliquez sur les boutons pour changer le niveau d'accès
+          Les restrictions s'appliquent à tous les appareils
         </span>
       </div>
 
@@ -307,9 +278,9 @@ export default function Profil() {
       {!loading &&
         profiles.map(({ principalStr, profile }, idx) => {
           const isAdminUser = principalStr === ADMIN_PRINCIPAL_ID;
-          const status = statusMap[principalStr] || "active";
+          const status = accessCtx.userStatus[principalStr] || "active";
           const isExpanded = !!expandedSections[principalStr];
-          const userAccess = accessMap[principalStr] ?? {};
+          const userAccess = accessCtx.sectionAccess[principalStr] ?? {};
           const isActioning = !!actionLoading[principalStr];
 
           return (
@@ -443,6 +414,8 @@ export default function Profil() {
                       {ALL_SECTIONS.map((section) => {
                         const currentLevel: AccessLevel =
                           userAccess[section.key] ?? "full";
+                        const isSaving =
+                          !!sectionSaving[`${principalStr}_${section.key}`];
                         return (
                           <div
                             key={section.key}
@@ -461,6 +434,7 @@ export default function Profil() {
                                 <button
                                   key={level}
                                   type="button"
+                                  disabled={isSaving}
                                   onClick={() =>
                                     handleSectionLevel(
                                       principalStr,
@@ -468,7 +442,7 @@ export default function Profil() {
                                       level,
                                     )
                                   }
-                                  className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all"
+                                  className="px-2.5 py-1 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
                                   style={{
                                     backgroundColor:
                                       currentLevel === level
@@ -485,7 +459,7 @@ export default function Profil() {
                                   }}
                                   data-ocid={`profil.${section.key}.button`}
                                 >
-                                  {cfg.label}
+                                  {isSaving ? "..." : cfg.label}
                                 </button>
                               ))}
                             </div>

@@ -21,9 +21,9 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { TicketResto as TR } from "../backend";
+import { useAccessControlContext } from "../contexts/AccessControlContext";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { getUsersDisabledForSection } from "../utils/userAccessControl";
 
 const JOURS = [
   "Lundi",

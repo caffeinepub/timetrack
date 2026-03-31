@@ -1419,7 +1419,7 @@ actor {
     if (userId.toText() == HARDCODED_ADMIN) {
       Runtime.trap("Cannot delete admin profile");
     };
-    ignore userProfiles.remove(userId);
+    userProfiles.remove(userId);
   };
 
 
@@ -2146,7 +2146,97 @@ actor {
     };
   };
 
-    // ------- Publish Retry Workflow --------
+
+  // ------- Section Access Control (stored in backend) --------
+
+  public type SectionAccessLevel = {
+    #full;
+    #readonly;
+    #disabled;
+  };
+
+  let sectionAccessMap = Map.empty<Text, SectionAccessLevel>(); // key: "principalId::sectionKey"
+  let userAccountStatusMap = Map.empty<Text, Text>(); // key: principalId, value: "active" | "disabled"
+
+  func sectionAccessKey(principalId : Text, sectionKey : Text) : Text {
+    principalId # "::" # sectionKey;
+  };
+
+  public shared ({ caller }) func definirAccesSection(userId : Principal, sectionKey : Text, level : SectionAccessLevel) : async () {
+    if (not isCallerAdminInternal(caller)) {
+      Runtime.trap("Non autorisé : seul l'administrateur peut définir les droits d'accès");
+    };
+    let key = sectionAccessKey(userId.toText(), sectionKey);
+    sectionAccessMap.add(key, level);
+  };
+
+  public query ({ caller }) func obtenirAccesSection(userId : Principal, sectionKey : Text) : async SectionAccessLevel {
+    if (not callerHasAccess(caller)) {
+      Runtime.trap("Non authentifié");
+    };
+    let key = sectionAccessKey(userId.toText(), sectionKey);
+    switch (sectionAccessMap.get(key)) {
+      case (?level) { level };
+      case (null) { #full };
+    };
+  };
+
+  public query ({ caller }) func obtenirTousLesAcces() : async [(Text, SectionAccessLevel)] {
+    if (not isCallerAdminInternal(caller)) {
+      Runtime.trap("Non autorisé");
+    };
+    // Returns raw map entries: key is "principalId::sectionKey"
+    sectionAccessMap.entries().toArray();
+  };
+
+  public query ({ caller }) func obtenirAccesSectionPourUtilisateur(userId : Principal) : async [(Text, SectionAccessLevel)] {
+    if (not callerHasAccess(caller)) {
+      Runtime.trap("Non authentifié");
+    };
+    let pid = userId.toText();
+    let prefix = pid # "::";
+    let result = Map.empty<Text, SectionAccessLevel>();
+    for ((key, level) in sectionAccessMap.entries()) {
+      if (key.startsWith(#text prefix)) {
+        let sectionKey = switch (key.stripStart(#text prefix)) {
+          case (?sk) { sk };
+          case (null) { key };
+        };
+        result.add(sectionKey, level);
+      };
+    };
+    result.entries().toArray();
+  };
+
+  public shared ({ caller }) func definirStatutCompte(userId : Principal, status : Text) : async () {
+    if (not isCallerAdminInternal(caller)) {
+      Runtime.trap("Non autorisé : seul l'administrateur peut modifier le statut des comptes");
+    };
+    // Prevent disabling admin's own account
+    if (userId.toText() == HARDCODED_ADMIN and status == "disabled") {
+      Runtime.trap("Impossible de désactiver le compte administrateur");
+    };
+    userAccountStatusMap.add(userId.toText(), status);
+  };
+
+  public query ({ caller }) func obtenirStatutCompte(userId : Principal) : async Text {
+    if (not callerHasAccess(caller)) {
+      Runtime.trap("Non authentifié");
+    };
+    switch (userAccountStatusMap.get(userId.toText())) {
+      case (?status) { status };
+      case (null) { "active" };
+    };
+  };
+
+  public query ({ caller }) func obtenirTousStatutsComptes() : async [(Text, Text)] {
+    if (not isCallerAdminInternal(caller)) {
+      Runtime.trap("Non autorisé");
+    };
+    userAccountStatusMap.entries().toArray();
+  };
+
+  // ------- Publish Retry Workflow --------
 
   public shared ({ caller }) func restartPublish() : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {

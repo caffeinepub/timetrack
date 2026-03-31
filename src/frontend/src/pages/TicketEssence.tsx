@@ -13,9 +13,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Car, FileText, Fuel, Plus, Search, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { TicketEssence as TE, VehiculeDefaut } from "../backend";
+import { useAccessControlContext } from "../contexts/AccessControlContext";
 import { useActor } from "../hooks/useActor";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { getUsersDisabledForSection } from "../utils/userAccessControl";
 
 function formatDate(timestamp: bigint): string {
   return new Date(Number(timestamp) / 1_000_000).toLocaleDateString("fr-FR", {
