@@ -15,8 +15,6 @@ import { useEffect, useRef, useState } from "react";
 import { ExternalBlob } from "../backend";
 import type { InterventionInput } from "../backend";
 import { useActor } from "../hooks/useActor";
-import { useOfflineSync } from "../hooks/useOfflineSync";
-import type { OfflineInterventionData } from "../hooks/useOfflineSync";
 import { useGetClients } from "../hooks/useQueries";
 import { SignaturePad } from "./SignaturePad";
 import { VoiceInput } from "./VoiceInput";
@@ -175,7 +173,6 @@ export function PlanningInterventionModal({
   const wasOpenRef = useRef(false);
 
   const { actor } = useActor();
-  const { isOnline, addToQueue } = useOfflineSync();
   const { data: clients = [] } = useGetClients();
   const queryClient = useQueryClient();
 
@@ -464,49 +461,6 @@ export function PlanningInterventionModal({
       estAstreinte: form.estAstreinte,
       clientAbsent: form.clientAbsent,
     };
-  };
-
-  const handleOfflineSave = async () => {
-    const deterministicId = `intv-plan-${missionId}`;
-    const data: OfflineInterventionData = {
-      id: deterministicId,
-      missionId,
-      destinatairePrincipalStr: destinatairePrincipal?.toString() ?? "",
-      clientNom: form.clientNom || clientSearch,
-      clientAdresse: form.clientAdresse,
-      date: String(prefill.date),
-      heureMatinDebutH: Number.parseInt(form.matinDebutH) || 0,
-      heureMatinDebutMin: Number.parseInt(form.matinDebutMin) || 0,
-      heureMatinFinH: Number.parseInt(form.matinFinH) || 0,
-      heureMatinFinMin: Number.parseInt(form.matinFinMin) || 0,
-      heureApremDebutH: Number.parseInt(form.apremDebutH) || 0,
-      heureApremDebutMin: Number.parseInt(form.apremDebutMin) || 0,
-      heureApremFinH: Number.parseInt(form.apremFinH) || 0,
-      heureApremFinMin: Number.parseInt(form.apremFinMin) || 0,
-      description: form.description,
-      signatureClient: form.clientAbsent ? "" : form.signatureClient,
-      signatureIntervenant: form.signatureIntervenant,
-      estAstreinte: form.estAstreinte,
-      clientAbsent: form.clientAbsent,
-      pieces: pieces.map((p) => ({
-        article: p.article,
-        reference: p.reference,
-        quantite: Number.parseInt(p.quantite) || 0,
-      })),
-      photos: mediaFiles
-        .filter((m) => m.type === "photo")
-        .map((m) => m.dataUrl),
-      videos: mediaFiles
-        .filter((m) => m.type === "video")
-        .map((m) => m.dataUrl),
-      queuedAt: Date.now(),
-    };
-    await addToQueue(data);
-    const { toast } = await import("sonner");
-    toast.success(
-      "Fiche sauvegardée hors ligne. Elle sera synchronisée automatiquement à la reconnexion.",
-    );
-    onClose();
   };
 
   const handleSave = async () => {
@@ -1030,13 +984,9 @@ export function PlanningInterventionModal({
             {/* "Enregistrer" — visible when no existing intervention yet */}
             {!existingFound && (
               <Button
-                onClick={isOnline ? handleSave : handleOfflineSave}
+                onClick={handleSave}
                 disabled={isSaving}
-                className={
-                  isOnline
-                    ? "bg-orange-500 hover:bg-orange-600 text-white"
-                    : "bg-amber-600 hover:bg-amber-700 text-white"
-                }
+                className="bg-orange-500 hover:bg-orange-600 text-white"
                 data-ocid="planning.intervention.submit_button"
               >
                 {isSaving ? (
@@ -1044,10 +994,8 @@ export function PlanningInterventionModal({
                     <Loader2 className="w-4 h-4 animate-spin mr-1" />
                     Enregistrement...
                   </>
-                ) : isOnline ? (
-                  "✓ Enregistrer"
                 ) : (
-                  "💾 Sauvegarder hors ligne"
+                  "✓ Enregistrer"
                 )}
               </Button>
             )}
