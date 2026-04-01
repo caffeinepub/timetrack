@@ -88,9 +88,8 @@ export function InternetIdentityProvider({
   children: ReactNode;
   createOptions?: AuthClientCreateOptions;
 }>) {
-  const authClientRef = useRef<AuthClient | null>(null);
-  const initializedRef = useRef(false);
-  const createOptionsRef = useRef(createOptions);
+  // Use ref instead of state to avoid triggering re-renders and infinite loops
+  const authClientRef = useRef<AuthClient | undefined>(undefined);
   const [identity, setIdentity] = useState<Identity | undefined>(undefined);
   const [loginStatus, setStatus] = useState<Status>("initializing");
   const [loginError, setError] = useState<Error | undefined>(undefined);
@@ -118,12 +117,15 @@ export function InternetIdentityProvider({
   );
 
   const login = useCallback(() => {
-    const client = authClientRef.current;
-    if (!client) {
-      setErrorMessage("AuthClient is not initialized yet.");
+    const authClient = authClientRef.current;
+    if (!authClient) {
+      setErrorMessage(
+        "AuthClient is not initialized yet, make sure to call `login` on user interaction e.g. click.",
+      );
       return;
     }
-    const currentIdentity = client.getIdentity();
+
+    const currentIdentity = authClient.getIdentity();
     if (
       !currentIdentity.getPrincipal().isAnonymous() &&
       currentIdentity instanceof DelegationIdentity &&
@@ -132,28 +134,30 @@ export function InternetIdentityProvider({
       setErrorMessage("User is already authenticated");
       return;
     }
+
     const options: AuthClientLoginOptions = {
       identityProvider: DEFAULT_IDENTITY_PROVIDER,
       onSuccess: handleLoginSuccess,
       onError: handleLoginError,
       maxTimeToLive: ONE_HOUR_IN_NANOSECONDS * BigInt(24 * 30),
     };
+
     setStatus("logging-in");
-    void client.login(options);
+    void authClient.login(options);
   }, [handleLoginError, handleLoginSuccess, setErrorMessage]);
 
   const clear = useCallback(() => {
-    const client = authClientRef.current;
-    if (!client) {
+    const authClient = authClientRef.current;
+    if (!authClient) {
       setErrorMessage("Auth client not initialized");
       return;
     }
-    void client
+
+    void authClient
       .logout()
       .then(() => {
-        authClientRef.current = null;
-        initializedRef.current = false;
         setIdentity(undefined);
+        authClientRef.current = undefined;
         setStatus("idle");
         setError(undefined);
       })
@@ -167,14 +171,14 @@ export function InternetIdentityProvider({
       });
   }, [setErrorMessage]);
 
+  // This effect runs ONCE on mount — authClientRef is not in deps so no loop possible
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally empty — createOptions is captured at mount time only to avoid re-initialization loops
   useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
     let cancelled = false;
     void (async () => {
       try {
         setStatus("initializing");
-        const client = await createAuthClient(createOptionsRef.current);
+        const client = await createAuthClient(createOptions);
         if (cancelled) return;
         authClientRef.current = client;
         const isAuthenticated = await client.isAuthenticated();
@@ -199,8 +203,7 @@ export function InternetIdentityProvider({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // Empty deps — runs once only, no loop possible
 
   const value = useMemo<ProviderValue>(
     () => ({
