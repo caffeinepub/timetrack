@@ -14,6 +14,7 @@ export function useActor() {
       const isAuthenticated = !!identity;
 
       if (!isAuthenticated) {
+        // Return anonymous actor if not authenticated
         return await createActorWithConfig();
       }
 
@@ -24,9 +25,8 @@ export function useActor() {
       };
 
       const actor = await createActorWithConfig(actorOptions);
-      // initializeAccessControl is best-effort — a failure must never
-      // prevent the actor from being returned, otherwise the whole app
-      // thinks the user is disconnected.
+      // initializeAccessControl is non-blocking — if it fails, the actor is
+      // still returned so the app can function normally.
       try {
         await actor.initializeAccessControl();
       } catch (e) {
@@ -34,12 +34,15 @@ export function useActor() {
       }
       return actor;
     },
+    // Only refetch when identity changes
     staleTime: Number.POSITIVE_INFINITY,
-    retry: 3,
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+    // This will cause the actor to be recreated when the identity changes
     enabled: true,
+    // Never let a failure in queryFn block the actor from being set
+    retry: 2,
   });
 
+  // When the actor changes, invalidate dependent queries
   useEffect(() => {
     if (actorQuery.data) {
       queryClient.invalidateQueries({
