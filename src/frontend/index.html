@@ -3,56 +3,24 @@
         <meta charset='UTF-8' />
         <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover' />
         <title>Vial Traite Service</title>
-
-        <!-- PWA -->
         <link rel='manifest' href='/manifest.json' />
         <meta name='theme-color' content='#0f1e4a' />
-        <meta name='mobile-web-app-capable' content='yes' />
         <meta name='apple-mobile-web-app-capable' content='yes' />
         <meta name='apple-mobile-web-app-status-bar-style' content='black-translucent' />
         <meta name='apple-mobile-web-app-title' content='Vial Traite Service' />
         <link rel='apple-touch-icon' href='/assets/generated/vts-pwa-icon.dim_512x512.png' />
-
-        <!-- Service Worker killer: unregisters old SW and clears all caches -->
         <script>
-          (function() {
-            if (!('serviceWorker' in navigator)) return;
-
-            // Listen for message from killer SW to reload the page
-            navigator.serviceWorker.addEventListener('message', function(event) {
-              if (event.data && event.data.type === 'SW_KILLED') {
-                window.location.reload();
-              }
+          // Unregister ALL service workers on every load — definitive cleanup
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              for (var r of registrations) r.unregister();
             });
-
-            // Register the killer SW which will take over, clear caches, and unregister
-            navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function(reg) {
-              // Force immediate activation if waiting
-              if (reg.waiting) {
-                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-              }
-              reg.addEventListener('updatefound', function() {
-                var newWorker = reg.installing;
-                if (newWorker) {
-                  newWorker.addEventListener('statechange', function() {
-                    if (newWorker.state === 'installed' && reg.waiting) {
-                      reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-                    }
-                  });
-                }
+            if ('caches' in window) {
+              caches.keys().then(function(names) {
+                for (var name of names) caches.delete(name);
               });
-            }).catch(function() {
-              // If registration fails, manually clear everything
-              navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                for (var r of registrations) r.unregister();
-              });
-              if ('caches' in window) {
-                caches.keys().then(function(names) {
-                  for (var name of names) caches.delete(name);
-                });
-              }
-            });
-          })();
+            }
+          }
         </script>
     </head>
     <body>

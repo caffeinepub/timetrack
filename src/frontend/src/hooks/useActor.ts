@@ -8,10 +8,8 @@ const ACTOR_QUERY_KEY = "actor";
 export function useActor() {
   const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
-  const principalStr = identity?.getPrincipal().toString() ?? "anonymous";
-
   const actorQuery = useQuery<backendInterface>({
-    queryKey: [ACTOR_QUERY_KEY, principalStr],
+    queryKey: [ACTOR_QUERY_KEY, identity?.getPrincipal().toString()],
     queryFn: async () => {
       if (!identity) {
         return await createActorWithConfig();
@@ -21,11 +19,11 @@ export function useActor() {
         agentOptions: { identity },
       });
 
-      // Non-blocking: if initializeAccessControl fails, actor still works
+      // Non-blocking — even if this fails, actor is still usable
       try {
         await actor.initializeAccessControl();
-      } catch (e) {
-        console.warn("initializeAccessControl failed (non-blocking):", e);
+      } catch {
+        // Ignore — access control initialization failure should not block the actor
       }
 
       return actor;
@@ -37,14 +35,10 @@ export function useActor() {
   useEffect(() => {
     if (actorQuery.data) {
       queryClient.invalidateQueries({
-        predicate: (query) => {
-          return !query.queryKey.includes(ACTOR_QUERY_KEY);
-        },
+        predicate: (query) => !query.queryKey.includes(ACTOR_QUERY_KEY),
       });
       queryClient.refetchQueries({
-        predicate: (query) => {
-          return !query.queryKey.includes(ACTOR_QUERY_KEY);
-        },
+        predicate: (query) => !query.queryKey.includes(ACTOR_QUERY_KEY),
       });
     }
   }, [actorQuery.data, queryClient]);
