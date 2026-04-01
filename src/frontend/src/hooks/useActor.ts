@@ -8,28 +8,26 @@ const ACTOR_QUERY_KEY = "actor";
 export function useActor() {
   const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
-  const actorQuery = useQuery<backendInterface>({
-    queryKey: [ACTOR_QUERY_KEY, identity?.getPrincipal().toString()],
-    queryFn: async () => {
-      const isAuthenticated = !!identity;
+  const principalStr = identity?.getPrincipal().toString() ?? "anonymous";
 
-      if (!isAuthenticated) {
+  const actorQuery = useQuery<backendInterface>({
+    queryKey: [ACTOR_QUERY_KEY, principalStr],
+    queryFn: async () => {
+      if (!identity) {
         return await createActorWithConfig();
       }
 
-      const actorOptions = {
-        agentOptions: {
-          identity,
-        },
-      };
+      const actor = await createActorWithConfig({
+        agentOptions: { identity },
+      });
 
-      const actor = await createActorWithConfig(actorOptions);
-      // Non-blocking: don't let initializeAccessControl failure prevent actor from being returned
+      // Non-blocking: if initializeAccessControl fails, actor still works
       try {
         await actor.initializeAccessControl();
       } catch (e) {
         console.warn("initializeAccessControl failed (non-blocking):", e);
       }
+
       return actor;
     },
     staleTime: Number.POSITIVE_INFINITY,
