@@ -88,8 +88,13 @@ export function InternetIdentityProvider({
   children: ReactNode;
   createOptions?: AuthClientCreateOptions;
 }>) {
-  // Use a ref so creating the client never triggers re-renders or re-runs the effect
+  // Refs never trigger re-renders — authClient stored here to prevent init loops
   const authClientRef = useRef<AuthClient | undefined>(undefined);
+  // Capture createOptions in a ref so the effect can read it without being in deps
+  const createOptionsRef = useRef<AuthClientCreateOptions | undefined>(
+    createOptions,
+  );
+
   const [identity, setIdentity] = useState<Identity | undefined>(undefined);
   const [loginStatus, setStatus] = useState<Status>("initializing");
   const [loginError, setError] = useState<Error | undefined>(undefined);
@@ -100,8 +105,7 @@ export function InternetIdentityProvider({
   }, []);
 
   const handleLoginSuccess = useCallback(() => {
-    const client = authClientRef.current;
-    const latestIdentity = client?.getIdentity();
+    const latestIdentity = authClientRef.current?.getIdentity();
     if (!latestIdentity) {
       setErrorMessage("Identity not found after successful login");
       return;
@@ -118,15 +122,14 @@ export function InternetIdentityProvider({
   );
 
   const login = useCallback(() => {
-    const client = authClientRef.current;
-    if (!client) {
+    if (!authClientRef.current) {
       setErrorMessage(
         "AuthClient is not initialized yet, make sure to call `login` on user interaction e.g. click.",
       );
       return;
     }
 
-    const currentIdentity = client.getIdentity();
+    const currentIdentity = authClientRef.current.getIdentity();
     if (
       !currentIdentity.getPrincipal().isAnonymous() &&
       currentIdentity instanceof DelegationIdentity &&
@@ -144,17 +147,16 @@ export function InternetIdentityProvider({
     };
 
     setStatus("logging-in");
-    void client.login(options);
+    void authClientRef.current.login(options);
   }, [handleLoginError, handleLoginSuccess, setErrorMessage]);
 
   const clear = useCallback(() => {
-    const client = authClientRef.current;
-    if (!client) {
+    if (!authClientRef.current) {
       setErrorMessage("Auth client not initialized");
       return;
     }
 
-    void client
+    void authClientRef.current
       .logout()
       .then(() => {
         setIdentity(undefined);
@@ -172,24 +174,22 @@ export function InternetIdentityProvider({
       });
   }, [setErrorMessage]);
 
-  // Run once on mount (no authClient in deps — using ref avoids the re-render loop)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally run once on mount — createOptions is stable and never changes
+  // Runs ONCE on mount — createOptionsRef is stable so no re-run loop
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         setStatus("initializing");
-        // Only create if not already created (handles StrictMode double-invoke)
         if (!authClientRef.current) {
-          const newClient = await createAuthClient(createOptions);
-          if (cancelled) return;
-          authClientRef.current = newClient;
+          authClientRef.current = await createAuthClient(
+            createOptionsRef.current,
+          );
         }
-        const client = authClientRef.current;
-        const isAuthenticated = await client.isAuthenticated();
+        if (cancelled) return;
+        const isAuthenticated = await authClientRef.current.isAuthenticated();
         if (cancelled) return;
         if (isAuthenticated) {
-          const loadedIdentity = client.getIdentity();
+          const loadedIdentity = authClientRef.current.getIdentity();
           setIdentity(loadedIdentity);
         }
       } catch (unknownError) {
@@ -208,7 +208,7 @@ export function InternetIdentityProvider({
     return () => {
       cancelled = true;
     };
-  }, []); // Empty deps — intentionally run only once on mount
+  }, []); // Runs once on mount — refs are stable, no loop possible
 
   const value = useMemo<ProviderValue>(
     () => ({

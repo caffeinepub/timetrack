@@ -10,16 +10,11 @@
         <meta name='apple-mobile-web-app-title' content='Vial Traite Service' />
         <link rel='apple-touch-icon' href='/assets/generated/vts-pwa-icon.dim_512x512.png' />
         <script>
-          // Unregister ALL service workers on every load — definitive cleanup
+          // Register service worker for PWA installation
           if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-              for (var r of registrations) r.unregister();
+            window.addEventListener('load', function() {
+              navigator.serviceWorker.register('/sw.js').catch(function() {});
             });
-            if ('caches' in window) {
-              caches.keys().then(function(names) {
-                for (var name of names) caches.delete(name);
-              });
-            }
           }
         </script>
     </head>
