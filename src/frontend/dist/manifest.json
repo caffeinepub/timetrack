@@ -9,7 +9,7 @@
   "theme_color": "#0f1e4a",
   "icons": [
     {
-      "src": "/assets/generated/vts-pwa-icon.dim_512x512.png",
+      "src": "/assets/generated/vts-icon-192.dim_192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"

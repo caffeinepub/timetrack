@@ -25,15 +25,12 @@ export function useActor() {
       };
 
       const actor = await createActorWithConfig(actorOptions);
-      // Non-blocking — if this fails, still return the actor so data can load
-      try {
-        await actor.initializeAccessControl();
-      } catch {
-        // initializeAccessControl failure must never block the actor
-      }
+      await actor.initializeAccessControl();
       return actor;
     },
+    // Only refetch when identity changes
     staleTime: Number.POSITIVE_INFINITY,
+    // This will cause the actor to be recreated when the identity changes
     enabled: true,
   });
 
