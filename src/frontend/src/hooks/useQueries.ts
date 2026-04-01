@@ -223,9 +223,13 @@ export function useDeleteDailyMedia() {
 // ---- User Profile ----
 
 export function useGetCallerUserProfile() {
+  const { identity } = useInternetIdentity();
   const { actor, isFetching: actorFetching } = useActor();
   const query = useQuery<UserProfile | null>({
-    queryKey: ["currentUserProfile"],
+    queryKey: [
+      "currentUserProfile",
+      identity?.getPrincipal().toString() ?? "anonymous",
+    ],
     queryFn: async () => {
       if (!actor) throw new Error("Actor not available");
       try {
