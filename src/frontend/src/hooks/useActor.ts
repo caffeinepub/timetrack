@@ -9,47 +9,54 @@ export function useActor() {
   const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
   const actorQuery = useQuery<backendInterface>({
-    queryKey: [
-      ACTOR_QUERY_KEY,
-      identity?.getPrincipal().toString() ?? "anonymous",
-    ],
+    queryKey: [ACTOR_QUERY_KEY, identity?.getPrincipal().toString()],
     queryFn: async () => {
-      if (!identity) {
+      const isAuthenticated = !!identity;
+
+      if (!isAuthenticated) {
         // Return anonymous actor if not authenticated
         return await createActorWithConfig();
       }
 
-      const actor = await createActorWithConfig({
-        agentOptions: { identity },
-      });
+      const actorOptions = {
+        agentOptions: {
+          identity,
+        },
+      };
 
-      // Non-blocking: initialize access control but don't fail if it errors
+      const actor = await createActorWithConfig(actorOptions);
+      // Non-blocking: even if initializeAccessControl fails, return the actor
       try {
         await actor.initializeAccessControl();
-      } catch (_e) {
-        // Access control init failed — actor is still valid, continue
+      } catch (e) {
+        console.warn("initializeAccessControl failed (non-blocking):", e);
       }
-
       return actor;
     },
+    // Only refetch when identity changes
     staleTime: Number.POSITIVE_INFINITY,
     enabled: true,
+    retry: 2,
   });
 
-  // When the actor changes, invalidate dependent queries so they reload with the new identity
+  // When the actor changes, invalidate dependent queries
   useEffect(() => {
     if (actorQuery.data) {
       queryClient.invalidateQueries({
-        predicate: (query) => !query.queryKey.includes(ACTOR_QUERY_KEY),
+        predicate: (query) => {
+          return !query.queryKey.includes(ACTOR_QUERY_KEY);
+        },
       });
       queryClient.refetchQueries({
-        predicate: (query) => !query.queryKey.includes(ACTOR_QUERY_KEY),
+        predicate: (query) => {
+          return !query.queryKey.includes(ACTOR_QUERY_KEY);
+        },
       });
     }
   }, [actorQuery.data, queryClient]);
 
   return {
-    actor: actorQuery.data ?? null,
+    actor: actorQuery.data || null,
     isFetching: actorQuery.isFetching,
   };
 }
