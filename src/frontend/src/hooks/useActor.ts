@@ -9,49 +9,47 @@ export function useActor() {
   const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
   const actorQuery = useQuery<backendInterface>({
-    queryKey: [ACTOR_QUERY_KEY, identity?.getPrincipal().toString()],
+    queryKey: [
+      ACTOR_QUERY_KEY,
+      identity?.getPrincipal().toString() ?? "anonymous",
+    ],
     queryFn: async () => {
-      const isAuthenticated = !!identity;
-
-      if (!isAuthenticated) {
+      if (!identity) {
         // Return anonymous actor if not authenticated
         return await createActorWithConfig();
       }
 
-      const actorOptions = {
-        agentOptions: {
-          identity,
-        },
-      };
+      const actor = await createActorWithConfig({
+        agentOptions: { identity },
+      });
 
-      const actor = await createActorWithConfig(actorOptions);
-      await actor.initializeAccessControl();
+      // Non-blocking: initialize access control but don't fail if it errors
+      try {
+        await actor.initializeAccessControl();
+      } catch (_e) {
+        // Access control init failed — actor is still valid, continue
+      }
+
       return actor;
     },
-    // Only refetch when identity changes
     staleTime: Number.POSITIVE_INFINITY,
-    // This will cause the actor to be recreated when the identity changes
     enabled: true,
   });
 
-  // When the actor changes, invalidate dependent queries
+  // When the actor changes, invalidate dependent queries so they reload with the new identity
   useEffect(() => {
     if (actorQuery.data) {
       queryClient.invalidateQueries({
-        predicate: (query) => {
-          return !query.queryKey.includes(ACTOR_QUERY_KEY);
-        },
+        predicate: (query) => !query.queryKey.includes(ACTOR_QUERY_KEY),
       });
       queryClient.refetchQueries({
-        predicate: (query) => {
-          return !query.queryKey.includes(ACTOR_QUERY_KEY);
-        },
+        predicate: (query) => !query.queryKey.includes(ACTOR_QUERY_KEY),
       });
     }
   }, [actorQuery.data, queryClient]);
 
   return {
-    actor: actorQuery.data || null,
+    actor: actorQuery.data ?? null,
     isFetching: actorQuery.isFetching,
   };
 }
