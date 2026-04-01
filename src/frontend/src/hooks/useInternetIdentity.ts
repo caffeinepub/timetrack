@@ -88,8 +88,11 @@ export function InternetIdentityProvider({
   children: ReactNode;
   createOptions?: AuthClientCreateOptions;
 }>) {
-  // Use ref for authClient — avoids re-render loops
+  // Store authClient in a ref — never causes re-renders
   const authClientRef = useRef<AuthClient | undefined>(undefined);
+  // Store createOptions in a ref so we can read it inside the effect without it being a dep
+  const createOptionsRef = useRef(createOptions);
+
   const [identity, setIdentity] = useState<Identity | undefined>(undefined);
   const [loginStatus, setStatus] = useState<Status>("initializing");
   const [loginError, setError] = useState<Error | undefined>(undefined);
@@ -120,7 +123,7 @@ export function InternetIdentityProvider({
     const authClient = authClientRef.current;
     if (!authClient) {
       setErrorMessage(
-        "AuthClient is not initialized yet, make sure to call login on user interaction e.g. click.",
+        "AuthClient is not initialized yet, make sure to call `login` on user interaction e.g. click.",
       );
       return;
     }
@@ -156,8 +159,8 @@ export function InternetIdentityProvider({
     void authClient
       .logout()
       .then(() => {
-        authClientRef.current = undefined;
         setIdentity(undefined);
+        authClientRef.current = undefined;
         setStatus("idle");
         setError(undefined);
       })
@@ -171,14 +174,13 @@ export function InternetIdentityProvider({
       });
   }, [setErrorMessage]);
 
-  // Run ONCE on mount — no authClient in deps to prevent loops
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally runs once only
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally runs once on mount — createOptions is stable and stored in a ref
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         setStatus("initializing");
-        const client = await createAuthClient(createOptions);
+        const client = await createAuthClient(createOptionsRef.current);
         if (cancelled) return;
         authClientRef.current = client;
         const isAuthenticated = await client.isAuthenticated();
@@ -195,15 +197,15 @@ export function InternetIdentityProvider({
               ? unknownError
               : new Error("Initialization failed"),
           );
+          return;
         }
-      } finally {
-        if (!cancelled) setStatus("idle");
       }
+      if (!cancelled) setStatus("idle");
     })();
     return () => {
       cancelled = true;
     };
-  }, []); // Empty deps — runs once only
+  }, []);
 
   const value = useMemo<ProviderValue>(
     () => ({
