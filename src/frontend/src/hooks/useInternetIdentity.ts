@@ -150,7 +150,8 @@ export function InternetIdentityProvider({
    */
   createOptions?: AuthClientCreateOptions;
 }>) {
-  // Use a ref for authClient to avoid triggering re-renders when it's set
+  // useRef instead of useState — refs do NOT trigger re-renders, so the
+  // initialization effect cannot loop back on itself.
   const authClientRef = useRef<AuthClient | undefined>(undefined);
   const [identity, setIdentity] = useState<Identity | undefined>(undefined);
   const [loginStatus, setStatus] = useState<Status>("initializing");
@@ -179,15 +180,15 @@ export function InternetIdentityProvider({
   );
 
   const login = useCallback(() => {
-    const authClient = authClientRef.current;
-    if (!authClient) {
+    const client = authClientRef.current;
+    if (!client) {
       setErrorMessage(
         "AuthClient is not initialized yet, make sure to call `login` on user interaction e.g. click.",
       );
       return;
     }
 
-    const currentIdentity = authClient.getIdentity();
+    const currentIdentity = client.getIdentity();
     if (
       !currentIdentity.getPrincipal().isAnonymous() &&
       currentIdentity instanceof DelegationIdentity &&
@@ -205,21 +206,21 @@ export function InternetIdentityProvider({
     };
 
     setStatus("logging-in");
-    void authClient.login(options);
+    void client.login(options);
   }, [handleLoginError, handleLoginSuccess, setErrorMessage]);
 
   const clear = useCallback(() => {
-    const authClient = authClientRef.current;
-    if (!authClient) {
+    const client = authClientRef.current;
+    if (!client) {
       setErrorMessage("Auth client not initialized");
       return;
     }
 
-    void authClient
+    void client
       .logout()
       .then(() => {
-        setIdentity(undefined);
         authClientRef.current = undefined;
+        setIdentity(undefined);
         setStatus("idle");
         setError(undefined);
       })
@@ -233,7 +234,9 @@ export function InternetIdentityProvider({
       });
   }, [setErrorMessage]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally run once on mount; createOptions is stable and authClientRef is a ref
+  // This effect runs ONCE on mount (deps: [createOptions] only).
+  // authClientRef is a ref — changing it never triggers a re-run, so there
+  // is no possible loop.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -265,7 +268,7 @@ export function InternetIdentityProvider({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [createOptions]);
 
   const value = useMemo<ProviderValue>(
     () => ({

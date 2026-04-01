@@ -25,18 +25,21 @@ export function useActor() {
       };
 
       const actor = await createActorWithConfig(actorOptions);
-      // Non-blocking: even if initializeAccessControl fails, return the actor
+
+      // Wrap in try/catch so a failure here never blocks the actor from
+      // being returned. ALL dependent queries depend on actor being non-null.
       try {
         await actor.initializeAccessControl();
       } catch (e) {
-        console.warn("initializeAccessControl failed (non-blocking):", e);
+        console.warn("initializeAccessControl failed, proceeding without:", e);
       }
+
       return actor;
     },
     // Only refetch when identity changes
     staleTime: Number.POSITIVE_INFINITY,
+    // This will cause the actor to be recreated when the identity changes
     enabled: true,
-    retry: 2,
   });
 
   // When the actor changes, invalidate dependent queries
