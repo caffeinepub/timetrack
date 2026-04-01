@@ -43,7 +43,6 @@ interface AccessControlContextValue extends AccessControlState {
   getDisabledUserIds: () => string[];
 }
 
-// Safe default context value — prevents crashes if provider is missing
 const defaultContextValue: AccessControlContextValue = {
   sectionAccess: {},
   userStatus: {},
@@ -227,6 +226,7 @@ export function AccessControlProvider({
   );
 }
 
-export function useAccessControlContext() {
+// Safe hook — never throws, always returns a valid value even outside provider
+export function useAccessControlContext(): AccessControlContextValue {
   return useContext(AccessControlContext);
 }

@@ -14,15 +14,6 @@ declare global {
   }
 }
 
-// Unregister any stale service workers from previous offline-mode implementation
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      registration.unregister();
-    }
-  });
-}
-
 const queryClient = new QueryClient();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

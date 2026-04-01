@@ -134,7 +134,6 @@ function AppContent() {
     setProfileError("");
     setIsSavingProfile(true);
     try {
-      await actor.initializeAccessControl();
       await actor.saveCallerUserProfile({
         name: profileName.trim(),
         email: profileEmail.trim(),

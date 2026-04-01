@@ -25,12 +25,19 @@ export function useActor() {
       };
 
       const actor = await createActorWithConfig(actorOptions);
-      await actor.initializeAccessControl();
+      // Wrap initializeAccessControl in try-catch so a failure here
+      // doesn't prevent the actor from being returned and used.
+      try {
+        await actor.initializeAccessControl();
+      } catch (e) {
+        console.warn("initializeAccessControl failed (non-critical):", e);
+      }
       return actor;
     },
     // Only refetch when identity changes
     staleTime: Number.POSITIVE_INFINITY,
-    // This will cause the actor to be recreated when the identity changes
+    // Retry once on failure
+    retry: 1,
     enabled: true,
   });
 

@@ -12,7 +12,27 @@
         <meta name='apple-mobile-web-app-status-bar-style' content='black-translucent' />
         <meta name='apple-mobile-web-app-title' content='Vial Traite Service' />
         <link rel='apple-touch-icon' href='/assets/generated/vts-pwa-icon.dim_512x512.png' />
-      <script type="module" crossorigin src="/assets/index-B_JjcVhb.js"></script>
+
+        <!-- Force cache clear for old service workers -->
+        <script>
+          (function() {
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for (var reg of registrations) {
+                  reg.unregister();
+                }
+              });
+            }
+            if ('caches' in window) {
+              caches.keys().then(function(names) {
+                for (var name of names) {
+                  caches.delete(name);
+                }
+              });
+            }
+          })();
+        </script>
+      <script type="module" crossorigin src="/assets/index-CPitH6R6.js"></script>
       <link rel="stylesheet" crossorigin href="/assets/index-BvZs2Lde.css">
     </head>
     <body>
