@@ -1,63 +1,33 @@
-const CACHE_NAME = "vts-cache-v1";
-
-// Assets to pre-cache
-const PRECACHE_URLS = ["/", "/index.html"];
-
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
-      .then(() => self.skipWaiting()),
-  );
+// Killer service worker — clears all caches and unregisters itself
+self.addEventListener('install', function(event) {
+  self.skipWaiting();
 });
 
-self.addEventListener("activate", (event) => {
+self.addEventListener('activate', function(event) {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)),
-        ),
-      )
-      .then(() => self.clients.claim()),
-  );
-});
-
-self.addEventListener("fetch", (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
-
-  // Skip non-GET and cross-origin (IC API calls)
-  if (request.method !== "GET" || url.origin !== self.location.origin) {
-    return;
-  }
-
-  // API calls: network-first, fallback to cache
-  if (url.pathname.startsWith("/api/")) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          return response;
+    caches.keys().then(function(cacheNames) {
+      return Promise.all(
+        cacheNames.map(function(cacheName) {
+          return caches.delete(cacheName);
         })
-        .catch(() => caches.match(request)),
-    );
-    return;
-  }
-
-  // Static assets: cache-first
-  event.respondWith(
-    caches.match(request).then(
-      (cached) =>
-        cached ||
-        fetch(request).then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          return response;
-        }),
-    ),
+      );
+    }).then(function() {
+      return self.clients.claim();
+    }).then(function() {
+      // Tell all clients to reload
+      return self.clients.matchAll({ type: 'window' }).then(function(clients) {
+        clients.forEach(function(client) {
+          client.postMessage({ type: 'SW_KILLED' });
+        });
+      });
+    }).then(function() {
+      // Unregister self after cleanup
+      return self.registration.unregister();
+    })
   );
+});
+
+// Pass through all fetches — no caching
+self.addEventListener('fetch', function(event) {
+  event.respondWith(fetch(event.request));
 });

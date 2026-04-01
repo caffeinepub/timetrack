@@ -13,23 +13,45 @@
         <meta name='apple-mobile-web-app-title' content='Vial Traite Service' />
         <link rel='apple-touch-icon' href='/assets/generated/vts-pwa-icon.dim_512x512.png' />
 
-        <!-- Force cache clear for old service workers -->
+        <!-- Service Worker killer: unregisters old SW and clears all caches -->
         <script>
           (function() {
-            if ('serviceWorker' in navigator) {
+            if (!('serviceWorker' in navigator)) return;
+
+            // Listen for message from killer SW to reload the page
+            navigator.serviceWorker.addEventListener('message', function(event) {
+              if (event.data && event.data.type === 'SW_KILLED') {
+                window.location.reload();
+              }
+            });
+
+            // Register the killer SW which will take over, clear caches, and unregister
+            navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function(reg) {
+              // Force immediate activation if waiting
+              if (reg.waiting) {
+                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+              }
+              reg.addEventListener('updatefound', function() {
+                var newWorker = reg.installing;
+                if (newWorker) {
+                  newWorker.addEventListener('statechange', function() {
+                    if (newWorker.state === 'installed' && reg.waiting) {
+                      reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                    }
+                  });
+                }
+              });
+            }).catch(function() {
+              // If registration fails, manually clear everything
               navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                for (var reg of registrations) {
-                  reg.unregister();
-                }
+                for (var r of registrations) r.unregister();
               });
-            }
-            if ('caches' in window) {
-              caches.keys().then(function(names) {
-                for (var name of names) {
-                  caches.delete(name);
-                }
-              });
-            }
+              if ('caches' in window) {
+                caches.keys().then(function(names) {
+                  for (var name of names) caches.delete(name);
+                });
+              }
+            });
           })();
         </script>
     </head>
