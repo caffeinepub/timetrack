@@ -62,8 +62,7 @@ async function createAuthClient(
     },
     ...createOptions,
   };
-  const authClient = await AuthClient.create(options);
-  return authClient;
+  return AuthClient.create(options);
 }
 
 function assertProviderPresent(
@@ -89,11 +88,10 @@ export function InternetIdentityProvider({
   children: ReactNode;
   createOptions?: AuthClientCreateOptions;
 }>) {
-  // Use refs to avoid triggering re-renders or effect re-runs
-  const authClientRef = useRef<AuthClient | undefined>(undefined);
-  const createOptionsRef = useRef<AuthClientCreateOptions | undefined>(
-    createOptions,
-  );
+  // authClient stored in ref — NOT state — so creating it never triggers re-renders.
+  // Previously it was in useState which caused: create client -> setAuthClient -> effect re-runs
+  // -> setStatus("initializing") -> flash between Bord and Initialisation in a loop.
+  const authClientRef = useRef<AuthClient | null>(null);
 
   const [identity, setIdentity] = useState<Identity | undefined>(undefined);
   const [loginStatus, setStatus] = useState<Status>("initializing");
@@ -125,7 +123,7 @@ export function InternetIdentityProvider({
     const authClient = authClientRef.current;
     if (!authClient) {
       setErrorMessage(
-        "AuthClient is not initialized yet, make sure to call `login` on user interaction e.g. click.",
+        "AuthClient not initialized yet — call login on a user gesture.",
       );
       return;
     }
@@ -162,7 +160,7 @@ export function InternetIdentityProvider({
       .logout()
       .then(() => {
         setIdentity(undefined);
-        authClientRef.current = undefined;
+        authClientRef.current = null;
         setStatus("idle");
         setError(undefined);
       })
@@ -176,20 +174,21 @@ export function InternetIdentityProvider({
       });
   }, [setErrorMessage]);
 
-  // Runs ONCE on mount — refs are used so no deps are needed, preventing the flash/loop
+  // Runs ONCE on mount. Empty dep array is intentional — authClientRef is a ref so it
+  // does not need to be listed. Adding it would re-introduce the flash loop.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally empty — run once on mount
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         setStatus("initializing");
-        const client = await createAuthClient(createOptionsRef.current);
+        const client = await createAuthClient(createOptions);
         if (cancelled) return;
         authClientRef.current = client;
         const isAuthenticated = await client.isAuthenticated();
         if (cancelled) return;
         if (isAuthenticated) {
-          const loadedIdentity = client.getIdentity();
-          setIdentity(loadedIdentity);
+          setIdentity(client.getIdentity());
         }
       } catch (unknownError) {
         if (!cancelled) {
@@ -207,7 +206,7 @@ export function InternetIdentityProvider({
     return () => {
       cancelled = true;
     };
-  }, []); // intentionally empty — run once on mount only
+  }, []);
 
   const value = useMemo<ProviderValue>(
     () => ({
