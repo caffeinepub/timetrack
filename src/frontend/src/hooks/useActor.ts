@@ -25,23 +25,13 @@ export function useActor() {
       };
 
       const actor = await createActorWithConfig(actorOptions);
-
-      // Initialize access control non-blocking — if it fails, the actor is still usable
-      try {
-        await actor.initializeAccessControl();
-      } catch (e) {
-        console.warn("initializeAccessControl failed (non-blocking):", e);
-      }
-
+      await actor.initializeAccessControl();
       return actor;
     },
     // Only refetch when identity changes
     staleTime: Number.POSITIVE_INFINITY,
     // This will cause the actor to be recreated when the identity changes
     enabled: true,
-    // Retry once on failure to handle transient network issues
-    retry: 1,
-    retryDelay: 1000,
   });
 
   // When the actor changes, invalidate dependent queries
