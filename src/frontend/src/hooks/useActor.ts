@@ -9,10 +9,7 @@ export function useActor() {
   const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
   const actorQuery = useQuery<backendInterface>({
-    queryKey: [
-      ACTOR_QUERY_KEY,
-      identity?.getPrincipal().toString() ?? "anonymous",
-    ],
+    queryKey: [ACTOR_QUERY_KEY, identity?.getPrincipal().toString()],
     queryFn: async () => {
       const isAuthenticated = !!identity;
 
@@ -29,24 +26,22 @@ export function useActor() {
 
       const actor = await createActorWithConfig(actorOptions);
 
-      // initializeAccessControl is non-blocking: even if it fails (network timeout,
-      // canister error), we still return the authenticated actor so all data queries
-      // can run normally.
+      // Initialize access control non-blocking — if it fails, the actor is still usable
       try {
         await actor.initializeAccessControl();
       } catch (e) {
-        console.warn(
-          "[useActor] initializeAccessControl failed (non-fatal):",
-          e,
-        );
+        console.warn("initializeAccessControl failed (non-blocking):", e);
       }
 
       return actor;
     },
     // Only refetch when identity changes
     staleTime: Number.POSITIVE_INFINITY,
-    retry: 2,
+    // This will cause the actor to be recreated when the identity changes
     enabled: true,
+    // Retry once on failure to handle transient network issues
+    retry: 1,
+    retryDelay: 1000,
   });
 
   // When the actor changes, invalidate dependent queries
