@@ -127,13 +127,10 @@ export async function createActorWithConfig(
 
   const config = await loadConfig();
   const resolvedOptions = options ?? {};
-
-  // Build the agent with identity from agentOptions (if provided)
   const agent = new HttpAgent({
     ...resolvedOptions.agentOptions,
     host: config.backend_host,
   });
-
   if (config.backend_host?.includes("localhost")) {
     await agent.fetchRootKey().catch((err) => {
       console.warn(
@@ -142,10 +139,8 @@ export async function createActorWithConfig(
       console.error(err);
     });
   }
-
-  // Pass ONLY agent — never pass agentOptions alongside agent to avoid the
-  // "Detected both agent and agentOptions" conflict that causes identity to be ignored.
-  const actorOptions: CreateActorOptions = {
+  const actorOptions = {
+    ...resolvedOptions,
     agent: agent,
     processError,
   };

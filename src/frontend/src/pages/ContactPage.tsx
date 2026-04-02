@@ -67,7 +67,9 @@ function useAddContact() {
       telephone: string;
       email: string;
     }) => {
-      if (!actor) throw new Error("Actor not available");
+      if (!actor) {
+        throw new Error("Veuillez vous connecter");
+      }
       // Encode nom||societe into a single nom field as expected by backend
       const encodedNom = `${params.nom}||${params.societe}`;
       return (actor as any).ajouterContact(
@@ -132,8 +134,8 @@ export default function ContactPage() {
       setTelephone("");
       setEmail("");
       setShowForm(false);
-    } catch {
-      toast.error("Erreur lors de l'ajout du contact");
+    } catch (err: any) {
+      toast.error(err?.message || "Erreur lors de l'ajout du contact");
     }
   };
 
@@ -288,16 +290,6 @@ export default function ContactPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="contact-nom">Nom</Label>
-              <Input
-                id="contact-nom"
-                value={nom}
-                onChange={(e) => setNom(e.target.value)}
-                placeholder="Jean Dupont"
-                data-ocid="contact.input_nom"
-              />
-            </div>
-            <div className="space-y-1.5">
               <Label htmlFor="contact-societe">Soci\u00e9t\u00e9</Label>
               <Input
                 id="contact-societe"
@@ -305,6 +297,16 @@ export default function ContactPage() {
                 onChange={(e) => setSociete(e.target.value)}
                 placeholder="Vial Traite Service"
                 data-ocid="contact.input_societe"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="contact-nom">Nom</Label>
+              <Input
+                id="contact-nom"
+                value={nom}
+                onChange={(e) => setNom(e.target.value)}
+                placeholder="Jean Dupont"
+                data-ocid="contact.input_nom"
               />
             </div>
             <div className="space-y-1.5">
