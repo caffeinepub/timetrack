@@ -6,6 +6,7 @@ import {
 } from "./backend";
 import { StorageClient } from "./utils/StorageClient";
 import { HttpAgent } from "@icp-sdk/core/agent";
+import type { Identity } from "@icp-sdk/core/agent";
 
 const DEFAULT_STORAGE_GATEWAY_URL = "https://blob.caffeine.ai";
 const DEFAULT_BUCKET_NAME = "default-bucket";
@@ -99,38 +100,48 @@ async function maybeLoadMockBackend(): Promise<backendInterface | null> {
   }
 
   try {
-    // If VITE_USE_MOCK is enabled, try to load a mock backend module *if it exists*.
-    // We use import.meta.glob so builds don't fail when the mock file is absent.
     const mockModules = import.meta.glob("./mocks/backend.{ts,tsx,js,jsx}");
-
     const path = Object.keys(mockModules)[0];
     if (!path) return null;
-
     const mod = (await mockModules[path]()) as {
       mockBackend?: backendInterface;
     };
-
     return mod.mockBackend ?? null;
   } catch {
     return null;
   }
 }
 
+/**
+ * Creates an actor. If identity is provided, the agent will use it.
+ * IMPORTANT: We create the HttpAgent ourselves and pass ONLY agent to createActor
+ * (never pass agentOptions alongside agent — the SDK ignores agentOptions if agent is present).
+ */
 export async function createActorWithConfig(
-  options?: CreateActorOptions,
+  options?: CreateActorOptions & { identity?: Identity },
 ): Promise<backendInterface> {
-  // Attempt to load mock backend if enabled
   const mock = await maybeLoadMockBackend();
   if (mock) {
     return mock;
   }
 
   const config = await loadConfig();
-  const resolvedOptions = options ?? {};
-  const agent = new HttpAgent({
-    ...resolvedOptions.agentOptions,
+
+  // Extract identity from either options.identity or options.agentOptions.identity
+  const identity =
+    options?.identity ??
+    (options?.agentOptions as { identity?: Identity } | undefined)?.identity;
+
+  // Build the agent with identity if available — never pass agentOptions separately
+  const agentConfig: Record<string, unknown> = {
     host: config.backend_host,
-  });
+  };
+  if (identity) {
+    agentConfig.identity = identity;
+  }
+
+  const agent = new HttpAgent(agentConfig);
+
   if (config.backend_host?.includes("localhost")) {
     await agent.fetchRootKey().catch((err) => {
       console.warn(
@@ -139,8 +150,10 @@ export async function createActorWithConfig(
       console.error(err);
     });
   }
-  const actorOptions = {
-    agent: agent,
+
+  // Pass ONLY agent (not agentOptions) to avoid the SDK conflict
+  const actorOptions: CreateActorOptions = {
+    agent,
     processError,
   };
 
