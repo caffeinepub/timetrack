@@ -5,7 +5,7 @@ import {
   ExternalBlob,
 } from "./backend";
 import { StorageClient } from "./utils/StorageClient";
-import { HttpAgent } from "@icp-sdk/core/agent";
+import { HttpAgent, type Identity } from "@icp-sdk/core/agent";
 
 const DEFAULT_STORAGE_GATEWAY_URL = "https://blob.caffeine.ai";
 const DEFAULT_BUCKET_NAME = "default-bucket";
@@ -99,25 +99,26 @@ async function maybeLoadMockBackend(): Promise<backendInterface | null> {
   }
 
   try {
-    // If VITE_USE_MOCK is enabled, try to load a mock backend module *if it exists*.
-    // We use import.meta.glob so builds don't fail when the mock file is absent.
     const mockModules = import.meta.glob("./mocks/backend.{ts,tsx,js,jsx}");
-
     const path = Object.keys(mockModules)[0];
     if (!path) return null;
-
     const mod = (await mockModules[path]()) as {
       mockBackend?: backendInterface;
     };
-
     return mod.mockBackend ?? null;
   } catch {
     return null;
   }
 }
 
+/**
+ * Creates an actor connected to the backend canister.
+ * If identity is provided, the actor will use it for authenticated calls.
+ * IMPORTANT: We create the HttpAgent with the identity directly — never pass
+ * both `agent` and `agentOptions` to createActor simultaneously.
+ */
 export async function createActorWithConfig(
-  options?: CreateActorOptions,
+  options?: { identity?: Identity },
 ): Promise<backendInterface> {
   // Attempt to load mock backend if enabled
   const mock = await maybeLoadMockBackend();
@@ -126,11 +127,17 @@ export async function createActorWithConfig(
   }
 
   const config = await loadConfig();
-  const resolvedOptions = options ?? {};
-  const agent = new HttpAgent({
-    ...resolvedOptions.agentOptions,
+
+  // Build the agent with the identity if provided
+  const agentConfig: ConstructorParameters<typeof HttpAgent>[0] = {
     host: config.backend_host,
-  });
+  };
+  if (options?.identity) {
+    agentConfig.identity = options.identity;
+  }
+
+  const agent = new HttpAgent(agentConfig);
+
   if (config.backend_host?.includes("localhost")) {
     await agent.fetchRootKey().catch((err) => {
       console.warn(
@@ -139,11 +146,6 @@ export async function createActorWithConfig(
       console.error(err);
     });
   }
-  const actorOptions = {
-    ...resolvedOptions,
-    agent: agent,
-    processError,
-  };
 
   const storageClient = new StorageClient(
     config.bucket_name,
@@ -168,6 +170,12 @@ export async function createActorWithConfig(
     const hash = hashWithPrefix.substring(MOTOKO_DEDUPLICATION_SENTINEL.length);
     const url = await storageClient.getDirectURL(hash);
     return ExternalBlob.fromURL(url);
+  };
+
+  // Pass only `agent` — never pass agentOptions alongside agent
+  const actorOptions: CreateActorOptions = {
+    agent,
+    processError,
   };
 
   return createActor(

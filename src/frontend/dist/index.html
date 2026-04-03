@@ -3,22 +3,19 @@
         <meta charset='UTF-8' />
         <meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover' />
         <title>Vial Traite Service</title>
-        <link rel='manifest' href='/manifest.json' />
         <meta name='theme-color' content='#0f1e4a' />
-        <meta name='mobile-web-app-capable' content='yes' />
-        <meta name='apple-mobile-web-app-capable' content='yes' />
-        <meta name='apple-mobile-web-app-status-bar-style' content='black-translucent' />
-        <meta name='apple-mobile-web-app-title' content='Vial Traite Service' />
-        <link rel='apple-touch-icon' href='/assets/generated/vts-pwa-icon.dim_512x512.png' />
         <script>
-          // Unregister any existing service workers to avoid stale cache issues
+          // Force unregister any residual service workers
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(registrations) {
               for (var r of registrations) { r.unregister(); }
             });
+            caches.keys().then(function(names) {
+              for (var name of names) { caches.delete(name); }
+            });
           }
         </script>
-      <script type="module" crossorigin src="/assets/index-BsOxwNag.js"></script>
+      <script type="module" crossorigin src="/assets/index-CcuePL2g.js"></script>
       <link rel="stylesheet" crossorigin href="/assets/index-BvZs2Lde.css">
     </head>
     <body>
