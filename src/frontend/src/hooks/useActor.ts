@@ -8,33 +8,33 @@ const ACTOR_QUERY_KEY = "actor";
 export function useActor() {
   const { identity } = useInternetIdentity();
   const queryClient = useQueryClient();
-  const principalKey = identity?.getPrincipal().toString() ?? "anonymous";
-
   const actorQuery = useQuery<backendInterface>({
-    queryKey: [ACTOR_QUERY_KEY, principalKey],
+    queryKey: [ACTOR_QUERY_KEY, identity?.getPrincipal().toString()],
     queryFn: async () => {
-      if (!identity) {
+      const isAuthenticated = !!identity;
+
+      if (!isAuthenticated) {
         // Return anonymous actor if not authenticated
         return await createActorWithConfig();
       }
 
-      // Pass identity directly — createActorWithConfig handles agent creation
-      const actor = await createActorWithConfig({ identity });
+      const actorOptions = {
+        agentOptions: {
+          identity,
+        },
+      };
 
-      // Initialize access control non-blocking
-      try {
-        await actor.initializeAccessControl();
-      } catch (e) {
-        console.warn("initializeAccessControl failed (non-blocking):", e);
-      }
-
+      const actor = await createActorWithConfig(actorOptions);
+      await actor.initializeAccessControl();
       return actor;
     },
+    // Only refetch when identity changes
     staleTime: Number.POSITIVE_INFINITY,
+    // This will cause the actor to be recreated when the identity changes
     enabled: true,
   });
 
-  // When the actor changes (identity changed), invalidate all dependent queries
+  // When the actor changes, invalidate dependent queries
   useEffect(() => {
     if (actorQuery.data) {
       queryClient.invalidateQueries({
